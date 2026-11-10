@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import type { AxiosError } from "axios";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -67,9 +68,11 @@ export function CompaniesPage() {
       per_page: PAGE_SIZE,
     });
 
-  const createCompany = useCreateAdminCompany();
-  const updateCompany = useUpdateAdminCompany();
-  const deleteCompany = useDeleteAdminCompany();
+  const isPhone = useIsPhone();
+  // Below md the sheets show a refusal in place: no toast on top of it.
+  const createCompany = useCreateAdminCompany({ toastError: !isPhone });
+  const updateCompany = useUpdateAdminCompany({ toastError: !isPhone });
+  const deleteCompany = useDeleteAdminCompany({ toastError: !isPhone });
   const publishCompany = usePublishCompany();
 
   const companies = data?.items ?? [];
@@ -84,7 +87,6 @@ export function CompaniesPage() {
     resolver: zodResolver(companySchema),
     defaultValues: { name: "", url: "" },
   });
-  const isPhone = useIsPhone();
 
   const handleCreate = (values: CompanyFormValues) => {
     createCompany.mutate(values, {
@@ -155,10 +157,11 @@ export function CompaniesPage() {
           }
         }}
         onToggleActive={(row) =>
-          updateCompany.mutate({
-            id: row.id,
-            data: { is_active: !row.is_active },
-          })
+          updateCompany.mutate(
+            { id: row.id, data: { is_active: !row.is_active } },
+            // The switch has no sheet: its refusal stays a toast.
+            { onError: (err) => toast.error(getApiError(err as AxiosError)) },
+          )
         }
         togglingId={
           updateCompany.isPending && statusChange

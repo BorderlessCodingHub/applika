@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ReportWebhooksPage } from "@/app/(protected)/admin/report-webhooks/report-webhooks-page";
@@ -84,6 +85,7 @@ beforeEach(() => {
   mocks.create.mockReset();
   mocks.update.mockReset();
   mocks.remove.mockReset();
+  vi.mocked(toast.error).mockClear();
 });
 
 const renderHooks = () =>
@@ -277,6 +279,8 @@ describe("the webhook sheet below md", () => {
     expect(refusal).toHaveAttribute("data-slot", "report-webhook-form-error");
     expect(refusal).toHaveTextContent("A webhook with this URL already exists");
     expect(screen.getByRole("dialog", { name: "Add webhook" })).toBeVisible();
+    // Said once: in the sheet, no toast.
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("is busy while it saves: both buttons focusable and refused, Escape does not close", async () => {

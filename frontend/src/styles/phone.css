@@ -6593,6 +6593,12 @@
     border-color: var(--destructive-text);
   }
 
+  /* A refused delete, above the delete sheet's buttons: the description's 14px below it. */
+  .ph-notice.ph-wh-refusal {
+    flex: none;
+    margin-bottom: 14px;
+  }
+
   .ph-wh-actions {
     display: flex;
     gap: 8px;

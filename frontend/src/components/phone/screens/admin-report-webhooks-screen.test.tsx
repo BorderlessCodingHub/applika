@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import AdminLayout from "@/app/(protected)/admin/layout";
@@ -76,6 +77,7 @@ beforeEach(() => {
   mocks.create.mockReset();
   mocks.update.mockReset();
   mocks.remove.mockReset().mockResolvedValue(undefined);
+  vi.mocked(toast.error).mockClear();
 });
 
 const renderHooks = () =>
@@ -187,7 +189,7 @@ describe("the admin Report webhooks board below md", () => {
     ).toBeTruthy();
   });
 
-  it("deletes after its sheet: Cancel first, its words, focus to Add webhook once the card is gone", async () => {
+  it("deletes after its sheet: Cancel first, its words, the sheet open while it runs, focus to Add webhook once the card is gone", async () => {
     const user = userEvent.setup();
     await renderHooks();
     await screen.findByText("#base-reports");
@@ -222,27 +224,28 @@ describe("the admin Report webhooks board below md", () => {
     );
     await user.click(remove);
     sheet = await screen.findByRole("alertdialog");
-    await user.click(within(sheet).getByRole("button", { name: "Delete" }));
+    const pendingConfirm = within(sheet).getByRole("button", {
+      name: "Delete",
+    });
+    await user.click(pendingConfirm);
     expect(mocks.remove).toHaveBeenCalledWith("w1");
-    // While its DELETE runs the card dims; Edit and Delete stay focusable.
+    // While its DELETE runs the sheet stays, busy, and the card behind it dims.
     await waitFor(() =>
-      expect(card("w1")).toHaveAttribute("data-deleting", "true"),
+      expect(pendingConfirm).toHaveAttribute("aria-busy", "true"),
     );
-    expect(card("w1")).toHaveAttribute("aria-busy", "true");
+    expect(pendingConfirm).toHaveAttribute("aria-disabled", "true");
     expect(
-      within(card("w1")).getByRole("button", { name: "Edit #base-reports" }),
+      within(sheet).getByRole("button", { name: "Cancel" }),
     ).toHaveAttribute("aria-disabled", "true");
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog")).toBe(sheet);
+    expect(card("w1")).toHaveAttribute("data-deleting", "true");
+    expect(card("w1")).toHaveAttribute("aria-busy", "true");
     expect(remove).toHaveAttribute("aria-busy", "true");
-    await user.click(remove);
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    // Edit is refused on the row whose DELETE runs.
-    await user.click(
-      within(card("w1")).getByRole("button", { name: "Edit #base-reports" }),
-    );
-    expect(screen.queryByRole("dialog")).toBeNull();
 
     mocks.list.mockResolvedValue([BOTH_HOOK, CARRIED]);
     finish();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     await waitFor(() =>
       expect(
         document.querySelector('[data-webhook-id="w1"]'),
@@ -251,6 +254,46 @@ describe("the admin Report webhooks board below md", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Add webhook" })).toHaveFocus(),
     );
+  });
+
+  it("shows a refused delete once, inside its sheet, with no toast", async () => {
+    mocks.remove
+      .mockReset()
+      .mockRejectedValueOnce({
+        isAxiosError: true,
+        response: { status: 404, data: { detail: "Webhook not found" } },
+      })
+      .mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    await renderHooks();
+    await screen.findByText("#base-reports");
+
+    await user.click(
+      within(card("w1")).getByRole("button", { name: "Delete #base-reports" }),
+    );
+    const sheet = await screen.findByRole("alertdialog", {
+      name: "Delete webhook?",
+    });
+    await user.click(within(sheet).getByRole("button", { name: "Delete" }));
+    const refusal = await within(sheet).findByRole("alert");
+    expect(refusal).toHaveAttribute("data-slot", "report-webhook-delete-error");
+    expect(refusal).toHaveClass("ph-notice", "ph-wh-refusal");
+    expect(refusal).toHaveTextContent("Webhook not found");
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(card("w1")).not.toHaveAttribute("data-deleting");
+
+    // Opened again: no old refusal; a second try deletes and closes.
+    await user.click(within(sheet).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await user.click(
+      within(card("w1")).getByRole("button", { name: "Delete #base-reports" }),
+    );
+    const again = await screen.findByRole("alertdialog");
+    expect(within(again).queryByRole("alert")).toBeNull();
+    await user.click(within(again).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(mocks.remove).toHaveBeenCalledTimes(2);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("words a carried-over webhook's delete as receiving nothing", async () => {

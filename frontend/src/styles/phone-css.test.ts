@@ -1819,6 +1819,7 @@ const V3_ADMIN_WEBHOOK = [
   "ph-wh-badges",
   "ph-wh-legend",
   "ph-wh-error",
+  "ph-wh-refusal",
   "ph-wh-actions",
 ] as const;
 
@@ -2064,6 +2065,10 @@ describe("phone.css: v3 state cards, check option, AdminFeatures, AdminFeatureVi
     expect(ruleBody(".ph-wh-actions > .ph-btn:last-child")).toMatch(
       /flex:\s*1/,
     );
+    // A refused delete sits above the buttons with the description's 14px.
+    const refusal = ruleBody(".ph-notice.ph-wh-refusal");
+    expect(refusal).toMatch(/flex:\s*none/);
+    expect(refusal).toMatch(/margin-bottom:\s*14px/);
   });
 
   it("ends a long webhook label or masked address in an ellipsis (PRD 0022)", () => {

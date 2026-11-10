@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Pen, Plus, Trash } from "lucide-react";
+import { CircleAlert, Loader2, Pen, Plus, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   reportWebhookBadgesAttr,
@@ -33,8 +33,11 @@ export interface AdminReportWebhooksScreenViewProps {
   onAdd: () => void;
   /** Opens the edit sheet on the row. */
   onEdit: (webhook: ReportWebhookRow) => void;
-  /** After the delete sheet's confirm. */
-  onDelete: (webhook: ReportWebhookRow) => void;
+  /**
+   * After the delete sheet's confirm. Resolves with the refusal's words, which
+   * the sheet shows in place (no toast), or with nothing once it is deleted.
+   */
+  onDelete: (webhook: ReportWebhookRow) => Promise<string | void>;
   /** The id whose DELETE is in flight. */
   deletingId: string | null;
 }
@@ -42,7 +45,8 @@ export interface AdminReportWebhooksScreenViewProps {
 /**
  * v3/AdminWebhook below md (under `AdminPhoneHeader`, which heads it
  * "Report webhooks" with its lead): props in, the board out. One card per
- * webhook, "Add webhook" after them, Delete confirmed in the board's sheet.
+ * webhook, "Add webhook" after them, Delete confirmed in the board's sheet,
+ * which stays open while the delete runs and shows a refusal in place.
  */
 export function AdminReportWebhooksScreenView({
   webhooks,
@@ -56,6 +60,8 @@ export function AdminReportWebhooksScreenView({
   const addButton = useRef<HTMLButtonElement>(null);
   const [target, setTarget] = useState<ReportWebhookRow | null>(null);
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
   // The deleted card leaves after the sheet handed focus back to its Delete.
   const handOff = useRef<string | null>(null);
   const rows = webhooks.status === "ready" ? webhooks.data : null;
@@ -107,6 +113,7 @@ export function AdminReportWebhooksScreenView({
                   onEdit={() => onEdit(row)}
                   onDelete={() => {
                     setTarget(row);
+                    setRefusal(null);
                     setOpen(true);
                   }}
                 />
@@ -130,7 +137,9 @@ export function AdminReportWebhooksScreenView({
 
       <PhoneSheetFrame
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          if (!pending) setOpen(next);
+        }}
         alert
         described
         fallbackFocus={addButton}
@@ -142,25 +151,59 @@ export function AdminReportWebhooksScreenView({
         <PhoneSheetDescription className="ph-hint ph-wh-sheet-d">
           {target ? reportWebhookDeleteDescription(target) : null}
         </PhoneSheetDescription>
+        {refusal ? (
+          <div
+            role="alert"
+            data-slot="report-webhook-delete-error"
+            data-tone="error"
+            className="ph-notice ph-wh-refusal"
+          >
+            <CircleAlert
+              size={16}
+              aria-hidden="true"
+              className="ph-notice-ic"
+            />
+            <p>{refusal}</p>
+          </div>
+        ) : null}
         <div data-slot="delete-webhook-sheet" className="ph-wh-actions">
+          {/* aria-disabled, never disabled: a disabled button drops focus to <body>. */}
           <button
             type="button"
+            aria-disabled={pending || undefined}
+            data-disabled={pending || undefined}
             className="ph-btn ph-sec"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              if (!pending) setOpen(false);
+            }}
           >
             {tCommon("cancel")}
           </button>
           <button
             type="button"
+            aria-disabled={pending || undefined}
+            aria-busy={pending || undefined}
+            data-disabled={pending || undefined}
             data-action="confirm-delete-webhook"
             className="ph-btn ph-dan"
-            onClick={() => {
-              setOpen(false);
-              if (!target) return;
+            onClick={async () => {
+              if (!target || pending) return;
+              setPending(true);
+              setRefusal(null);
               handOff.current = target.id;
-              onDelete(target);
+              const refused = await onDelete(target);
+              setPending(false);
+              if (refused) {
+                handOff.current = null;
+                setRefusal(refused);
+                return;
+              }
+              setOpen(false);
             }}
           >
+            {pending ? (
+              <Loader2 size={16} aria-hidden="true" className="ph-spin" />
+            ) : null}
             {t("deleteConfirm")}
           </button>
         </div>

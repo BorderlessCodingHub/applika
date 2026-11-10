@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CompaniesPage } from "@/app/(protected)/admin/companies/companies-page";
@@ -132,6 +133,7 @@ beforeEach(() => {
   mocks.update.mockReset().mockResolvedValue(USED);
   mocks.remove.mockReset().mockResolvedValue(undefined);
   mocks.publish.mockReset().mockResolvedValue({ ...PRIVATE, is_public: true });
+  vi.mocked(toast.error).mockClear();
 });
 
 const KINDS = [
@@ -398,6 +400,8 @@ describe.each(KINDS)("the admin $kind board below md", (k) => {
     const refusal = await within(sheet).findByRole("alert");
     expect(refusal).toHaveAttribute("data-slot", "catalog-delete-error");
     expect(refusal).toHaveTextContent("It is still in use.");
+    // Said once: in the sheet, no toast.
+    expect(toast.error).not.toHaveBeenCalled();
 
     await user.click(within(sheet).getByRole("button", { name: "Delete" }));
     await waitFor(() =>
@@ -440,6 +444,7 @@ describe.each(KINDS)("the admin $kind board below md", (k) => {
     const refusal = await within(sheet).findByRole("alert");
     expect(refusal).toHaveAttribute("data-slot", "catalog-form-error");
     expect(refusal).toHaveTextContent("That name is taken.");
+    expect(toast.error).not.toHaveBeenCalled();
     expect(mocks.create).toHaveBeenCalledWith({
       name: "Acme Labs",
       url: "https://acme.example",
@@ -487,6 +492,7 @@ describe.each(KINDS)("the admin $kind board below md", (k) => {
     const refusal = await within(sheet).findByRole("alert");
     expect(refusal).toHaveAttribute("data-slot", "catalog-form-error");
     expect(refusal).toHaveTextContent("That name is taken.");
+    expect(toast.error).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: k.edit })).toBeInTheDocument();
 
     // Cancelled and opened again: the refusal is gone.
@@ -688,6 +694,9 @@ describe("the company board's status", () => {
     const sheet = await screen.findByRole("dialog", { name: "Edit Company" });
     expect(within(sheet).queryByRole("alert")).not.toBeInTheDocument();
     expect(sheet.querySelector('[data-slot="catalog-form-error"]')).toBeNull();
+    // The switch has no sheet: its refusal stays today's toast, said once.
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith("Status refused.");
   });
 
   it("draws no status and no switch on platforms", async () => {

@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FeatureViewPage } from "@/app/(protected)/admin/features/view/feature-view-page";
@@ -144,6 +145,7 @@ function serveList(items: AdminFeatureUser[]) {
 }
 
 beforeEach(() => {
+  vi.mocked(toast.error).mockClear();
   pathname.current = "/admin/features/view";
   setLocation("/admin/features/view?key=jobs");
   for (const fn of Object.values(mocks)) fn.mockReset();
@@ -408,6 +410,7 @@ describe("a feature's page below md", () => {
     const refusal = await within(sheet).findByRole("alert");
     expect(refusal).toHaveAttribute("data-slot", "feature-stage-error");
     expect(refusal).toHaveTextContent("Job board is already released");
+    expect(toast.error).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
     mocks.stage.mockResolvedValueOnce({ ...JOBS, stage: "general" });
@@ -486,6 +489,7 @@ describe("a feature's page below md", () => {
     const refusal = await within(sheet).findByRole("alert");
     expect(refusal).toHaveAttribute("data-slot", "feature-beta-user-error");
     expect(refusal).toHaveTextContent("User not on the list");
+    expect(toast.error).not.toHaveBeenCalled();
 
     mocks.remove.mockResolvedValueOnce(undefined);
     serveList([BOB]);
@@ -601,6 +605,7 @@ describe("a feature's page below md", () => {
     const refusal = await within(sheet).findByRole("alert");
     expect(refusal).toHaveAttribute("data-slot", "feature-add-user-error");
     expect(refusal).toHaveTextContent("dkim is already listed");
+    expect(toast.error).not.toHaveBeenCalled();
     expect(
       within(sheet).getByRole("button", { name: "Add dkim" }),
     ).toBeInTheDocument();

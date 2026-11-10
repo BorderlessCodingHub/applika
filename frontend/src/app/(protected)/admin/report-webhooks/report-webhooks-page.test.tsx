@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ReportWebhooksPage } from "./report-webhooks-page";
@@ -14,6 +15,10 @@ import type { AdminReportWebhook } from "@/services/types/admin";
  * on edit keeps the stored one; the server's 409/422 words land inline; the
  * page carries no chat-service wording outside the address field.
  */
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
 
 vi.mock("@/services/services", () => ({
   services: {
@@ -656,6 +661,29 @@ describe("ReportWebhooksPage", () => {
     await waitFor(() =>
       expect(services.admin.deleteReportWebhook).toHaveBeenCalledWith("w3"),
     );
+  });
+
+  it("Delete: a refusal is today's toast at md and up", async () => {
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(services.admin.getReportWebhooks).mockResolvedValue([BOTH]);
+    vi.mocked(services.admin.deleteReportWebhook).mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404, data: { detail: "Webhook not found" } },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Shared channel");
+
+    await user.click(
+      screen.getByRole("button", { name: "Delete Shared channel" }),
+    );
+    const confirm = await screen.findByRole("alertdialog");
+    await user.click(within(confirm).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Webhook not found"),
+    );
+    expect(toast.error).toHaveBeenCalledTimes(1);
   });
 
   it("Delete: a carried-over row says it receives nothing", async () => {

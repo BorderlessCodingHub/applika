@@ -26,6 +26,22 @@ import type {
   FeatureStage,
 } from "@/services/types/features";
 
+/**
+ * What an admin mutation does with a refusal. `toastError: false` leaves it
+ * to the caller: below md the pages pass it, because their phone sheets
+ * show the server's words in place (a toast would say it twice). Default:
+ * a `toast.error` with `getApiError`, as the desktop shows it.
+ */
+export interface AdminMutationOptions {
+  toastError?: boolean;
+}
+
+function refusalToast(toastError: boolean) {
+  return (err: AxiosError) => {
+    if (toastError) toast.error(getApiError(err));
+  };
+}
+
 // ── Dashboard Analytics ─────────────────────────────────────────────
 
 export function useAdminStats() {
@@ -121,7 +137,9 @@ export function useAdminCompanies(params?: AdminCompaniesParams) {
   });
 }
 
-export function useCreateAdminCompany() {
+export function useCreateAdminCompany({
+  toastError = true,
+}: AdminMutationOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; url: string }) =>
@@ -130,11 +148,13 @@ export function useCreateAdminCompany() {
       qc.invalidateQueries({ queryKey: ["admin", "companies"] });
       toast.success(word("admin.toasts.companyCreated"));
     },
-    onError: (err: AxiosError) => toast.error(getApiError(err)),
+    onError: refusalToast(toastError),
   });
 }
 
-export function useUpdateAdminCompany() {
+export function useUpdateAdminCompany({
+  toastError = true,
+}: AdminMutationOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -148,11 +168,13 @@ export function useUpdateAdminCompany() {
       qc.invalidateQueries({ queryKey: ["admin", "companies"] });
       toast.success(word("admin.toasts.companyUpdated"));
     },
-    onError: (err: AxiosError) => toast.error(getApiError(err)),
+    onError: refusalToast(toastError),
   });
 }
 
-export function useDeleteAdminCompany() {
+export function useDeleteAdminCompany({
+  toastError = true,
+}: AdminMutationOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => services.admin.deleteCompany(id),
@@ -160,7 +182,7 @@ export function useDeleteAdminCompany() {
       qc.invalidateQueries({ queryKey: ["admin", "companies"] });
       toast.success(word("admin.toasts.companyDeleted"));
     },
-    onError: (err: AxiosError) => toast.error(getApiError(err)),
+    onError: refusalToast(toastError),
   });
 }
 
@@ -202,7 +224,9 @@ export function usePublishPlatform() {
   });
 }
 
-export function useCreateAdminPlatform() {
+export function useCreateAdminPlatform({
+  toastError = true,
+}: AdminMutationOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; url?: string }) =>
@@ -212,11 +236,13 @@ export function useCreateAdminPlatform() {
       qc.invalidateQueries({ queryKey: ["supports"] });
       toast.success(word("admin.toasts.platformCreated"));
     },
-    onError: (err: AxiosError) => toast.error(getApiError(err)),
+    onError: refusalToast(toastError),
   });
 }
 
-export function useUpdateAdminPlatform() {
+export function useUpdateAdminPlatform({
+  toastError = true,
+}: AdminMutationOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -231,11 +257,13 @@ export function useUpdateAdminPlatform() {
       qc.invalidateQueries({ queryKey: ["supports"] });
       toast.success(word("admin.toasts.platformUpdated"));
     },
-    onError: (err: AxiosError) => toast.error(getApiError(err)),
+    onError: refusalToast(toastError),
   });
 }
 
-export function useDeleteAdminPlatform() {
+export function useDeleteAdminPlatform({
+  toastError = true,
+}: AdminMutationOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => services.admin.deletePlatform(id),
@@ -244,7 +272,7 @@ export function useDeleteAdminPlatform() {
       qc.invalidateQueries({ queryKey: ["supports"] });
       toast.success(word("admin.toasts.platformDeleted"));
     },
-    onError: (err: AxiosError) => toast.error(getApiError(err)),
+    onError: refusalToast(toastError),
   });
 }
 
@@ -287,7 +315,9 @@ export function useUpdateReportWebhook() {
   });
 }
 
-export function useDeleteReportWebhook() {
+export function useDeleteReportWebhook({
+  toastError = true,
+}: AdminMutationOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => services.admin.deleteReportWebhook(id),
@@ -295,7 +325,7 @@ export function useDeleteReportWebhook() {
       qc.invalidateQueries({ queryKey: ADMIN_REPORT_WEBHOOKS_KEY });
       toast.success(word("admin.toasts.webhookDeleted"));
     },
-    onError: (err: AxiosError) => toast.error(getApiError(err)),
+    onError: refusalToast(toastError),
   });
 }
 

@@ -1838,6 +1838,10 @@ test.describe("the admin console below md", () => {
   const SHEET_LABEL = "e2e phone sheet webhook";
   const SHEET_TAIL = "e2e-dummy-token-not-real";
   const SHEET_URL = `https://discord.com/api/webhooks/000000000000000000/${SHEET_TAIL}`;
+  /** Deleted through the API under an open phone list: its Delete is refused (404). */
+  const STALE_LABEL = "e2e phone stale webhook";
+  const STALE_URL =
+    "https://discord.com/api/webhooks/111111111111111111/e2e-dummy-stale-not-real";
 
   const stamp = Date.now();
   /** Private, made by e2e-user through the API; approved on the phone. */
@@ -1898,7 +1902,9 @@ test.describe("the admin console below md", () => {
       "/admin/report-webhooks",
     );
     for (const row of rows) {
-      if (row.label !== LABEL && row.label !== SHEET_LABEL) continue;
+      if (![LABEL, SHEET_LABEL, STALE_LABEL].includes(row.label ?? "")) {
+        continue;
+      }
       const deleted = await request.delete(
         apiUrl(`/admin/report-webhooks/${row.id}`),
         { headers: roleHeaders("admin") },
@@ -2375,6 +2381,115 @@ test.describe("the admin console below md", () => {
       items: Array<{ name: string; is_public: boolean }>;
     }>(request, "admin", `/admin/companies?search=${APPROVE}`);
     expect(items.find((item) => item.name === APPROVE)?.is_public).toBe(true);
+  });
+
+  test("a refused Delete shows the server's words once, inside its sheet, with no toast", async ({
+    page,
+    request,
+  }) => {
+    const STALE = `e2e-phone-stale-${Date.now()}`;
+    const staleId = await createCompany(
+      request,
+      STALE,
+      "https://e2e-phone-stale.example",
+    );
+    const toasts = page.locator("[data-sonner-toast]");
+
+    await loginAs(page, "admin");
+    await page.goto("/admin/companies");
+    const listed = page.waitForResponse(
+      (response) =>
+        response.url().includes("/admin/companies?") &&
+        response.url().includes(`search=${STALE}`) &&
+        response.ok(),
+    );
+    await page.getByRole("searchbox", { name: "Search companies" }).fill(STALE);
+    await listed;
+    const row = page.locator(
+      `li[data-slot="catalog-row"][data-catalog-id="${staleId}"]`,
+    );
+    await expect(row).not.toHaveAttribute("data-used");
+
+    // Used by an application once the list is on screen: the API refuses.
+    const application = await request.post(apiUrl("/applications"), {
+      headers: roleHeaders("user"),
+      data: {
+        company: staleId,
+        platform_id: usedPlatform.id,
+        role: "Phone Refusal Engineer",
+        mode: "active",
+        application_date: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10),
+      },
+    });
+    expect(application.ok(), await application.text()).toBeTruthy();
+
+    await row
+      .getByRole("button", { name: `Delete ${STALE}`, exact: true })
+      .click();
+    const sheet = page.getByRole("alertdialog", { name: `Delete ${STALE}` });
+    await expect(sheet).toBeVisible();
+    const refused = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/admin/companies/${staleId}`) &&
+        response.request().method() === "DELETE",
+    );
+    await sheet.getByRole("button", { name: "Delete", exact: true }).click();
+    expect((await refused).status()).toBe(409);
+    const refusal = sheet.locator('[data-slot="catalog-delete-error"]');
+    await expect(refusal).toHaveText(
+      "Cannot delete: 1 application(s) reference this company",
+    );
+    await expect(sheet).toBeVisible();
+    // Said once: no Sonner toast arrives after it.
+    await page.waitForTimeout(500);
+    await expect(toasts).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+
+    // A webhook deleted elsewhere while the list is open: 404, in its sheet.
+    const created = await request.post(apiUrl("/admin/report-webhooks"), {
+      headers: roleHeaders("admin"),
+      data: {
+        webhook_url: STALE_URL,
+        badges: ["borderless_base"],
+        label: STALE_LABEL,
+      },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const hookId = ((await created.json()) as { id: string }).id;
+    await page.goto("/admin/report-webhooks");
+    const card = page.locator(
+      `li[data-slot="report-webhook-row"][data-webhook-id="${hookId}"]`,
+    );
+    await expect(card).toBeVisible();
+    const gone = await request.delete(
+      apiUrl(`/admin/report-webhooks/${hookId}`),
+      { headers: roleHeaders("admin") },
+    );
+    expect(gone.ok(), await gone.text()).toBeTruthy();
+
+    await card
+      .getByRole("button", { name: `Delete ${STALE_LABEL}`, exact: true })
+      .click();
+    const deleteSheet = page.getByRole("alertdialog", {
+      name: "Delete webhook?",
+    });
+    await deleteSheet
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    await expect(
+      deleteSheet.locator('[data-slot="report-webhook-delete-error"]'),
+    ).toHaveText("Report webhook not found");
+    await page.waitForTimeout(500);
+    await expect(toasts).toHaveCount(0);
+    await expectPhoneTargets(page, 2);
+    await deleteSheet
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(deleteSheet).toHaveCount(0);
   });
 
   test("Features: the v3 cards under its own h1, one per feature; the jobs card opens its page", async ({

@@ -85,9 +85,11 @@ export function PlatformsPage() {
       per_page: PAGE_SIZE,
     });
 
-  const createMutation = useCreateAdminPlatform();
-  const updateMutation = useUpdateAdminPlatform();
-  const deleteMutation = useDeleteAdminPlatform();
+  const isPhone = useIsPhone();
+  // Below md the sheets show a refusal in place: no toast on top of it.
+  const createMutation = useCreateAdminPlatform({ toastError: !isPhone });
+  const updateMutation = useUpdateAdminPlatform({ toastError: !isPhone });
+  const deleteMutation = useDeleteAdminPlatform({ toastError: !isPhone });
   const publishMutation = usePublishPlatform();
 
   const platforms = data?.items ?? [];
@@ -102,7 +104,6 @@ export function PlatformsPage() {
     resolver: zodResolver(platformSchema),
     defaultValues: { name: "", url: "" },
   });
-  const isPhone = useIsPhone();
 
   const openEdit = (platform: AdminPlatformRow) => {
     setEditTarget(platform);
