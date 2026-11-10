@@ -2702,33 +2702,39 @@
     }
   }
 
+  /* `--ph-chrome-shift` (lib/fixed-chrome-shift.ts): Edge and Chrome on iOS hide their bottom toolbar but leave a fixed `bottom` where its top edge was; the fixed bottom chrome moves down by that gap. 0 everywhere else. `translate`, not `transform`, so a sheet's own transform composes with it. */
   .ph-tabbar {
     position: fixed;
     z-index: 40;
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    translate: 0 var(--ph-chrome-shift, 0px);
   }
 
   .ph-fab {
     position: fixed;
     z-index: 40;
     bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    translate: 0 var(--ph-chrome-shift, 0px);
   }
 
   .ph-bar {
     position: fixed;
     z-index: 40;
     padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    translate: 0 var(--ph-chrome-shift, 0px);
   }
 
   .ph-scrim {
     position: fixed;
     z-index: 50;
+    bottom: calc(-1 * var(--ph-chrome-shift, 0px));
   }
 
   .ph-sheet {
     position: fixed;
     z-index: 50;
     padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    translate: 0 var(--ph-chrome-shift, 0px);
   }
 
   .ph-tab {
@@ -3121,6 +3127,7 @@
     position: fixed;
     z-index: 40;
     padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    translate: 0 var(--ph-chrome-shift, 0px);
   }
 
   div.ph-ap-main {

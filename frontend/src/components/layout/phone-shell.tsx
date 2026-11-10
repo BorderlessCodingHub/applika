@@ -27,6 +27,7 @@ import { PhoneTabBar } from "@/components/phone/phone-tab-bar";
 import { PhoneTopBar } from "@/components/phone/phone-top-bar";
 import { QuickAddSheet } from "@/components/phone/screens/quick-add-sheet";
 import { useCycleContext } from "@/contexts/cycle-context";
+import { useFixedChromeShift } from "@/lib/fixed-chrome-shift";
 import { cn } from "@/lib/utils";
 import type { User } from "@/services/types/users";
 
@@ -166,6 +167,9 @@ export function PhoneShell({
   const t = useTranslations("phone.shell");
   const tNav = useTranslations("nav");
   const { isViewingPastCycle } = useCycleContext();
+  // The document scrolls: keep the fixed bottom chrome on the visible bottom
+  // edge where iOS Edge and Chrome hide their toolbar without moving it.
+  useFixedChromeShift();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   // The FAB's quick add (v2/QuickAdd). It lives here, so crossing md
   // unmounts a half-filled one (PRD 0021 edge case).

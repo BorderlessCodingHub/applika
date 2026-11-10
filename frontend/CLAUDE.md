@@ -2993,7 +2993,16 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   fixed chrome and the sticky bar (WCAG 2.4.11). A screen that saves and
   restores its scroll reads `document.scrollingElement` (the Pipeline);
   `scrollIntoContainer` falls back to the document and honours its
-  `scroll-padding-top`. `e2e/support/phone.ts` `expectDocumentScrolls`
+  `scroll-padding-top`. **Edge and Chrome on iOS** hide their bottom
+  toolbar on that scroll but leave `position: fixed; bottom` where its top
+  edge was: `PhoneShell` mounts `useFixedChromeShift`
+  (`lib/fixed-chrome-shift.ts`), which measures the gap between a hidden
+  `bottom: 0` probe and `visualViewport`'s bottom and writes it to
+  `--ph-chrome-shift` on `<html>` (never negative, 0 while zoomed, removed
+  when 0). `.ph-tabbar`, `.ph-fab`, `.ph-bar`, `div.ph-ap-bar` and
+  `.ph-sheet` take `translate: 0 var(--ph-chrome-shift, 0px)` and
+  `.ph-scrim` extends its `bottom` by it; Safari and every desktop measure 0. A new fixed bottom element on a phone screen takes the same
+  `translate`. `e2e/support/phone.ts` `expectDocumentScrolls`
   proves it on the real stack. The FAB comes
   before the tab bar in the DOM, as on the boards.
 - **Tab bar** (`PhoneTabBar`): `nav` named "Primary", four links, the current
