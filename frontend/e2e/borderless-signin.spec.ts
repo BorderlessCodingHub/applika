@@ -1157,9 +1157,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     );
     await expect(
       page.locator('[data-slot="sign-in-desktop"] .ph-a-foot'),
-    ).toHaveText(
-      "Não tem uma conta ainda? Criar uma conta na Borderless",
-    );
+    ).toHaveText("Não tem uma conta ainda? Criar uma conta na Borderless");
     const account = page.getByRole("link", {
       name: "Criar uma conta na Borderless",
       exact: true,

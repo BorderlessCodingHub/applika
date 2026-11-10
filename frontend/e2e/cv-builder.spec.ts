@@ -1305,6 +1305,10 @@ test("below md /cvs/new is the CVNew board: the rows, then the live preview card
       innerHeight: window.innerHeight,
       documentScrollWidth: doc.scrollWidth,
       documentScrollHeight: doc.scrollHeight,
+      shellHeight:
+        document
+          .querySelector('[data-slot="phone-shell"]')
+          ?.getBoundingClientRect().height ?? -1,
       mainScrollWidth: main?.scrollWidth ?? -1,
       mainClientWidth: main?.clientWidth ?? -1,
       sheetWidth: sheet?.width ?? -1,
@@ -1328,12 +1332,14 @@ test("below md /cvs/new is the CVNew board: the rows, then the live preview card
     `the paginated preview scrolls sideways: ${JSON.stringify(metrics)}`,
   ).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
 
-  // The page itself never grows at this viewport either: the added height
-  // lands in the shell's own scroll, never in the document's.
+  // The phone shell scrolls the document, so the page is as tall as the
+  // shell: the preview adds no height outside it (an off-screen measuring
+  // box would stretch the document past the shell).
+  expect(metrics.shellHeight).toBeGreaterThan(0);
   expect(
     metrics.documentScrollHeight,
-    `the paginated preview grew the page: ${JSON.stringify(metrics)}`,
-  ).toBeLessThanOrEqual(metrics.innerHeight + 1);
+    `the paginated preview grew the page past the shell: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(Math.ceil(metrics.shellHeight) + 1);
 
   // Readable: the page indicator is NOT inside the sheet's `scale()`; the
   // board draws it 12px, centred under the sheet.
