@@ -314,9 +314,11 @@ order and `--project` stay as they are. `e2e/support/phone.ts` has `PHONE`
 control's box at least 44×44, and a floor on how many were measured;
 `exclude` is a named, commented selector list of today's desktop components a
 board reuses at their desktop size, never a loose filter) and
-`expectNoSidewaysScroll` (the document AND the phone shell's one `<main>`,
-which scrolls itself: its `overflow-y: auto` makes x scroll too, which the
-document never sees). `e2e/phone.spec.ts` at 390×844: the public screens
+`expectNoSidewaysScroll` (the document AND, as a guard, the phone shell's
+one `<main>`) and `expectDocumentScrolls` (`<main>` is no scroll
+container, a tall page scrolls the document, the tab bar stays 14px off
+the viewport's bottom; Today and Cycles, where the back bar is also
+`sticky`). `e2e/phone.spec.ts` at 390×844: the public screens
 (signed out, read-only; `/cli` is the v3 board, its Copy says "Copied", and
 a refused clipboard says nothing; the header of `/` and `/cli` holds the
 home link, the theme toggle, the flags and Sign in, the page's one sign-in
@@ -2913,8 +2915,13 @@ same way the V2 boards drive today's phone screens; desktop stays as it is.
   no autosave, so its unsaved edits are lost). `hooks/use-mobile.ts` (shadcn)
   is unused and is not the switch.
 - **`components/layout/phone-shell.tsx`** `PhoneShell`: a `relative
-h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
-  ABOVE exactly ONE `<main>` that scrolls, holding
+min-h-viewport overflow-clip` column (no rail, no navigation sheet, no
+  `Header`). **The DOCUMENT scrolls, never `<main>`**: Edge and Safari on
+  iOS collapse their toolbars only on a document scroll, so a scrolling box
+  kept them on screen on every signed-in page. Never put a height or
+  `overflow-hidden`/`auto` back on the root or `<main>` (`clip` opens no
+  scroll container). The back bar is `sticky top-0 z-30`, ABOVE exactly ONE
+  `<main>`, holding
   `data-slot="app-content"` with, on Today only, `CliPromoBanner` first
   (in the board's `px-5 pt-5` margins), then the page; the
   tab bar after `<main>`; the FAB; ONE hoisted `FeedbackDialog`.
@@ -2979,10 +2986,15 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   (`170px + …` on Today and the Pipeline, `110px + …` on the Agenda and
   Insights, `120px + …` above a `.ph-bar` or the Application bar). Each tab
   root's board header carries the avatar (the interim avatar row is gone).
-  `<main>` also takes
-  the matching `scroll-pb-*` on every screen with fixed chrome, so a focused
-  control is scrolled clear of the tab bar and FAB (WCAG 2.4.11), and
-  `.ph-scroll` (no visible scrollbar, as the boards draw it). The FAB comes
+  The root's `data-reserve` (`tab-and-fab` / `tab`, absent otherwise) and
+  `data-back-bar` become the DOCUMENT's `scroll-padding-bottom` (170px /
+  110px + the inset) and `scroll-padding-top` (56px) in `phone.css`
+  (`html:has(.ph-shell[…])`), so a focused control is scrolled clear of the
+  fixed chrome and the sticky bar (WCAG 2.4.11). A screen that saves and
+  restores its scroll reads `document.scrollingElement` (the Pipeline);
+  `scrollIntoContainer` falls back to the document and honours its
+  `scroll-padding-top`. `e2e/support/phone.ts` `expectDocumentScrolls`
+  proves it on the real stack. The FAB comes
   before the tab bar in the DOM, as on the boards.
 - **Tab bar** (`PhoneTabBar`): `nav` named "Primary", four links, the current
   one `aria-current="page"` (assert on that only), labels truncate. Below md

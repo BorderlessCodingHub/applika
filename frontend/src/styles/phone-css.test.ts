@@ -532,11 +532,26 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
       gap: "20px",
       "font-size": "13px",
     });
-    // One footer for both pages: no page variant of it, no scroll padding.
+    // One footer for both pages: no page variant of it, no scroll padding
+    // (only the signed-in phone shell sets one, on the document).
     expect(css).not.toMatch(/\.ph-landing-footer\.[a-z]/);
-    expect(css).not.toMatch(/scroll-padding/);
+    expect(ruleBody(".ph-landing-footer")).not.toMatch(/scroll-padding/);
+    for (const [, selector] of css.matchAll(/([^{};]+)\{[^}]*scroll-padding/g))
+      expect(selector).toMatch(/\.ph-shell\[data-/);
     expect(ruleBody(".ph-safe-bottom")).toMatch(
       /padding-bottom:\s*calc\(36px \+ env\(safe-area-inset-bottom, 0px\)\)/,
+    );
+  });
+
+  it("pads the document's scroll under the signed-in shell's chrome (WCAG 2.4.11)", () => {
+    expect(ruleBody("html:has(.ph-shell[data-back-bar])")).toMatch(
+      /scroll-padding-top:\s*56px/,
+    );
+    expect(ruleBody('html:has(.ph-shell[data-reserve="tab"])')).toMatch(
+      /scroll-padding-bottom:\s*calc\(110px \+ env\(safe-area-inset-bottom, 0px\)\)/,
+    );
+    expect(ruleBody('html:has(.ph-shell[data-reserve="tab-and-fab"])')).toMatch(
+      /scroll-padding-bottom:\s*calc\(170px \+ env\(safe-area-inset-bottom, 0px\)\)/,
     );
   });
 

@@ -144,9 +144,7 @@ describe("sign-in in Portuguese", () => {
     expect(
       desktop.getByRole("button", { name: "Continuar com a Borderless" }),
     ).toHaveAccessibleDescription(desktopLead);
-    expect(
-      desktop.getByText(/^Não tem uma conta ainda\?/),
-    ).toHaveTextContent(
+    expect(desktop.getByText(/^Não tem uma conta ainda\?/)).toHaveTextContent(
       "Não tem uma conta ainda? Criar uma conta na Borderless",
     );
     expect(

@@ -140,6 +140,10 @@ describe("AppShell at md and up", () => {
   );
 });
 
+function shellRoot() {
+  return document.querySelector<HTMLElement>('[data-slot="phone-shell"]')!;
+}
+
 describe("PhoneShell below md", () => {
   it("shows no rail and no navigation menu", () => {
     mockPhoneViewport();
@@ -160,22 +164,29 @@ describe("PhoneShell below md", () => {
     )!;
 
     expect(root.className).toContain("relative");
-    expect(root.className).toContain("h-viewport");
-    expect(root.className).toContain("overflow-hidden");
+    // The document scrolls (mobile browsers collapse their toolbars only
+    // then): a floor, never a height, and `clip`, which opens no scroller.
+    expect(root.className).toContain("min-h-viewport");
+    expect(root.className).not.toMatch(/(^|\s)h-viewport(\s|$)/);
+    expect(root.className).toContain("overflow-clip");
+    expect(root.className).not.toContain("overflow-hidden");
     expect(root.className).not.toMatch(
       /(^|\s)(z-\S+|isolate|transform|filter)(\s|$)/,
     );
   });
 
-  it("has exactly one main, scrolling, holding the app-content slot and the page", () => {
+  it("has exactly one main, never a scroller, holding the app-content slot and the page", () => {
     mockPhoneViewport();
     renderShell("/jobs");
 
     const mains = screen.getAllByRole("main");
     expect(mains).toHaveLength(1);
-    expect(mains[0].className).toContain("overflow-y-auto");
-    // The boards' `.scroll`: no visible scrollbar.
-    expect(mains[0].className).toContain("ph-scroll");
+    // The document scrolls, so <main> is no scroll container.
+    expect(mains[0].className).not.toMatch(/overflow|ph-scroll/);
+    // The back bar sticks to the viewport over the scrolling page.
+    expect(
+      document.querySelector('[data-slot="phone-top-bar"]')!.className,
+    ).toMatch(/(^|\s)sticky top-0 z-30(\s|$)/);
     const slot = mains[0].querySelector('[data-slot="app-content"]');
     expect(slot).not.toBeNull();
     expect(within(slot as HTMLElement).getByText("page content")).toBeVisible();
@@ -329,9 +340,7 @@ describe("PhoneShell below md", () => {
     expect(
       screen.getByRole("navigation", { name: "Primary" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("main").className).toContain(
-      "scroll-pb-[calc(110px+env(safe-area-inset-bottom,0px))]",
-    );
+    expect(shellRoot()).toHaveAttribute("data-reserve", "tab");
     unmount();
 
     renderShell("/dashboard", { children: <PickPastCycle /> });
@@ -349,7 +358,7 @@ describe("PhoneShell below md", () => {
     expect(
       screen.queryByRole("button", { name: "Add" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("main").className).not.toContain("scroll-pb-");
+    expect(shellRoot()).not.toHaveAttribute("data-reserve");
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
 
     // The marker gone (back to the list): the chrome is back.
@@ -457,29 +466,29 @@ describe("PhoneShell below md", () => {
     expect(slot.className).toContain("pt-6");
   });
 
+  // `phone.css` turns `data-reserve` into the document's scroll padding.
   it.each([
-    ["/dashboard", "scroll-pb-[calc(170px+env(safe-area-inset-bottom,0px))]"],
-    [
-      "/applications",
-      "scroll-pb-[calc(170px+env(safe-area-inset-bottom,0px))]",
-    ],
-    ["/agenda", "scroll-pb-[calc(110px+env(safe-area-inset-bottom,0px))]"],
-    ["/insights", "scroll-pb-[calc(110px+env(safe-area-inset-bottom,0px))]"],
+    ["/dashboard", "tab-and-fab"],
+    ["/applications", "tab-and-fab"],
+    ["/agenda", "tab"],
+    ["/insights", "tab"],
   ])(
     "keeps a focused control on %s scrolled clear of the fixed chrome",
-    (path, scrollPadding) => {
+    (path, reserve) => {
       mockPhoneViewport();
       renderShell(path);
 
-      expect(screen.getByRole("main").className).toContain(scrollPadding);
+      expect(shellRoot()).toHaveAttribute("data-reserve", reserve);
+      expect(shellRoot()).not.toHaveAttribute("data-back-bar");
     },
   );
 
-  it("adds no scroll padding where no chrome is fixed", () => {
+  it("adds no bottom scroll padding where no chrome is fixed, and clears the back bar", () => {
     mockPhoneViewport();
     renderShell("/cvs/new");
 
-    expect(screen.getByRole("main").className).not.toContain("scroll-pb-");
+    expect(shellRoot()).not.toHaveAttribute("data-reserve");
+    expect(shellRoot()).toHaveAttribute("data-back-bar");
   });
 
   it("puts the FAB before the tab bar, as the boards do", () => {

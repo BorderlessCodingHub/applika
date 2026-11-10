@@ -116,11 +116,11 @@ function PhoneApplicationsPage() {
   const lastOpened = useRef<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
 
+  // The phone shell scrolls the document, never its <main>.
   useLayoutEffect(() => {
-    const main = pageRef.current?.closest("main");
-    if (!main) return;
+    const page = document.scrollingElement ?? document.documentElement;
     if (focusId) {
-      main.scrollTop = 0;
+      page.scrollTop = 0;
       if (pushedFor.current === focusId) {
         pageRef.current
           ?.querySelector<HTMLElement>('[data-action="back"]')
@@ -131,7 +131,7 @@ function PhoneApplicationsPage() {
     // Back on the list, whichever way (Pipeline, the back gesture).
     pushedFor.current = null;
     if (lastOpened.current) {
-      main.scrollTop = listScroll.current;
+      page.scrollTop = listScroll.current;
       const id = lastOpened.current;
       lastOpened.current = null;
       Array.from(
@@ -145,7 +145,9 @@ function PhoneApplicationsPage() {
   }, [focusId]);
 
   function openApplication(applicationId: string) {
-    listScroll.current = pageRef.current?.closest("main")?.scrollTop ?? 0;
+    listScroll.current = (
+      document.scrollingElement ?? document.documentElement
+    ).scrollTop;
     lastOpened.current = applicationId;
     pushedFor.current = applicationId;
     setFocusId(applicationId);

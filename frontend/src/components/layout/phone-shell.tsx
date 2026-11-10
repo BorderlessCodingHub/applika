@@ -125,28 +125,32 @@ export interface PhoneShellProps {
 const CLI_BANNER_PATH = "/dashboard";
 
 /**
- * The fixed chrome over the bottom of <main>: tab bar + FAB, the tab bar
+ * The fixed chrome over the bottom of the page: tab bar + FAB, the tab bar
  * alone, nothing. `pad` keeps today's content clear of it (a ported screen
- * reserves its own); `scroll` keeps a focused control clear of it when the
- * browser scrolls one into view (WCAG 2.4.11), on every screen with the chrome.
+ * reserves its own); `key` is the root's `data-reserve`, which `phone.css`
+ * turns into the document's `scroll-padding-bottom`, so a focused control is
+ * scrolled clear of it (WCAG 2.4.11), on every screen with the chrome.
  */
 const RESERVE = {
   tabAndFab: {
     pad: "pb-[calc(170px+env(safe-area-inset-bottom,0px))]",
-    scroll: "scroll-pb-[calc(170px+env(safe-area-inset-bottom,0px))]",
+    key: "tab-and-fab",
   },
   tab: {
     pad: "pb-[calc(110px+env(safe-area-inset-bottom,0px))]",
-    scroll: "scroll-pb-[calc(110px+env(safe-area-inset-bottom,0px))]",
+    key: "tab",
   },
-  none: { pad: "pb-10", scroll: undefined },
+  none: { pad: "pb-10", key: undefined },
 } as const;
 
 /**
  * The signed-in shell below md (ADR-0027): no rail, no navigation sheet, no
  * header. Today, Pipeline, Agenda and Insights carry the bottom tab bar;
  * every other screen a back bar named after the screen it returns to; the
- * avatar opens the Account hub, which holds the rest. One <main> scrolls.
+ * avatar opens the Account hub, which holds the rest. The document scrolls,
+ * never <main>: a mobile browser collapses its toolbars only on a document
+ * scroll (Edge and Safari on iOS keep them while a box scrolls), so the back
+ * bar is sticky and the tab bar, the FAB and `.ph-bar` are fixed.
  *
  * Its root is `relative` with no z-index, transform or isolation, exactly as
  * `AppShell`'s: the tab bar, the FAB and `.ph-bar` sit at z-40 and the Radix
@@ -233,29 +237,27 @@ export function PhoneShell({
           <TopBarEndContext.Provider value={topBarSlot}>
             {/*
         `relative`, as `AppShell`'s root: it makes the shell the containing
-        block its `overflow-hidden` really clips (Radix Select's hidden native
+        block its `overflow-clip` really clips (Radix Select's hidden native
         `<select>`), and with `z-index: auto` it opens no stacking context.
+        `clip`, never `hidden`: it opens no scroll container, so the document
+        scrolls and the sticky back bar sticks to the viewport.
       */}
             <div
               data-slot="phone-shell"
-              className="relative flex h-viewport w-full flex-col overflow-hidden bg-background text-foreground"
+              data-reserve={reserve.key}
+              data-back-bar={backBar ? "" : undefined}
+              className="ph-shell relative flex min-h-viewport w-full flex-col overflow-clip bg-background text-foreground"
             >
               {backBar ? (
                 <PhoneTopBar
                   href={backHref ?? backBar.href}
                   label={backBar.label}
                   endRef={setTopBarEnd}
+                  className="sticky top-0 z-30"
                 />
               ) : null}
 
-              {/* `.ph-scroll`: the boards' main scrolls with no visible scrollbar. */}
-              <main
-                className={cn(
-                  "ph-scroll min-h-0 flex-1 overflow-y-auto",
-                  reserve.scroll,
-                  className,
-                )}
-              >
+              <main className={cn("flex-1", className)}>
                 <div
                   data-slot="app-content"
                   className={cn(!ported && ["px-4 pt-6", reserve.pad])}

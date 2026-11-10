@@ -829,7 +829,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     expect(logoBox.height).toBeCloseTo(20, 0);
     expect(
       await logo.evaluate((img) => getComputedStyle(img).borderRadius),
-    ).toBe("6px");
+    ).toBe("0px");
     const label = await cta.evaluate((button) => {
       const range = document.createRange();
       const text = Array.from(button.childNodes).find(

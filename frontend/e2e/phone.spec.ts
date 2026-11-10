@@ -21,6 +21,7 @@ import { clearOptOut } from "./support/beta-features";
 import { COOKIE_NOTICE_ACKNOWLEDGED } from "./support/cookie-notice";
 import {
   PHONE,
+  expectDocumentScrolls,
   expectNoSidewaysScroll,
   expectPhoneTargets,
 } from "./support/phone";
@@ -567,6 +568,7 @@ test.describe("signed-in core screens below md", () => {
     await expect(page.getByRole("region", { name: "Coming up" })).toBeVisible();
     await expectPhoneTargets(page, 8);
     await expectNoSidewaysScroll(page);
+    await expectDocumentScrolls(page);
 
     await page.locator('[data-slot="phone-avatar"]').click();
     await page.waitForURL("**/account");
@@ -1181,6 +1183,12 @@ test.describe("the account area, jobs and CVs below md", () => {
     // New cycle (the applika-cli banner shows on Today only).
     await expectPhoneTargets(page, 1);
     await expectNoSidewaysScroll(page);
+    await expectDocumentScrolls(page);
+    // The back bar sticks to the top of the viewport over the scrolling page.
+    await expect(page.locator('[data-slot="phone-top-bar"]')).toHaveCSS(
+      "position",
+      "sticky",
+    );
   });
 
   test("Reports: a PSP member's board, and a report day's form with its date picker (never submitted)", async ({

@@ -75,10 +75,10 @@ export async function expectPhoneTargets(
 
 /**
  * The page does not scroll sideways: neither the document nor, on a
- * signed-in page, the phone shell's one `<main>` (it scrolls itself:
- * `overflow-y: auto` makes its x axis scroll too, which the document never
- * sees). A wide row that scrolls inside its own box (a chip row, a table
- * wrapper) is not sideways scroll.
+ * signed-in page, the phone shell's one `<main>` (kept as a guard: it no
+ * longer scrolls itself, see `expectDocumentScrolls`). A wide row that
+ * scrolls inside its own box (a chip row, a table wrapper) is not sideways
+ * scroll.
  */
 export async function expectNoSidewaysScroll(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -90,4 +90,35 @@ export async function expectNoSidewaysScroll(page: Page) {
     };
   });
   expect(overflow, "sideways scroll in px").toEqual({ document: 0, main: 0 });
+}
+
+/**
+ * The signed-in phone shell scrolls the DOCUMENT, never its `<main>`: a
+ * mobile browser (Edge and Safari on iOS) collapses its toolbars only on a
+ * document scroll. `<main>` is no scroll container; a page taller than the
+ * viewport scrolls the document, and the tab bar (when the screen has one)
+ * stays pinned to the bottom of the viewport meanwhile.
+ */
+export async function expectDocumentScrolls(page: Page) {
+  const state = await page.evaluate(() => {
+    const main = document.querySelector('[data-slot="phone-shell"] main');
+    const doc = document.scrollingElement ?? document.documentElement;
+    const overflowY = main ? getComputedStyle(main).overflowY : null;
+    const tall = doc.scrollHeight > doc.clientHeight;
+    window.scrollTo(0, 120);
+    const scrolled = window.scrollY;
+    const bar = document.querySelector('[data-slot="phone-tab-bar"]');
+    const barBottom = bar
+      ? window.innerHeight - bar.getBoundingClientRect().bottom
+      : null;
+    window.scrollTo(0, 0);
+    return { overflowY, tall, scrolled, barBottom };
+  });
+  expect(state.overflowY, "<main> is no scroll container").toBe("visible");
+  if (state.tall)
+    expect(state.scrolled, "the document scrolls").toBeGreaterThan(0);
+  if (state.barBottom !== null)
+    expect(state.barBottom, "the tab bar stays on the viewport's bottom").toBe(
+      14,
+    );
 }

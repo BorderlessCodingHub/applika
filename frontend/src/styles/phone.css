@@ -85,6 +85,19 @@
     gap: 8px;
   }
 
+  /* The phone shell scrolls the document (so mobile browsers collapse their toolbars): a control scrolled into view clears the sticky back bar and the fixed tab bar and FAB (WCAG 2.4.11). */
+  html:has(.ph-shell[data-back-bar]) {
+    scroll-padding-top: 56px;
+  }
+
+  html:has(.ph-shell[data-reserve="tab"]) {
+    scroll-padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+
+  html:has(.ph-shell[data-reserve="tab-and-fab"]) {
+    scroll-padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px));
+  }
+
   .ph-back {
     height: 44px;
     padding: 0 8px 0 2px;
