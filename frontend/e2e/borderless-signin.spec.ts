@@ -52,8 +52,8 @@ import {
  * Borderless"), one tree per width by CSS: role queries see the tree the
  * viewport shows; a `data-slot` locator names its tree. The last describe
  * walks both trees' states signed out: C at 390×844 (and 320), A at 1280,
- * pending included (the request to the API is held, then let go to the
- * fake's page, and Back brings the page back ready).
+ * pending included (recorded in the page the moment it renders; the real
+ * API answers, then the fake's page, and Back brings the page back ready).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -1096,6 +1096,17 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     const narrowPair = (await pair.boundingBox())!;
     // The pair (top right) and the centred card never cover each other.
     expect(narrowPair.y + narrowPair.height).toBeLessThanOrEqual(narrowCard.y);
+    await expectNoSidewaysScroll(page);
+
+    // A phone in landscape (812×375) is md and up: the card sits below the
+    // pair and the page scrolls to the button.
+    await page.setViewportSize({ width: 812, height: 375 });
+    await expect(desktop).toBeVisible();
+    const shortCard = (await card.boundingBox())!;
+    const shortPair = (await pair.boundingBox())!;
+    expect(shortPair.y + shortPair.height).toBeLessThanOrEqual(shortCard.y);
+    await cta.scrollIntoViewIfNeeded();
+    await expect(cta).toBeInViewport();
     await expectNoSidewaysScroll(page);
   });
 

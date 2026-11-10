@@ -439,8 +439,19 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
       },
     ],
   ] as const)("draws A_Desktop's %s as drawn", (selector, expected) => {
-    expect(ruleBodies(selector), selector).toHaveLength(1);
+    // .ph-a-main also has the app's short-screen padding, after the board's rule.
+    expect(ruleBodies(selector), selector).toHaveLength(
+      selector === ".ph-a-main" ? 2 : 1,
+    );
     expect(declarations(ruleBody(selector))).toEqual(expected);
+  });
+
+  it("keeps A's card clear of the pair on a short screen, centred as drawn", () => {
+    const [board, app] = ruleBodies(".ph-a-main");
+    expect(declarations(board)).not.toHaveProperty("padding-block");
+    // Pair top 20 + its 36px + 20: symmetric, so the centre does not move.
+    expect(declarations(app)).toEqual({ "padding-block": "76px" });
+    expect(css.indexOf(app)).toBeGreaterThan(css.indexOf(board));
   });
 
   it("reuses the shared .ph-dots and .ph-btn.ph-pri, equal to A_Desktop's .dots and .btn.pri", () => {
