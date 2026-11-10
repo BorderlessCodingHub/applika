@@ -46,6 +46,11 @@ name, logo, favicon and domain stay; no other product name or logo appears."
 - When this ADR is accepted, the ADR-0006 header gains "Amended by: ADR-0027".
 - One frontend release, no migration, no backend, CLI or PDF change.
 
+**Amended (2026-11-09).** By the owner's order, `/login` at md and up renders sign-in option A, where the Borderless
+logo shows as its own tile beside the Applika tile and inside the sign-in button; below md option C stays and its
+button also carries the logo. The public and app headers at md and up were reordered (theme toggle before the language
+switcher; agenda, theme, language). The Borderless logo still appears only on the sign-in page.
+
 ## Non-goals
 
 - A native or store app (Expo may come later), a PWA, a web manifest or offline mode.

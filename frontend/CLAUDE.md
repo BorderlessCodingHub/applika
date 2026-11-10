@@ -233,8 +233,9 @@ almost every session refresh and report request refreshes at the fake.
 `e2e/support/auth.ts`: `BORDERLESS_ACCOUNTS` mirrors the fake's accounts
 (`sub`, `email`, `password`: `user` (seeded, never through the web),
 `free`, `starter`, `unverified`, `revoke`, `logout`), `borderlessUrl(path)`,
-`signInWithBorderlessButton(page)` (the "Continue with Borderless" button of
-the tree the viewport shows) and `signInWithFake(page, email)`
+`signInWithBorderlessButton(page)` (the CTA of the tree the viewport shows,
+`/^(Sign in|Continue) with Borderless$/`: A's "Sign in with Borderless" at md
+and up, C's "Continue with Borderless" below) and `signInWithFake(page, email)`
 (`/login` → the button → the fake's page → that account's one-click button
 named by its email → back on the web origin; only in a context with NO fake
 session — with one the fake answers straight back and its page never shows).
@@ -276,10 +277,24 @@ every web row `revoked`; the button again (one click) → PSP chip → the CLI's
 through the web (that would add a web session `devices.spec.ts` lists).
 Its last describe is read-only and signed out: option C's states at
 390×844 (`/login` ready — the phone h1, the decoded badge image, the CTA
-focused —, `?error=AUTH-1046`, `?cli=1`, `?error=AUTH-1046&cli=1`) and the
-desktop tree (h1 "Sign in to applika", the "About applika" region, fitting
-at 768 with no sideways scroll). Pending is not walked there: it lasts only
-until the browser leaves for the fake.
+focused —, `?error=AUTH-1046`, `?cli=1`, `?error=AUTH-1046&cli=1`), C at 390
+and 320 with the Borderless logo in its CTA (and in Portuguese, light), and
+option A at 1280: the card, the tiles, focus on the CTA, the sign-up link, the
+pair at top 20 / right 24, the fit at 768 and at 812×375 (the card below the
+pair, the page scrolls to the button), the card centred with nothing to
+scroll at 1280×450, Portuguese light, AUTH-1047, `cli=1`; pending at 1280
+and at 390, recorded in the page the moment it renders (a
+`MutationObserver` writing to `sessionStorage`, no stub; the real API
+answers, then the fake's page), then Back brings the page back ready.
+**`e2e/headers.spec.ts`** (serial): the phone header of `/` and `/cli` from
+320 to 430 wide, signed out (the page) and signed in (a second context with
+`loginAs`), English dark then Portuguese light switched from the flags: one
+row, the order home, theme, flags, the floors (7 on `/`, 13 on `/cli`), no
+sideways scroll, and the floating button's words and target; a Tab walk at
+390 with nothing under the floating button; at 1280 the public header's order
+on `/`, `/cli` and `/cookie-policy` (logo, theme, language, Sign in or
+Dashboard) and the signed-in app header's (the cycle selector at the left;
+the agenda, the theme and the language at the right).
 `e2e/admin-report-webhooks.spec.ts`
 (serial): add with BASE + PSP (both chips), masked row, the token never in
 `page.content()`, narrow to PSP without resending the URL, delete as its own
@@ -297,7 +312,9 @@ board reuses at their desktop size, never a loose filter) and
 which scrolls itself: its `overflow-y: auto` makes x scroll too, which the
 document never sees). `e2e/phone.spec.ts` at 390×844: the public screens
 (signed out, read-only; `/cli` is the v3 board, its Copy says "Copied", and
-a refused clipboard says nothing); as `e2e-user`, Today → Add → the quick add → the
+a refused clipboard says nothing; the header of `/` and `/cli` holds only the
+home link, the theme toggle and the flags, and both offer the floating Sign
+in); as `e2e-user`, Today → Add → the quick add → the
 Application screen → the row under Applied on the Pipeline, the Agenda,
 Insights, then the initials → the Account hub (Jobs and CVs, no Admin), Light
 (held on `/cycles`) and back to Dark, Português (BR) (the hub, the tab bar's
@@ -316,9 +333,20 @@ CV copy (the picker creates it with Tailor by keywords, the editor is read
 and its PDF downloaded, Show changes draws today's markers, back
 "Application" to `?focus=<id>`, then read-only once the application is
 closed; its 44px checks exclude, by name and only where they show,
-`[data-slot="cv-repeatable-item"]` with Skills open and
-`[data-slot="cv-diff-changed"]` beside a change), `/cli` signed in offering
-Dashboard, and `/admin` sending e2e-user back to Today; as `e2e-admin`, the
+`[data-slot="cv-keywords-input"]` (`KEYWORD_CHIPS`, today's keyword chips)
+with Skills open and `[data-slot="cv-diff-changed"]` beside a change), `/cli`
+signed in offering Dashboard, and `/admin` sending e2e-user back to Today.
+An added CV list item's move and remove buttons are measured, never
+excluded: `expectItemActions44(scope, atLeast)` (in `phone.spec.ts`) checks
+every `[data-slot="cv-item-actions"] > button` at 44×44 on `/cvs/editor`
+(the seeded skill category, then a link added and never saved), `/cvs/new`
+(a link added) and `/applications/cv` (Skills open); `/cvs/editor`'s 44px
+checks also leave out v2/CVEditor's 32px "Add …" control (`EDITOR_ADD`).
+`cv-builder.spec.ts` proves the same buttons stay 32×32 at 1280. Today also
+shows a quiet open application whose latest event is a denial staying off
+Needs your attention (still under Closed, stale, on the Pipeline). Below md
+the applika-cli banner is on Today only, so no other phone screen's floor
+counts its two controls; as `e2e-admin`, the
 Account hub's Admin row → seven chips, the Dashboard and Jobs (source cards)
 boards under "Admin Console", then the v3 boards, each under its own h1:
 Report webhooks (the masked address only; Edit's sheet cancelled, one
@@ -327,7 +355,11 @@ webhook added through the sheet and deleted through the delete sheet), Users
 never pressed), Companies and Platforms (the Private filter, Add cancelled,
 Delete unavailable on a used row), an administrator approving a private
 company through the phone sheet with no sideways scroll while the sheet is
-open and after, Features (one card per feature; the jobs card opens its
+open and after, a refused Delete said once inside its sheet with no Sonner
+toast (a company an application starts using after the list loaded: 409
+"Cannot delete: 1 application(s) reference this company"; a webhook deleted
+through the API under the open list: 404 "Report webhook not found"),
+Features (one card per feature; the jobs card opens its
 page) and a feature (back "Features" and the System pill, no chips; Your
 access, the beta list, Add user searched then Done, the stage sheet
 cancelled; Your access, Add and a stage confirm are never pressed), and its
@@ -383,7 +415,7 @@ Route groups control access:
 
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
-`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option C with its one "Continue with Borderless" button, behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
+`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option A at md and up ("Sign in with Borderless") and option C below md ("Continue with Borderless"), one button each, behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
 
 CLI sign-in routes (ADR-0019):
 
@@ -620,19 +652,22 @@ SameSite=Lax` (not HttpOnly; JS writes it).
 - **Where it mounts: six files, `variant="default"` in all of them**, in
   both themes, no portal (it renders inline in its host's layer of the
   **Stacking contract**), one mount per file and ONE switcher on screen at
-  any width. Order is always language, then theme, as siblings:
-  - the signed-in `Header` (right before `ThemeToggle`, so every protected
+  any width. The theme toggle comes first, then the language, in the
+  headers (the owner's order); the sign-in page, `/cli/code` and the phone
+  cookie-policy bar keep language, then theme:
+  - the signed-in `Header` (right after `ThemeToggle`, so every protected
     page at md and up, `/welcome` and `/device` included; below md a
     signed-in page has no header and the Account hub's "Language" radiogroup
     is the switch, see **Phone shell**);
   - `LandingHeader`, md and up only (`(public)/layout.tsx` hides it below
-    md): first in the controls group, before `ThemeToggle` and the CTA, for
-    `/`, `/cookie-policy` and `/cli`;
+    md): after `ThemeToggle` and before the CTA, for `/`, `/cookie-policy`
+    and `/cli`;
   - below md, `PhoneLandingHeader`, the public phone header of `/`
     (`PhoneLanding`) and `/cli` (`PhoneCli`), in
-    `components/phone/landing/phone-landing-header.tsx`, and
+    `components/phone/landing/phone-landing-header.tsx`, after the theme
+    toggle and with `flagsOnly` (the only mount that passes it), and
     `PhonePublicBar`, the "Home" back bar of `/cookie-policy`, in
-    `components/phone/phone-public-bar.tsx`;
+    `components/phone/phone-public-bar.tsx`, before the theme toggle;
   - `SignInScreen` (`/login`) and `CliCodeScreen` (`/cli/code`): one mount
     laid out for both widths, outside both trees and outside `<main>`. On
     `/login` it is `[data-slot="sign-in-bar"]`: below md the C_Mobile top
@@ -646,13 +681,17 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   exactly today's and md and up renders as before. The `landing` look is
   ported but mounted NOWHERE. `language-toggle-mounts.test.tsx` scans
   `src/**/*.tsx` for `<LanguageToggle` and expects exactly these six files,
-  each with one `<LanguageToggle variant="default" />`: a new mount is
-  added to its list.
+  each with one `<LanguageToggle variant="default" />` (`PhoneLandingHeader`'s
+  is `<LanguageToggle variant="default" flagsOnly />`): a new mount is
+  added to its list. `flagsOnly` drops the EN / BR text and sets
+  `data-flags-only` on the group; `phone.css` makes each radio a 44px square
+  with its flag centred (`.ph-pair [data-flags-only] [role="radio"]`).
 
 - **Locators for the switcher.** The group is a `radiogroup` named "Toggle
   language" ("Alternar idioma" in Portuguese); its radios are NAMED by their
   endonyms "English" and "Português" (each with its own `lang`) and their
-  visible TEXT is "EN" / "BR". Use `getByRole("radio", { name: "English" })`,
+  visible TEXT is "EN" / "BR" (the phone landing header's flags-only radios
+  have no visible text and keep those names). Use `getByRole("radio", { name: "English" })`,
   never `getByText("English")` (a CV language row can say "English" too). Every
   protected page now carries those two radios, so a page-level
   `getByRole("radio")` counts them: scope radio locators to the owning group or
@@ -664,6 +703,12 @@ language" })` finds exactly one at any width; in vitest (no CSS) it is one
   too, because the pair sits outside the trees. Substring pairs to anchor
   after switching back to English: Cancel/Cancelar, Client/Cliente,
   Confirm/Confirmar, Edit/Editar, Revert/Reverter.
+- **Counts**: Portuguese files 0 under `one`, so every `pt-BR` plural
+  with a `one` form also has `=0` with the plural words
+  (`{count, plural, =0 {# candidaturas} one {# candidatura} other {# candidaturas}}`:
+  "0 candidaturas · 0 ofertas", never "0 candidatura"); every `en` plural
+  has a `one` or `=1` form ("1 user", never "1 users"). `messages.test.ts`
+  ("messages: counts") fails a message that breaks either.
 - **Dates**: `i18n/date-locale.ts` `dateFnsLocale(locale)`; `ui/date-picker.tsx`
   and `ui/calendar.tsx` follow `useLocale()`. A date-picker's value keeps its
   `pattern`, language-free; only the display changes.
@@ -706,7 +751,8 @@ The Axios instance in `src/lib/api-client.ts` handles cookie-based auth with `wi
 ### Auth & Token Refresh
 
 Sign-in is Borderless's own OpenID Connect sign-in, started by the
-"Continue with Borderless" button at `/login` (ADR-0026; see **Sign-in,
+"Sign in with Borderless" button at `/login` ("Continue with Borderless"
+below md; ADR-0026; see **Sign-in,
 welcome, membership badge**); there is no GitHub sign-in and no password anywhere in
 the web. Authentication uses HTTP-only JWT cookies that the API's callback
 sets; the web never sees a code, a state or a token. Token refresh is handled via **polling in AuthContext** (not via Axios interceptor):
@@ -783,7 +829,11 @@ succeeds after its `at` (the user signed in again in another tab).
 - **Feature state**: custom hooks in `src/hooks/` (e.g., `useApplications`, `useTimeline`)
 
 Mutations always call `queryClient.invalidateQueries()` on success and show a
-`sonner` toast on error. A mutation with a fixed error message shows the 429's
+`sonner` toast on error — except where the screen already says it: the admin
+catalog and report-webhook mutations take `{ toastError }`
+(`AdminMutationOptions` in `hooks/use-admin.ts`), and the pages pass
+`toastError: !isPhone`, because below md their sheets show the refusal in
+place (said once). A mutation with a fixed error message shows the 429's
 own retry text instead, when there is one: `toast.error(rateLimitNotice(error)
 ?? "Failed to …")` (R-025) — every toast already showing
 `getApiError(error)` (which returns the `detail` unconditionally) needs no
@@ -1788,6 +1838,19 @@ application entry."
   fires the instant the first request settles, with NO extra debounce wait.
   ~1000ms after the last change, `PUT` is always a FULL replace of
   `DraftInput` — never a partial, exactly like the application's own update.
+  **Unmounting sends the save still waiting out its delay** (leaving the
+  page, or crossing md, which remounts it), with the last value: nothing
+  when no save waits (no change, or not ready), and a change queued behind
+  the request in flight goes once that request settles, never two at once.
+  After unmount `onSave` is the last rendered one and no state is set; the
+  effect marks itself mounted again on Strict Mode's second mount. A draft
+  created by such a save takes its `?id=` only while the address is still
+  `/applications/new-with-cv` (a remount across md), never after the user
+  left. The page that mounts next seeded from the cache, so it shows a LATER
+  save it did not make (`savedAt`: `updated_at`, else `created_at`) while its
+  form still holds what it last seeded or saved, for the application form and
+  the CV copy alike; a stale refetch is never later, so it never stomps an
+  edit.
   `AutosaveStatus` treats the debounce WAIT itself as `"saving"` so `Saved`
   never shows over unsaved typing; the flip happens during RENDER (React's own
   "adjust state when a prop changes" pattern), never inside a `useEffect` body
@@ -1864,9 +1927,9 @@ application entry."
   1 puts the board's six fields first and the rest (the application date
   included) under "More details"; step 2 summarises the copy as the board's
   rows and edits it in place ("Edit the CV copy"), see **Phone shell**.
-  Crossing md remounts the page: it reloads the draft from `?id=` (what the
-  autosave saved); a change typed in the last second before the crossing is
-  not saved.
+  Crossing md remounts the page: the phone page sends the change typed in
+  the last second as it unmounts, and the desktop page shows it once the
+  server has it (and the reverse).
 
 ### Admin — private company/platform rows (`components/admin/catalog-visibility.tsx`, `approve-catalog-button.tsx`, PRD 0010, AC19/AC20)
 
@@ -1890,7 +1953,12 @@ query, forms, schema and mutations: search, the All / Public / Private chips,
 a card per row (the name with a Private pill, the address without its
 scheme, who added it and how many applications use it; Companies adds the
 status pill and switch), `PhonePager`, and Add, Edit, Approve and Delete in
-sheets. Approve shows "Approve" and is named "Approve <name>"; its sheet (an
+sheets. A refused Add, Edit or Delete is said once, inside its sheet
+(`[data-slot="catalog-form-error"]`, `[data-slot="catalog-delete-error"]`):
+the pages pass `toastError: !isPhone` to the shared mutations, so no toast
+repeats it; the desktop keeps today's toast. The company status switch has
+no sheet, so its refusal stays a toast (a per-call `onError` on the phone).
+Approve shows "Approve" and is named "Approve <name>"; its sheet (an
 `alertdialog` with the row's address) keeps a 409 `detail` VERBATIM inside
 it (`[data-slot="approve-catalog-error"]`). A used row's Delete is
 `aria-disabled` on a phone, still focusable and described by its reason
@@ -1951,40 +2019,58 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
 `/auth/link/discord`. Not behind a beta gate (ADR-0024 §9, ADR-0026).
 
 - **`/login`** (`app/login/page.tsx` Suspense shell, `login-page.tsx`) is the
-  ui-designer's `SignInScreen` (`components/auth/sign-in-screen.tsx`), sign-in
-  **option C at both widths** (the owner: "To the artifact for sign-in, I
-  choose the option C."; PRD 0021): `signin/C_Mobile` below md,
-  `signin/C_Desktop` at md and up, with `v2/SignIn`'s states drawn inside.
-  Both trees are mounted and CSS shows one (`md:hidden` /
-  `hidden md:flex`), so there is no hydration mismatch:
-  `main[data-slot="sign-in-phone"]` (the glow, the Applika app icon 104 with
-  the Borderless badge, eyebrow "applika × Borderless", h1 "One account for
-  your whole job search", lead, the CTA h56 and the account link at the
-  bottom) and `[data-slot="sign-in-desktop"]` (`section` "About applika":
-  icon 120 + badge 54, the same eyebrow, the headline as an h2 and three
-  feature rows; `main.ph-c-main`: h1 "Sign in to applika" — always, even
-  with `&cli=1` — lead, states, the CTA h52 r14, the account link). The
-  desktop tree is fluid from 768 to 1920 with no second breakpoint
-  (`clamp()` on the side padding, the main width and padding, and the h2),
-  and equals the board at 1440×900. `ph-` classes style both trees
-  (`.ph-app` on the root: C_Desktop's root is `.app` too); the language +
-  theme pair is mounted once outside both (see **i18n**). The Applika mark
-  is `role="img"` "Applika"; the badge is
-  `public/borderless-logo.png` (`BORDERLESS_BADGE_SRC`, a copy of the design
-  file's asset) through `next/image` `unoptimized`, `alt` "with Borderless",
-  in `[data-slot="sign-in-badge"]`; the badge is on the sign-in page only
-  (ADR-0027). The lead is "Sign in with Borderless. It confirms it's you and
-  sends you back here." and describes the CTA (`aria-describedby`, an id per
-  tree). The CTA (`[data-action="sign-in-borderless"]`, one per tree) reads
-  "Continue with Borderless"; the link "I don't have a Borderless account"
-  (`[data-slot="create-borderless-account"]`) opens
-  `APP_CONFIG.borderless.signUpUrl` in a new tab (`rel="noopener
+  ui-designer's `SignInScreen` (`components/auth/sign-in-screen.tsx`):
+  **option A at md and up and option C below md** (the owner: "mudar a tela
+  de login do desktop de como é hoje para a opção A do artefato v3, apenas a
+  versão de desktop, a verão mobile se mantem como na opção C, apenas
+  adicione o icone da borderless no botão "continue with borderless" como
+  exemplifica na opção A"; option A is `signin/A_Desktop` of the frozen V2
+  artifact). Both trees are mounted and CSS shows one (`md:hidden` /
+  `hidden md:flex`), so there is no hydration mismatch.
+  `main[data-slot="sign-in-phone"]` is `signin/C_Mobile` (the glow, the
+  Applika app icon 104 with the Borderless badge
+  `[data-slot="sign-in-badge"]`, which is in this tree only, eyebrow
+  "applika × Borderless", h1 "One account for your whole job search", lead
+  "Sign in with Borderless. It confirms it's you and sends you back here.",
+  the CTA h56 "Continue with Borderless" with the Borderless logo before its
+  label as A draws it, and the account link "I don't have a Borderless
+  account" at the bottom). `[data-slot="sign-in-desktop"]` is A_Desktop
+  whole: the mesh (`.ph-a-mesh`) and the dots (`.ph-dots`) fill the root,
+  `main.ph-a-main` centres one 448px card (`.ph-a-card`: padding 40,
+  radius 24) holding the Applika tile, the dashed link mark and the
+  Borderless tile (`[data-slot="sign-in-tiles"]`, `.ph-a-tile`,
+  `.ph-a-link`, decorative), h1 "Sign in to applika" (`.ph-a-h1`, always,
+  even with `&cli=1`), the lead "Use your Borderless account. Borderless
+  confirms it's you and sends you back here." (`optionA.lead`), the states,
+  the 48px CTA "Sign in with Borderless" (`.ph-a-cta`), a `Separator`, and
+  "No Borderless account yet? Create a Borderless account" (`.ph-a-foot`,
+  the link `.ph-a-signup`; `optionA.noAccount` with a `<link>` tag). Below
+  828px (`@media (max-width: 51.74rem)`, 2 × (224 + the pair's 166 + 24)),
+  where the pair can stand over the card, `.ph-a-main` gets `padding-block:
+  76px` (pair top 20 + 36 + 20, symmetric, so the card stays centred and a
+  phone in landscape, 812×375, scrolls to the button); from 828 up the
+  board's centring holds (1280×450 does not scroll). Equal to the board at
+  1440×900. Gone with C_Desktop: `AppIconWithBadge large`, `.ph-c-side*`,
+  `.ph-feat`, `.ph-c-main`, `.ph-c-headline`, the `clamp()` block,
+  `optionC.about` / `feat*` and `PhoneNewspaperC`. `ph-` classes style both
+  trees (`.ph-app` on the root); the language + theme pair is mounted once
+  outside both (see **i18n**). The Applika mark is `role="img"` "Applika";
+  the Borderless images are `public/borderless-logo.png`
+  (`BORDERLESS_BADGE_SRC`, a copy of the design file's asset) through
+  `next/image` `unoptimized`: the phone badge `alt` "with Borderless", A's
+  tile `alt` "Borderless", and the CTA's logo
+  (`img[data-slot="sign-in-logo"]`, 22px, radius 6) `alt=""`, decorative.
+  Each tree's lead describes its CTA (`aria-describedby`, an id per tree).
+  The CTA is `[data-action="sign-in-borderless"]`, one per tree; the
+  sign-up link (`[data-slot="create-borderless-account"]`, one per tree)
+  opens `APP_CONFIG.borderless.signUpUrl` in a new tab (`rel="noopener
 noreferrer"`, described by the sr-only "Opens in a new tab."). The button
   does `window.location.assign(services.auth.borderlessLoginUrl())`
   (`{apiBaseURL}/auth/borderless/login`, a top-level navigation: the API 307s
   to Borderless with PKCE S256, state and nonce, no `prompt`). It stays
   pending (`aria-disabled` + `aria-busy`, focus kept, opacity .75, the
-  spinner and the label "Opening Borderless…" in both trees, plus ONE
+  spinner in the logo's place and the label "Opening Borderless…" in both
+  trees, plus ONE
   sr-only `role="status"` `[data-slot="sign-in-pending-status"]` with the
   same words) until the browser leaves;
   `login-page.tsx` resets it on `pageshow` with `event.persisted` (Back
@@ -2180,7 +2266,13 @@ link still works; static export, no rewrite).
   shell**): one card per webhook (label, a pill per badge, the masked
   address, Edit and Delete with today's names), Delete confirmed in the
   board's `alertdialog` sheet, "Add webhook" after the cards, today's words
-  in the empty and failed-load cards. Add and edit open
+  in the empty and failed-load cards. The delete sheet stays open while the
+  DELETE runs (Delete busy, Cancel and Escape refused, the card dimmed
+  behind it) and shows a refusal inside it
+  (`[data-slot="report-webhook-delete-error"]`, `.ph-notice.ph-wh-refusal`,
+  `getApiError`'s words) with no toast; the page's phone `onDelete` resolves
+  with those words, or nothing once deleted. At md and up delete toasts as
+  today. Add and edit open
   `PhoneReportWebhookSheet` (`components/phone/phone-report-webhook-sheet.tsx`),
   which takes `ReportWebhookFormDialog`'s props, so the page swaps one for
   the other on the same form, zod schema, submit and server refusal: the URL
@@ -2720,7 +2812,11 @@ below, which owns the mobile-menu and feedback state and hoists a SINGLE
 `FeedbackDialog`. Below md it returns `PhoneShell` instead (ADR-0027; see
 **Phone shell** below). Either way it renders `CliPromoBanner` and the content
 container itself, so no page component renders one — including the pages that
-do NOT want it.
+do NOT want it. At md and up the banner is on every page; below md on Today
+only (`CLI_BANNER_PATH`, `/dashboard`). The md-and-up `Header` holds the
+`leading` slot at the left (the cycle selector, `AppShell`'s) and, at the
+right, the page's `actions`, the agenda button, the theme toggle, the
+language toggle, then the `md:hidden` `UserMenu`.
 
 - **The width opt-out lives in `src/components/layout/content-width.ts`**, not
   as a prop, and comes in TWO forms. The container carries
@@ -2801,15 +2897,15 @@ same way the V2 boards drive today's phone screens; desktop stays as it is.
   pages render after auth, so nothing flashes. `AppShell` calls it after its
   own hooks and returns `<PhoneShell/>` below md: the desktop branch is
   untouched. Crossing md remounts the page (a half-filled quick add is lost;
-  a draft keeps what its autosave already saved, and the debounced change
-  typed in the last second before the crossing is dropped, since
-  `useDebouncedAutosave` cancels it on unmount; the master CV editor has no
-  autosave, so its unsaved edits are lost). `hooks/use-mobile.ts` (shadcn)
+  a draft keeps every edit, since `useDebouncedAutosave` sends the change
+  still waiting out its delay as the page unmounts; the master CV editor has
+  no autosave, so its unsaved edits are lost). `hooks/use-mobile.ts` (shadcn)
   is unused and is not the switch.
 - **`components/layout/phone-shell.tsx`** `PhoneShell`: a `relative
 h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   ABOVE exactly ONE `<main>` that scrolls, holding
-  `data-slot="app-content"` with `CliPromoBanner` first, then the page; the
+  `data-slot="app-content"` with, on Today only, `CliPromoBanner` first
+  (in the board's `px-5 pt-5` margins), then the page; the
   tab bar after `<main>`; the FAB; ONE hoisted `FeedbackDialog`.
   `usePhoneShell()` gives a screen inside it `{navItems, openFeedback,
 openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
@@ -2937,6 +3033,11 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   (`getBoundingClientRect`), its visible shape the board's size: `.ph-hit`, or
   the `::before` shape of `.ph-btn.ph-sm`, `.ph-chip`, `.ph-seg > *`,
   `.ph-switch`. `CliPromoBanner` and `CookieConsent` get `max-md:` 44px boxes.
+  An added CV list item's move and remove buttons (`CvRepeatableSection`,
+  `[data-slot="cv-item-actions"]`) are 44px wide and, through
+  `margin-block: -6px`, 44px tall with the item's header row kept at 32px,
+  inside `.ph-ce-panel` only (`/cvs/editor`, `/cvs/new`, `/applications/cv`
+  and the draft's CV step); at md and up they stay 32px.
 - **Primitives** in `components/phone/` (thin wrappers over `ph-*`, words by
   props): top bar, tab bar, FAB, avatar, heading, sheet (Radix Dialog, closes
   itself when `PHONE_QUERY` stops matching), segmented, option, switch, pill, chip,
@@ -2957,7 +3058,10 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   (`pipelineStage` from `last_step` — closed once `finalized_at`, none →
   Applied, "Initial Screen" → Screening, "Offer" → Offer, "Denied" → Closed,
   any other → Technical; `lastUpdate`, `STALE_DAYS = 14`, `isStale` more
-  than 14 days, `ago`, `groupByStage`, `attentionList`, `reachedStage`),
+  than 14 days, `ago`, `groupByStage`, `attentionList` — the stale ones,
+  minus an open application whose latest event is a denial (nothing is
+  awaited from it; the Pipeline still lists it under Closed, stale) —,
+  `reachedStage`),
   `insights.ts` (funnel, 8 ISO weeks, `stepDays` floored at 0 with `null`
   for the dash, mode), `phone-format.ts` (greeting by hour and first name,
   `timeToStart`, `nextInterview`/`upcomingAgenda`/`agendaDay` through
@@ -3249,8 +3353,13 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
   `/cli/code` (`[data-slot="cli-code-phone"]` /
   `[data-slot="cli-code-desktop"]`) and `/login` (above). `/` and `/cli`
   share `PhoneLandingHeader`
-  (`components/phone/landing/phone-landing-header.tsx`: the home link, the
-  language + theme pair, Sign in, or Dashboard when signed in).
+  (`components/phone/landing/phone-landing-header.tsx`: the "applika.dev"
+  home link, the theme toggle and the flags-only language toggle, on one row
+  from 320 to 430; it reads no auth) and `PhoneLandingCta`
+  (`components/phone/landing/phone-landing-cta.tsx`, the floating
+  `[data-slot="landing-phone-cta"]` `.ph-landing-cta`: Sign in signed out,
+  Go to Dashboard signed in); `html:has(.ph-landing-cta)` gets
+  `scroll-padding-bottom` below md, so a focused control is never under it.
   `PhonePublicBar` (`components/phone/phone-public-bar.tsx`,
   `header[data-slot="phone-public-bar"]`, sticky: back "Home" → `/` and the
   pair) is `/cookie-policy`'s alone. The md-and-up trees
@@ -3287,7 +3396,8 @@ page)` renders a route in the phone shell with the query client, the cycle
   application's CV copy, the admin console's v2 and v3 boards as e2e-admin
   (a private company approved on the phone included) and Logout in a
   disposable account (see **Phone in E2E**);
-  `borderless-signin.spec.ts` option C's states and the welcome choice;
+  `borderless-signin.spec.ts` option C's states, option A at md and up and
+  the welcome choice; `headers.spec.ts` the public and app headers;
   `devices.spec.ts` `/device`. `e2e/support/phone.ts` has `PHONE`
   (390×844), `expectPhoneTargets` (every rendered control's box at least
   44×44, and a floor on how many were measured) and
