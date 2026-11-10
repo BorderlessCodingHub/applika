@@ -452,6 +452,11 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     // Pair top 20 + its 36px + 20: symmetric, so the centre does not move.
     expect(declarations(app)).toEqual({ "padding-block": "76px" });
     expect(css.indexOf(app)).toBeGreaterThan(css.indexOf(board));
+    // Only where the pair can stand over the card: below 2 x (448 / 2 + 166
+    // + 24) = 828px. From there up, the board's centring holds.
+    expect(css).toMatch(
+      /@media \(max-width: 51\.74rem\)\s*\{\s*\.ph-a-main\s*\{\s*padding-block:\s*76px;\s*\}\s*\}/,
+    );
   });
 
   it("reuses the shared .ph-dots and .ph-btn.ph-pri, equal to A_Desktop's .dots and .btn.pri", () => {

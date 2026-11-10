@@ -2643,9 +2643,11 @@
     line-height: normal;
   }
 
-  /* signin/A_Desktop on a short screen (a phone in landscape, 812x375): the card clears the pair (top 20 + 36 + 20). Symmetric, so the card stays centred where the board draws it. */
-  .ph-a-main {
-    padding-block: 76px;
+  /* signin/A_Desktop on a short screen (a phone in landscape, 812x375): the card clears the pair (top 20 + 36 + 20). Symmetric, so the card stays centred where the board draws it. Only below 828px = 2 x (card 448 / 2 + pair 166 + its right 24), where the pair can stand over the card; from 828 up the board's centring is untouched (1280x450 does not scroll). */
+  @media (max-width: 51.74rem) {
+    .ph-a-main {
+      padding-block: 76px;
+    }
   }
 
   .ph-tabbar {

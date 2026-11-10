@@ -1109,6 +1109,27 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     await cta.scrollIntoViewIfNeeded();
     await expect(cta).toBeInViewport();
     await expectNoSidewaysScroll(page);
+
+    // A short wide screen (1280×450): the pair is beside the card, so the
+    // card stays centred as the board draws it, with nothing to scroll.
+    await page.setViewportSize({ width: 1280, height: 450 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(desktop).toBeVisible();
+    const wideCard = (await card.boundingBox())!;
+    const widePair = (await pair.boundingBox())!;
+    expect(wideCard.y + wideCard.height / 2).toBeCloseTo(450 / 2, 0);
+    expect(wideCard.x + wideCard.width / 2).toBeCloseTo(1280 / 2, 0);
+    expect(widePair.x).toBeGreaterThanOrEqual(wideCard.x + wideCard.width);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollHeight -
+          document.documentElement.clientHeight,
+      ),
+      "vertical scroll in px",
+    ).toBe(0);
+    await expect(cta).toBeInViewport();
+    await expectNoSidewaysScroll(page);
   });
 
   test("1280 light, in Portuguese: option A's words", async ({ page }) => {
