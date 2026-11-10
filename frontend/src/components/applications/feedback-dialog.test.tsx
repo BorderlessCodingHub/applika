@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 
 /**
- * T042/T043 (KODI-041): a rate-limited feedback submit shows the server's
+ * T042/T043: a rate-limited feedback submit shows the server's
  * own `detail` in the usual error toast instead of the fixed "Failed to
  * send feedback" text (R-025); any other failure keeps that fixed text.
  */

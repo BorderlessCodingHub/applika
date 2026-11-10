@@ -58,15 +58,15 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
     * An offer needs amount, currency and period; every other type refuses
       all three (R-005). Changing an offer to another type therefore has to
       drop the salary in the same request.
-    * A denied event without a reason is ``unknown`` (KODI-014,
-      R-033..R-036 — the same pattern as ``interview_type``). A reason on
+    * A denied event without a reason is ``unknown``
+      (R-033..R-036 — the same pattern as ``interview_type``). A reason on
       any other event type is refused; changing an event away from denied
       therefore drops the reason in the same request.
     * ``start_time`` and ``end_time`` come together, the end after the start
       (R-004). There is no rule on the date against the application date or
       the previous event (PRD 0008 "Assumptions").
     * ``start_time``, ``end_time`` and ``timezone`` are only allowed on an
-      interview event (KODI-016, R-038/R-039, the same pattern as
+      interview event (R-038/R-039, the same pattern as
       ``interview_type``). Owner, verbatim: "if event type is different
       from interview, these attributes must be blocked". Explicit nulls or
       absent keys are fine on any event type; only a non-null value on a

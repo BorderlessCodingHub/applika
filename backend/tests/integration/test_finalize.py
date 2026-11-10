@@ -267,7 +267,7 @@ def test_openapi_documents_reopen_and_the_optional_finalize_body():
 
 def test_openapi_finalize_body_lists_both_shapes():
     """The finalize requestBody documents both the deprecated 0.1.4 shape
-    and the new optional outcome shape (R-032, KODI-012 reads this) as an
+    and the new optional outcome shape (R-032, the web reads this) as an
     OpenAPI ``oneOf``, `required: false` on the whole body still."""
     finalize = main_app.openapi()['paths'][
         '/applications/{application_id}/finalize'
@@ -301,7 +301,7 @@ def test_openapi_finalize_body_lists_both_shapes():
         == '#/components/schemas/DeniedReason'
     )
     # And those refs are not dangling: both are really there, DeniedReason
-    # with all ten values (KODI-014).
+    # with all ten values.
     schemas = main_app.openapi()['components']['schemas']
     assert 'Currency' in schemas
     assert schemas['DeniedReason']['enum'] == [
@@ -380,7 +380,7 @@ async def test_finalize_denied_outcome_writes_event_without_salary(
     assert event.event_type is EventType.DENIED
     assert event.observation == 'Not a fit'
     assert event.salary_amount is None
-    # KODI-014: no reason given defaults to unknown, same as /timeline.
+    # no reason given defaults to unknown, same as /timeline.
     assert event.denied_reason is DeniedReason.UNKNOWN
 
 
@@ -474,7 +474,7 @@ async def test_finalize_outcome_offer_missing_salary_field_is_422(
 async def test_finalize_outcome_offer_hourly_period_is_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-011 remediation round 1 (R-032): an offer outcome refuses
+    """Remediation round 1 (R-032): an offer outcome refuses
     ``hourly``, same as the timeline write schema - the defect being fixed
     let the same offer event be valid through ``/timeline`` and refused
     through ``/finalize``, or the reverse."""
@@ -708,7 +708,7 @@ async def test_legacy_finalize_offer_without_salary_is_decision_b(
 async def test_legacy_finalize_offer_on_hourly_application_stays_hourly(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-011 remediation round 1: the R-032 fix refuses ``hourly`` on
+    """Remediation round 1: the R-032 fix refuses ``hourly`` on
     the *new* outcome body, but the 0.1.4 legacy body is pinned unchanged -
     it still fills an offer's period from the application, which can
     itself be hourly (owner decision (b)'s convention).
@@ -916,7 +916,7 @@ async def test_legacy_finalize_denied_with_accepted_feedback_succeeds(
     [event] = await _events(db_session)
     assert event.event_type is EventType.DENIED
     assert event.salary_amount is None
-    # KODI-014: 'Accepted' is not in the legacy feedback -> reason map, so
+    # 'Accepted' is not in the legacy feedback -> reason map, so
     # it falls back to unknown, same as everywhere else this reason defaults.
     assert event.denied_reason is DeniedReason.UNKNOWN
 
@@ -924,7 +924,7 @@ async def test_legacy_finalize_denied_with_accepted_feedback_succeeds(
 async def test_legacy_finalize_denied_maps_the_feedback_to_a_reason(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-014 (R-036): the legacy finalize body maps the feedback name to
+    """R-036: the legacy finalize body maps the feedback name to
     a ``denied_reason`` with the SAME map migration R3 uses for its own
     backfill (pinned in ``tests/unit/test_denied_reason_mapping.py``)."""
     await ts.seed_open_application(db_session)

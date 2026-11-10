@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CliPage } from "@/app/(public)/cli/cli-page";
 import { LoginPage } from "@/app/login/login-page";
 import { WelcomeScreen } from "@/components/auth/welcome-screen";
 import { CliCodeScreen } from "@/components/cli-code/cli-code-screen";
@@ -13,15 +14,27 @@ import { DeviceRequestCard } from "@/components/device/device-request-card";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 import { HeroSection } from "@/components/landing/hero-section";
 import { LandingHeader } from "@/components/landing/landing-header";
+import { PhoneLanding } from "@/components/phone/landing/phone-landing";
+import { PhonePublicBar } from "@/components/phone/phone-public-bar";
+import {
+  PhoneDeviceCode,
+  PhoneDeviceOutcome,
+  PhoneDeviceRequest,
+} from "@/components/phone/screens/device-screen";
 import { renderInPortuguese } from "@/test/portuguese";
 
 /**
  * The public and sign-in screens in Portuguese: landing, sign-in (web and
- * terminal), the terminal code, the welcome choice and device approval. The
- * device's name and client label come from the API as data and stay exactly
- * as sent; dates follow the language. English is asserted, unchanged, by the
- * screens' existing tests.
+ * terminal), the terminal code, the welcome choice and device approval, at
+ * both widths (the phone trees and views of PRD 0021 too). The device's name
+ * and client label come from the API as data and stay exactly as sent; dates
+ * follow the language. English is asserted, unchanged, by the screens' own
+ * tests. Screens laid out by CSS hold both trees: queries are scoped by the
+ * tree's `data-slot`.
  */
+
+const tree = (slot: string) =>
+  document.querySelector<HTMLElement>(`[data-slot="${slot}"]`)!;
 
 let searchParams = new URLSearchParams();
 let auth = { isAuthenticated: false, isLoading: false };
@@ -99,21 +112,65 @@ describe("sign-in in Portuguese", () => {
       localeSwitch: true,
     });
 
+    // Below md, option C: today's words, the logo before the button's label.
+    const phoneLead =
+      "Entre com a Borderless. Ela confirma que é você e traz você de volta para cá.";
+    const phone = within(tree("sign-in-phone"));
     expect(
-      screen.getByRole("heading", { level: 1, name: "Entre no Applika" }),
+      phone.getByRole("heading", {
+        level: 1,
+        name: "Uma conta para toda a sua busca de emprego",
+      }),
     ).toBeInTheDocument();
+    expect(phone.getByText(phoneLead)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Use sua conta da Borderless. A Borderless confirma que é você e traz você de volta para cá.",
-      ),
-    ).toBeInTheDocument();
+      phone.getByRole("button", { name: "Continuar com a Borderless" }),
+    ).toHaveAccessibleDescription(phoneLead);
     expect(
-      screen.getByRole("button", { name: "Entrar com a Borderless" }),
-    ).toBeInTheDocument();
-    expect(document.querySelectorAll("input")).toHaveLength(0);
-    expect(
-      screen.getByRole("link", { name: "Criar uma conta na Borderless" }),
+      phone.getByRole("link", { name: "Não tenho conta na Borderless" }),
     ).toHaveAccessibleDescription("Abre em uma nova aba.");
+    expect(
+      phone.getByRole("img", { name: "com a Borderless" }),
+    ).toHaveAttribute("src", "/borderless-logo.png");
+
+    // At md and up, option A: the paired tiles, A's lead, button and sign-up line.
+    const desktopLead =
+      "Use sua conta Borderless. A Borderless confirma que é você e traz você de volta para cá.";
+    const desktop = within(tree("sign-in-desktop"));
+    expect(
+      desktop.getByRole("heading", { level: 1, name: "Entre no Applika" }),
+    ).toBeInTheDocument();
+    expect(desktop.getByText(desktopLead)).toBeInTheDocument();
+    expect(
+      desktop.getByRole("button", { name: "Continuar com a Borderless" }),
+    ).toHaveAccessibleDescription(desktopLead);
+    expect(desktop.getByText(/^Não tem uma conta ainda\?/)).toHaveTextContent(
+      "Não tem uma conta ainda? Criar uma conta na Borderless",
+    );
+    expect(
+      desktop.getByRole("link", { name: "Criar uma conta na Borderless" }),
+    ).toHaveAccessibleDescription("Abre em uma nova aba.");
+    expect(
+      desktop
+        .getAllByRole("img")
+        .map(
+          (img) => img.getAttribute("aria-label") ?? img.getAttribute("alt"),
+        ),
+    ).toEqual(["Applika", "Borderless"]);
+    expect(desktop.queryByRole("region")).toBeNull();
+
+    // The decorative logo in both buttons.
+    for (const slot of ["sign-in-phone", "sign-in-desktop"]) {
+      expect(
+        tree(slot).querySelector(
+          '[data-action="sign-in-borderless"] [data-slot="sign-in-logo"]',
+        ),
+      ).toHaveAttribute("alt", "");
+    }
+    expect(
+      screen.getByRole("link", { name: "Voltar ao início" }),
+    ).toHaveAttribute("href", "/");
+    expect(document.querySelectorAll("input")).toHaveLength(0);
   });
 
   it("says it is opening Borderless in Portuguese", async () => {
@@ -124,12 +181,19 @@ describe("sign-in in Portuguese", () => {
     });
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Entrar com a Borderless" }),
+      within(tree("sign-in-desktop")).getByRole("button", {
+        name: "Continuar com a Borderless",
+      }),
     );
 
     expect(
       document.querySelector('[data-slot="sign-in-pending-status"]'),
     ).toHaveTextContent("Abrindo a Borderless…");
+    for (const slot of ["sign-in-desktop", "sign-in-phone"]) {
+      expect(
+        tree(slot).querySelector('[data-action="sign-in-borderless"]'),
+      ).toHaveTextContent("Abrindo a Borderless…");
+    }
     vi.unstubAllGlobals();
   });
 
@@ -143,13 +207,15 @@ describe("sign-in in Portuguese", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Entre no Applika" }),
     ).toBeInTheDocument();
-    const hint = document.querySelector('[data-slot="sign-in-cli-hint"]');
-    expect(hint).toHaveTextContent(
-      "Volte ao seu terminal e execute applika login novamente.",
-    );
-    expect(within(hint as HTMLElement).getByText("applika login").tagName).toBe(
-      "CODE",
-    );
+    for (const slot of ["sign-in-desktop", "sign-in-phone"]) {
+      const hint = tree(slot).querySelector('[data-slot="sign-in-cli-hint"]');
+      expect(hint).toHaveTextContent(
+        "Volte ao seu terminal e execute applika login novamente.",
+      );
+      expect(
+        within(hint as HTMLElement).getByText("applika login").tagName,
+      ).toBe("CODE");
+    }
   });
 });
 
@@ -159,20 +225,28 @@ describe("terminal code and welcome in Portuguese", () => {
       localeSwitch: true,
     });
 
-    expect(
-      screen.getByRole("heading", { name: "Entre no applika-cli" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copiar" })).toBeInTheDocument();
-    expect(screen.getByText("abc#xyz")).toBeInTheDocument();
+    for (const slot of ["cli-code-desktop", "cli-code-phone"]) {
+      const view = within(tree(slot));
+      expect(
+        view.getByRole("heading", { name: "Entre no applika-cli" }),
+      ).toBeInTheDocument();
+      expect(view.getByRole("button", { name: "Copiar" })).toBeInTheDocument();
+      expect(view.getByText("abc#xyz")).toBeInTheDocument();
+      expect(
+        view.getByText("O código funciona uma vez e expira em um minuto."),
+      ).toBeInTheDocument();
+    }
   });
 
   it("says the code is missing in Portuguese", async () => {
     await renderInPortuguese(<CliCodeScreen code={null} state={null} />, {
       localeSwitch: true,
     });
-    expect(
-      screen.getByText("Falta o código neste link de acesso."),
-    ).toBeInTheDocument();
+    for (const slot of ["cli-code-desktop", "cli-code-phone"]) {
+      expect(
+        within(tree(slot)).getByText("Falta o código neste link de acesso."),
+      ).toBeInTheDocument();
+    }
   });
 
   it("writes the welcome choice in Portuguese", async () => {
@@ -191,6 +265,188 @@ describe("terminal code and welcome in Portuguese", () => {
     expect(
       screen.getByRole("button", { name: "Começar do zero" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("phone welcome in Portuguese", () => {
+  it("names the choice and its button in Portuguese", async () => {
+    const { PhoneWelcomeScreen } =
+      await import("@/components/auth/welcome-screen");
+    await renderInPortuguese(
+      <PhoneWelcomeScreen onRestore={vi.fn()} onStartFresh={vi.fn()} />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Como começar" });
+    expect(
+      within(group).getByRole("radio", { name: "Recupere sua conta antiga" }),
+    ).toBeChecked();
+    expect(
+      within(group).getByRole("radio", { name: "Comece com uma conta vazia" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Restaurar seus dados do GitHub" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("phone landing and public bar in Portuguese", () => {
+  it("writes the Landing board in Portuguese, the pair and the header's Entrar", async () => {
+    await renderInPortuguese(<PhoneLanding />, { localeSwitch: true });
+
+    // jsdom's name computation pads the highlighted word: read the text.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Gerencie sua busca de emprego com clareza.",
+    );
+    expect(
+      screen.getByText(
+        "Rastreador de candidaturas gratuito e de código aberto",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Pronto para usar em minutos",
+      }),
+    ).toBeInTheDocument();
+    // The header: home, theme, the flags (named by their endonyms), then Entrar.
+    const header = within(screen.getByRole("banner"));
+    expect(
+      header.getByRole("link", { name: "Página inicial do Applika.dev" }),
+    ).toHaveAttribute("href", "/");
+    const group = header.getByRole("radiogroup", { name: "Alternar idioma" });
+    expect(
+      header.getByRole("button", { name: "Alternar tema" }).nextElementSibling,
+    ).toBe(group);
+    expect(
+      within(group).getByRole("radio", { name: "Português" }),
+    ).toBeChecked();
+    expect(group).not.toHaveTextContent(/EN|BR/);
+    const entrar = header.getByRole("link", { name: "Entrar" });
+    expect(entrar).toHaveAttribute("href", "/login");
+    expect(entrar).toHaveTextContent(/^Entrar$/);
+    // The header's Entrar is the page's one sign-in link.
+    expect(screen.getAllByRole("link", { name: /entrar/i })).toEqual([entrar]);
+    expect(screen.getByRole("link", { name: "Ver no GitHub" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Política de cookies" }),
+    ).toHaveAttribute("href", "/cookie-policy");
+  });
+
+  it("offers Painel to a signed-in visitor, in the header", async () => {
+    auth = { isAuthenticated: true, isLoading: false };
+    await renderInPortuguese(<PhoneLanding />, { localeSwitch: true });
+    const header = within(screen.getByRole("banner"));
+
+    expect(header.getByRole("link", { name: "Painel" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(header.queryByRole("link", { name: "Entrar" })).toBeNull();
+  });
+
+  it("names the public bar's back link in Portuguese", async () => {
+    await renderInPortuguese(<PhonePublicBar />, { localeSwitch: true });
+
+    expect(screen.getByRole("link", { name: "Início" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(
+      screen.getByRole("radiogroup", { name: "Alternar idioma" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("the applika-cli page in Portuguese", () => {
+  it("writes v3/Cli and today's page in Portuguese, commands and brand kept", async () => {
+    await renderInPortuguese(<CliPage />, { localeSwitch: true });
+    const phone = within(tree("cli-phone"));
+    const desktop = within(tree("cli-desktop"));
+
+    for (const view of [phone, desktop]) {
+      expect(view.getByText("Linha de comando")).toBeInTheDocument();
+      expect(
+        view.getByRole("heading", { level: 1, name: "applika-cli" }),
+      ).toBeInTheDocument();
+      expect(
+        view
+          .getAllByRole("heading", { level: 2 })
+          .map((heading) => heading.textContent),
+      ).toEqual([
+        "Instalação",
+        "Entrar",
+        "Acompanhe pelo terminal",
+        "Ensine seu assistente de IA",
+        "Todo o resto",
+      ]);
+      expect(
+        view.getAllByRole("button", { name: "Copiar comando" }),
+      ).toHaveLength(4);
+      expect(
+        view.getByRole("link", { name: "página inicial" }),
+      ).toHaveAttribute("href", "/");
+    }
+
+    // The phone tree's own header, list and footer.
+    const header = within(phone.getByRole("banner"));
+    expect(
+      header.getByRole("link", { name: "Página inicial do Applika.dev" }),
+    ).toHaveAttribute("href", "/");
+    expect(
+      header.getByRole("radiogroup", { name: "Alternar idioma" }),
+    ).toHaveAttribute("data-flags-only", "");
+    expect(header.getByRole("link", { name: "Entrar" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(
+      phone.getAllByRole("link", { name: "Ver no PyPI Abre em uma nova aba." }),
+    ).toHaveLength(2);
+    expect(phone.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Padrão: seu navegador abre e o login volta sozinho para o terminal.",
+      "Navegador em outra máquina: --manual mostra um código no navegador para você colar no terminal.",
+      "Sem navegador (SSH, contêineres): --device mostra um código curto para aprovar em qualquer navegador conectado.",
+    ]);
+    expect(
+      phone.getByRole("link", { name: "Política de cookies" }),
+    ).toHaveAttribute("href", "/cookie-policy");
+    expect(phone.getByRole("contentinfo")).toHaveTextContent("© Applika.dev");
+    // The commands stay English.
+    expect(
+      tree("cli-phone").querySelector('[data-slot="cli-phone-commands"]'),
+    ).toHaveTextContent("$ uv tool install applika-cli");
+  });
+
+  it("says Copiado once Copy has written the commands", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    await renderInPortuguese(<CliPage />, { localeSwitch: true });
+    const phone = within(tree("cli-phone"));
+
+    await user.click(
+      phone.getAllByRole("button", { name: "Copiar comando" })[0],
+    );
+
+    expect(phone.getByRole("button", { name: "Copiado" })).toBeInTheDocument();
+    expect(
+      tree("cli-phone").querySelector('[data-slot="cli-phone-copy-status"]'),
+    ).toHaveTextContent("Copiado");
+  });
+
+  it("offers Painel to a signed-in visitor, in the phone header", async () => {
+    auth = { isAuthenticated: true, isLoading: false };
+    await renderInPortuguese(<CliPage />, { localeSwitch: true });
+    const header = within(within(tree("cli-phone")).getByRole("banner"));
+
+    expect(header.getByRole("link", { name: "Painel" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(header.queryByRole("link", { name: "Entrar" })).toBeNull();
   });
 });
 
@@ -260,6 +516,82 @@ describe("device approval in Portuguese", () => {
     await renderInPortuguese(
       <DeviceOutcome outcome="denied" onStartOver={vi.fn()} />,
     );
+    expect(
+      screen.getByRole("button", { name: "Digitar outro código" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("phone device sign-in in Portuguese", () => {
+  const request = {
+    device_name: "ada-laptop",
+    client_label: "Chrome on macOS",
+    ip: null,
+    requested_at: "2026-10-15T14:32:00Z",
+    expires_at: "2026-10-15T14:42:00Z",
+  };
+
+  it("labels the code step in Portuguese", async () => {
+    await renderInPortuguese(
+      <PhoneDeviceCode code="BCD" onCodeChange={vi.fn()} onSubmit={vi.fn()} />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Conectar um dispositivo",
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(
+      document.querySelector('[data-slot="device-code-error"]'),
+    ).toHaveTextContent("Digite as 8 letras do código.");
+    expect(screen.getByLabelText("Código do dispositivo")).toBeInTheDocument();
+  });
+
+  it("labels the request and its warning in Portuguese, the data as sent", async () => {
+    await renderInPortuguese(
+      <PhoneDeviceRequest
+        request={request}
+        userCode="BCDF-GHJK"
+        onApprove={vi.fn()}
+        onDeny={vi.fn()}
+        onUseDifferentCode={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Um dispositivo quer entrar" }),
+    ).toBeInTheDocument();
+    const term = (name: string) =>
+      screen.getByText(name, { selector: "dt" }).nextElementSibling;
+    expect(term("Cliente")).toHaveTextContent(/^Chrome on macOS$/);
+    expect(term("Endereço IP")).toHaveTextContent("Não registrado");
+    expect(term("Solicitado")?.textContent).toMatch(/^15 de out\. de 2026/);
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Só aprove se foi você quem iniciou este acesso",
+    );
+    expect(screen.getByRole("button", { name: "Aprovar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recusar" })).toBeInTheDocument();
+  });
+
+  it("writes both outcomes in Portuguese", async () => {
+    const { unmount } = await renderInPortuguese(
+      <PhoneDeviceOutcome outcome="approved" />,
+    );
+    expect(
+      screen.getByRole("link", { name: "Ver seus dispositivos" }),
+    ).toHaveAttribute("href", "/profile?tab=devices");
+    unmount();
+
+    await renderInPortuguese(
+      <PhoneDeviceOutcome outcome="denied" onStartOver={vi.fn()} />,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "Acesso recusado. O dispositivo não foi conectado.",
+      }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Digitar outro código" }),
     ).toBeInTheDocument();

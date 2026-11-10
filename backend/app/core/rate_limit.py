@@ -1,4 +1,4 @@
-"""API rate limiter core logic (KODI-039, ADR-0015): per user with an IP
+"""API rate limiter core logic (ADR-0015): per user with an IP
 fallback, fixed window in Redis.
 
 Pure module: no ASGI here. ``app/config/rate_limit.py`` wires this into the
@@ -9,7 +9,7 @@ request pipeline.
 - ``subject_for``: a request whose ``Authorization: Bearer`` header, else
   whose ``__access`` cookie, holds a valid, unexpired access token is
   counted against that token's subject (the user); any other request is
-  counted against the client IP (R-016; Bearer first since KODI-057,
+  counted against the client IP (R-016; Bearer first since device sessions,
   ADR-0019).
 - ``hit``: one Redis pipeline (``INCR`` + ``EXPIREAT``) decides whether the
   request is allowed, bounded by a 0.5s timeout so a hanging Redis never

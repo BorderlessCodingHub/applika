@@ -32,7 +32,7 @@ def _min_allowed_today() -> date:
     """Return the earliest date a user's local "today" can be.
 
     UTC current date - 1 day: the furthest-behind real timezone (UTC-12)
-    is never more than one calendar day behind UTC (KODI-050).
+    is never more than one calendar day behind UTC.
     """
     return utc_today() - timedelta(days=1)
 
@@ -54,7 +54,7 @@ def ensure_not_in_future(value: date, field_name: str) -> date:
 
 def ensure_not_before_yesterday(value: date, field_name: str) -> date:
     """Raise ``InvalidDate`` if ``value`` is before the allowed lower
-    bound (UTC today - 1 day), i.e. no timezone's "today" (KODI-050)."""
+    bound (UTC today - 1 day), i.e. no timezone's "today"."""
     limit = _min_allowed_today()
     if value < limit:
         raise InvalidDate(

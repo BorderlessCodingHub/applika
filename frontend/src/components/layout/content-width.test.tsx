@@ -17,10 +17,10 @@ vi.mock("@/services/services", () => ({
 }));
 
 /**
- * The full-width opt-out (KODI-008, revised KODI-017, AC1).
+ * The full-width opt-out (AC1).
  *
- * The owner: "also, use the full page width for this page" (KODI-008), then
- * "only full width when we have a cv copy to the application" (KODI-017).
+ * The owner: "also, use the full page width for this page", then
+ * "only full width when we have a cv copy to the application".
  * `AppShell` renders the content container itself, so the opt-out lives
  * beside the shell in two forms: by PATH (`/cvs/new`, `/cvs/editor`, full
  * width in every state) and by CONTENT (`FullWidthContent`, mounted by

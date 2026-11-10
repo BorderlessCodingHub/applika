@@ -1,7 +1,7 @@
-"""The collected postings (KODI-046): one row per ``(source_id,
+"""The collected postings: one row per ``(source_id,
 external_id)``, never deleted (R-007).
 
-KODI-047 adds the per-user read (``list_for_user``, ``get_for_user``): a
+The jobs API adds the per-user read (``list_for_user``, ``get_for_user``): a
 posting joined to *the caller's* best fit, dismissal and application only.
 Every per-user join is keyed on the caller's ``user_id`` - there is no admin
 branch (ADR-0004): an admin sees their own fits, dismissals and

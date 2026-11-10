@@ -7,7 +7,7 @@ import { useCompanySearch } from "@/hooks/use-companies";
 import { api } from "@/lib/api-client";
 
 /**
- * KODI-035 remediation r2 (QA finding 1): the component tests all mock
+ * Remediation r2 (QA finding 1): the component tests all mock
  * `fetchCompanies`, so nothing below `CompanySelect` proved a blank query
  * actually hits `GET /companies` with no `name` (the "list on open" case,
  * AC1 (b)) rather than `GET /companies?name=`. This runs the REAL hook and

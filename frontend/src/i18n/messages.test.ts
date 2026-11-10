@@ -83,6 +83,37 @@ function parseCatalog(text: string): CatalogRow[] {
   return rows;
 }
 
+/**
+ * The option selectors of every `plural` in a message, nested ones included
+ * (`{count, plural, =0 {…} one {…} other {…}}` gives `["=0", "one", "other"]`).
+ */
+function pluralOptions(message: string): string[][] {
+  const found: string[][] = [];
+  const header = /\{\s*[A-Za-z_][A-Za-z0-9_]*\s*,\s*plural\s*,/y;
+  for (let start = 0; start < message.length; start += 1) {
+    header.lastIndex = start;
+    if (!header.test(message)) continue;
+    let at = header.lastIndex;
+    const options: string[] = [];
+    for (;;) {
+      while (/\s/.test(message[at] ?? "")) at += 1;
+      if (at >= message.length || message[at] === "}") break;
+      const selector = at;
+      while (at < message.length && !/[\s{]/.test(message[at])) at += 1;
+      options.push(message.slice(selector, at));
+      while (/\s/.test(message[at] ?? "")) at += 1;
+      let depth = 0;
+      do {
+        if (message[at] === "{") depth += 1;
+        else if (message[at] === "}") depth -= 1;
+        at += 1;
+      } while (depth > 0 && at < message.length);
+    }
+    found.push(options);
+  }
+  return found;
+}
+
 const enFlat = flatten(en as Tree);
 const ptFlat = flatten(ptBR as Tree);
 
@@ -116,6 +147,43 @@ describe("messages: en and pt-BR are twins", () => {
       expect(enFlat.has(key), key).toBe(true);
     }
     expect(enFlat.get("header.toggleLanguage")).toBe("Toggle language");
+  });
+});
+
+describe("messages: counts", () => {
+  it("reads the plural parser right", () => {
+    expect(
+      pluralOptions(
+        "{groups, plural, =0 {None} one {# group · {keywords, plural, one {# keyword} other {# keywords}}} other {# groups}}",
+      ),
+    ).toEqual([
+      ["=0", "one", "other"],
+      ["one", "other"],
+    ]);
+  });
+
+  // Portuguese (CLDR) files 0 under `one`: without `=0`, Cycles read
+  // "0 candidatura · 0 oferta".
+  it("pt-BR reads a count of 0 in the plural: every plural with a one form has =0", () => {
+    const singularAtZero = [...ptFlat]
+      .filter(([, value]) =>
+        pluralOptions(value).some(
+          (options) => options.includes("one") && !options.includes("=0"),
+        ),
+      )
+      .map(([key]) => key);
+    expect(singularAtZero).toEqual([]);
+  });
+
+  it("en says one in the singular: every plural has a one or =1 form", () => {
+    const noSingular = [...enFlat]
+      .filter(([, value]) =>
+        pluralOptions(value).some(
+          (options) => !options.includes("one") && !options.includes("=1"),
+        ),
+      )
+      .map(([key]) => key);
+    expect(noSingular).toEqual([]);
   });
 });
 

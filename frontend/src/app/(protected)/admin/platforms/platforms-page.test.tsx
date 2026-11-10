@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import { PlatformsPage } from "./platforms-page";
@@ -8,11 +9,15 @@ import { services } from "@/services/services";
 import type { AdminPlatformRow } from "@/services/types/admin";
 
 /**
- * PRD 0010 (KODI-035, T119): the admin "Supports" page is now "Platforms",
+ * PRD 0010 (T119): the admin "Supports" page is now "Platforms",
  * built on the same `CatalogTable` the companies page uses — paginated,
  * searchable, with visibility filter, Added by, Apps and Approve on private
  * rows, the 409 `detail` shown verbatim.
  */
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
 
 vi.mock("@/services/services", () => ({
   services: {
@@ -196,6 +201,8 @@ describe("PlatformsPage", () => {
       await screen.findByText("Niche Board is used by a draft."),
     ).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // At md and up the refusal keeps today's toast too.
+    expect(toast.error).toHaveBeenCalledWith("Niche Board is used by a draft.");
   });
 
   it("paginates", async () => {

@@ -5,7 +5,7 @@ dedicated testcontainers Postgres - upgrade to the revision, downgrade to its
 parent ``d3f7b1c9e2a4``, upgrade again - with rows seeded before the upgrade
 and the data asserted after every step.
 
-What is proved here, by acceptance criterion of KODI-010:
+What is proved here, by acceptance criterion of Release A:
 
 * 1, 2, 3, 12 - the schema: one ``event_type`` per event, the two CHECKs and
   the one-initial-screening partial unique index refuse bad rows;
@@ -17,13 +17,13 @@ What is proved here, by acceptance criterion of KODI-010:
 * 6 - writes shaped like the **old use cases' own SQL** (create, update,
   delete step, finalize, admin-created definition) reach ``timeline_events``
   through the transitional triggers, and a trigger failure never fails the
-  old write. Release B (KODI-011) removed those use cases, so the helpers now
+  old write. Release B removed those use cases, so the helpers now
   issue the statements they issued;
 * 7, 10 - downgrade restores the originals and brings Release B events back
   as steps; the second upgrade equals the first;
 * 8, 9, 11 - downgrade works, upgrade drops nothing; since Release B the ORM
   maps exactly R1's new objects and nothing ``_old``;
-* KODI-011 criterion 26 - the **Release B code itself** runs on this schema,
+* Release B criterion 26 - the **Release B code itself** runs on this schema,
   and what it writes comes back as steps on ``alembic downgrade``;
 * 13 - the 20 currencies and ``ANNUALLY`` exist, ``ANNUAL`` still works.
 
@@ -56,7 +56,7 @@ from app.config.settings import envs
 
 REVISION = 'afd4074c70c2'
 PARENT_REVISION = 'd3f7b1c9e2a4'
-# KODI-014: "Fold into Release A" chains R1 -> R3 -> R2, so R3 ships in the
+# "Fold into Release A" chains R1 -> R3 -> R2, so R3 ships in the
 # same release as R1. Used only by the Release B round-trip test below,
 # which needs the true Release A shape (R1 + R3) before running Release B's
 # own use cases - they always write ``denied_reason``.
@@ -836,7 +836,7 @@ def test_the_mapping_constants_carry_the_owner_decisions() -> None:
 
 def test_release_b_orm_maps_the_new_objects_and_nothing_old() -> None:
     """Release A read nothing new (prod-release-runbook.md 4); Release B
-    (KODI-011) maps R1's objects and stops mapping the legacy columns, and
+    maps R1's objects and stops mapping the legacy columns, and
     still never touches an ``_old`` object (non-destructive-migrations 7)."""
     from app.domain import models
     from app.domain.models import ApplicationModel, StepDefinitionModel
@@ -1762,7 +1762,7 @@ def test_downgrade_brings_release_b_back_to_the_previous_release(
 
 
 # --------------------------------------------------------------------------
-# Release B code on this schema, then rolled back (KODI-011 criterion 26)
+# Release B code on this schema, then rolled back (Release B criterion 26)
 # --------------------------------------------------------------------------
 
 
@@ -1844,7 +1844,7 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
 
         # APP_FRESH: a note and a technical interview on the web, then an
         # installed CLI finalizes it with the 0.1.4 body. The long timezone
-        # sits on the interview, not the note - KODI-016 (R-038/R-039)
+        # sits on the interview, not the note - R-038/R-039
         # refuses a schedule on a non-interview event, even at this
         # pre-R4 schema state (the rule lives in the use case, not the DB).
         # The code writes no note any more (ADR-0020): the "note" is the
@@ -1936,12 +1936,12 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
 def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
     migration_db: str,
 ) -> None:
-    """KODI-011 criterion 26: Release B's own use cases run on the schema
+    """Criterion 26: Release B's own use cases run on the schema
     Release A leaves (the ORM mapping matches it), and ``alembic downgrade``
     to R1's own parent brings everything they wrote back to the previous
     release.
 
-    KODI-014 folded R3 (``c8b3e9f4a1d6``, ``denied_reason``) into Release A,
+    The owner folded R3 (``c8b3e9f4a1d6``, ``denied_reason``) into Release A,
     chaining R1 -> R3 -> R2, so the schema Release B's code actually runs
     against always has R3 too (the owner's ``alembic upgrade head`` applies
     the whole Release A migration set in one go) - every event write since
@@ -1956,7 +1956,7 @@ def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
     steps = _steps(migration_db)
     feedbacks = _feedbacks(migration_db)
 
-    # KODI-032 (S3, well after this migration in the chain) mapped
+    # S3 (drafts, well after this migration in the chain) mapped
     # ``ApplicationModel.is_draft`` unconditionally, so any ``select
     # (ApplicationModel)`` the Release B use cases below issue now names
     # that column. Real production always has it by the time this code
@@ -1970,7 +1970,7 @@ def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
         'ALTER TABLE applications ADD COLUMN is_draft boolean '
         'NOT NULL DEFAULT false',
     )
-    # KODI-047 mapped ``ApplicationModel.job_id`` (revision
+    # The jobs API mapped ``ApplicationModel.job_id`` (revision
     # ``b28d5134631f``) the same way, so the column is added here for the
     # same reason. No FK: ``jobs`` does not exist at R3.
     _sql(migration_db, 'ALTER TABLE applications ADD COLUMN job_id bigint')

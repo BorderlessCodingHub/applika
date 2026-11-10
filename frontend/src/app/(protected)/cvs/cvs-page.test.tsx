@@ -11,7 +11,7 @@ import { NEW_CV_COPY } from "@/components/base-cvs/new-cv-card";
 import type { BaseCv } from "@/services/types/base-cv";
 
 /**
- * `/cvs` list, delete and the visible cap (KODI-002 / R-001, R-002, R-003).
+ * `/cvs` list, delete and the visible cap (R-001, R-002, R-003).
  *
  * AC3 — the page lists the user's own master CVs and deletes one on demand.
  * AC2 — at three CVs the create affordance is really disabled and the words
@@ -235,13 +235,13 @@ describe("CvsPage", () => {
 });
 
 /**
- * The gallery's download (KODI-009 / AC2).
+ * The gallery's download (AC2).
  *
  * The owner: "add a button to download the CV". It is the SAME export route
  * the editor already uses (ADR 0011, the PDF is typeset on the server); there
  * is no second path and nothing is rendered in the browser.
  */
-describe("CvsPage downloads a CV as Markdown (KODI-017 part 3)", () => {
+describe("CvsPage downloads a CV as Markdown", () => {
   it("asks the Markdown route for the pressed CV, distinct from the PDF one", async () => {
     const user = userEvent.setup();
     listMock.mockResolvedValue([cv("1", "Backend CV"), cv("2", "Data CV")]);

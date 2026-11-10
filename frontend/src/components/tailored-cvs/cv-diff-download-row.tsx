@@ -35,7 +35,7 @@ export interface CvDiffDownloadRowProps {
 }
 
 /**
- * The copy editor's "Download changes" affordance (KODI-017 part 3): the diff
+ * The copy editor's "Download changes" affordance: the diff
  * between the copy and its baseline, rendered by the SERVER (ADR 0011), as a
  * Markdown file or a PDF. Sits beside `CvDiffSummaryBar` in the editor's
  * `diffSummary` slot.

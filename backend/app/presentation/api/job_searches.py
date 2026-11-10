@@ -1,4 +1,4 @@
-"""Saved job searches of the signed-in user (KODI-047, PRD 0012 R-030,
+"""Saved job searches of the signed-in user (PRD 0012 R-030,
 R-032). Each user sees and changes only their own - admins too (ADR-0004).
 A saved search never sends a notification."""
 

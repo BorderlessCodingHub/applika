@@ -129,7 +129,7 @@ test.describe("Timeline: add events, close, reopen", () => {
     await loginAs(page, "user");
     await page.goto("/applications");
 
-    // KODI-015 G1/G2: an open application shows the "Active" status pill.
+    // G1/G2: an open application shows the "Active" status pill.
     // Scoped to this application's own row (`aria-labelledby` names it by
     // company) rather than `.first()`, and not `exact` — the pill's
     // accessible name carries a sr-only "Status: " prefix in the same
@@ -173,7 +173,7 @@ test.describe("Timeline: add events, close, reopen", () => {
     await expect(interviewTypeSelect).toBeVisible();
     await expect(interviewTypeSelect).toHaveText(/unknown/i);
 
-    // ---- The interview-only schedule inputs show for Interview (AC2, KODI-014) ----
+    // ---- The interview-only schedule inputs show for Interview (AC2) ----
     await expect(dialog.getByLabel("Start")).toBeVisible();
     await expect(dialog.getByLabel("End")).toBeVisible();
     await expect(
@@ -461,7 +461,7 @@ test.describe("Timeline: add events, close, reopen", () => {
   });
 });
 
-test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
+test.describe("Timeline: denied reason (AC4)", () => {
   test("records a denied event with a reason, created through the form, and shows it on the card", async ({
     page,
     request,
@@ -508,7 +508,7 @@ test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
     await expect(page.getByText(/feedback:\s*ghosted/i)).toBeVisible();
   });
 
-  test("hides the Feedback title line when the denied reason is left Unknown (G3, KODI-015)", async ({
+  test("hides the Feedback title line when the denied reason is left Unknown (G3)", async ({
     page,
     request,
   }) => {
@@ -589,7 +589,7 @@ test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
   });
 });
 
-test.describe("Timeline: timezone pre-fill (AC3, KODI-014)", () => {
+test.describe("Timeline: timezone pre-fill (AC3)", () => {
   // A real IANA zone, distinct from the container's likely UTC default, so the
   // pre-fill is provably READ from the browser rather than coincidentally
   // matching a hard-coded expectation.
@@ -632,7 +632,7 @@ test.describe("Timeline: timezone pre-fill (AC3, KODI-014)", () => {
   });
 });
 
-test.describe("Timeline: schedule display (AC2, KODI-016)", () => {
+test.describe("Timeline: schedule display (AC2)", () => {
   test("an interview's card shows the readable zone (underscores as spaces), exactly like the select", async ({
     page,
     request,

@@ -18,7 +18,7 @@ vi.mock("@/config", () => ({
 import { AuthService } from "./auth-service";
 import { SessionService } from "./session-service";
 
-/** KODI-058: the exact routes and bodies of the device calls (the API contract). */
+/** PRD 0014: the exact routes and bodies of the device calls (the API contract). */
 
 beforeEach(() => {
   for (const fn of [get, del, post]) {

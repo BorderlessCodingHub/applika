@@ -94,7 +94,7 @@ AC:
 
 ## K4 — S4 shell + pages: sidebar shell, landing/login/cookie-policy restyle   side: frontend   covers: R-006, R-016, R-017, R-018, R-019, R-020   deps: K3
 Owner's words: "Keep Applika name + logo" "Keep light+dark; restyle landing"
-Touch: frontend/src/components/layout/nav.ts (new), frontend/src/components/layout/{app-shell,sidebar,sidebar-nav,header,user-menu}.tsx (new), frontend/src/components/layout/sidebar-nav.test.tsx (new), frontend/src/app/(protected)/layout.tsx, frontend/src/components/layout/app-layout.tsx (remove), frontend/src/components/layout/app-header.tsx (remove), frontend/src/components/app-logo.tsx, frontend/src/components/landing/* (10 files), frontend/src/app/login/page.tsx, frontend/src/app/(public)/cookie-policy/page.tsx, frontend/src/components/cookie-consent.tsx, frontend/src/components/auth-buttons.tsx, frontend/CLAUDE.md
+Touch: frontend/src/components/layout/nav.ts (new), frontend/src/components/layout/{app-shell,sidebar,sidebar-nav,header,user-menu}.tsx (new), frontend/src/components/layout/sidebar-nav.test.tsx (new), frontend/src/app/(protected)/layout.tsx, frontend/src/components/layout/app-layout.tsx (remove), frontend/src/components/layout/app-header.tsx (remove), frontend/src/components/app-logo.tsx, frontend/src/components/landing/* (10 files), frontend/src/app/login/page.tsx, frontend/src/app/(public)/cookie-policy/page.tsx, frontend/src/components/cookie-consent.tsx, frontend/src/components/auth-buttons.tsx, frontend/AGENTS.md
 Steps:
 - T044 [US4] Create nav items `/dashboard`, `/applications`, `/agenda`, `/reports`, `/cycles`, `/profile`, `/admin` admin-only in frontend/src/components/layout/nav.ts (new)
 - T045 [US4] Build shell with `AppLogo` from frontend/src/components/app-logo.tsx (not `brand.tsx`), user menu truncates long username/email, in frontend/src/components/layout/{app-shell,sidebar,sidebar-nav,header,user-menu}.tsx (new)
@@ -108,7 +108,7 @@ Steps:
 - T053 [P] [US5] Restyle frontend/src/app/login/page.tsx
 - T054 [P] [US5] Restyle frontend/src/app/(public)/cookie-policy/page.tsx
 - T055 [P] [US5] Restyle frontend/src/components/cookie-consent.tsx and frontend/src/components/auth-buttons.tsx
-- T056 [US5] Update UI Components, Key Files, commands in frontend/CLAUDE.md
+- T056 [US5] Update UI Components, Key Files, commands in frontend/AGENTS.md
 - T057 [US5] Run gates in frontend and smoke via scripts/e2e.sh, green
 AC:
 - The smoke tests pass on today's look before the upgrade and keep passing after each later slice; they assert on visible text and roles, not on styling.
@@ -123,14 +123,14 @@ AC:
 Owner's words: "the better of two worlds, i also want frontend tests and e2e tests with real application stack"
 Touch: none (verify only)   Pattern: .claude/rules/quality-gates.md
 Steps:
-- T058 Run gate in CLAUDE.md order: `cd backend && make format && make lint && make test`; `cd frontend && pnpm lint && pnpm test && pnpm build`; `cd cli && make format && make lint && make test`
+- T058 Run gate in AGENTS.md order: `cd backend && make format && make lint && make test`; `cd frontend && pnpm lint && pnpm test && pnpm build`; `cd cli && make format && make lint && make test`
 - T059 Run target frontend gate from .claude/rules/quality-gates.md: `pnpm lint`, `pnpm prettier --check .`, `pnpm tsc --noEmit`, `pnpm test` in frontend
 - T060 Run `scripts/e2e.sh` locally and confirm CI `e2e` job green in .github/workflows/frontend-ci.yaml
 - T061 Confirm no container, network, volume or temp DB of docker-compose.e2e.yml left
 - T062 Confirm docs/adr/0006, 0007, 0002, 0010 read `Accepted`
 - T063 Walk by hand on real stack: 14 pages, both themes, desktop + mobile, user + admin, saved light kept, "system" → dark, long username truncates, banners do not cover sidebar, `/reports/[day]` in static export, charts readable
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus frontend `pnpm prettier --check .` and `pnpm tsc --noEmit` per .claude/rules/quality-gates.md.
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus frontend `pnpm prettier --check .` and `pnpm tsc --noEmit` per .claude/rules/quality-gates.md.
 - Every ADR the feature drafted reads Accepted (0006; bound 0007, 0002, 0010 also Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks or temp databases.
 - The E2E the feature earned (smoke.spec.ts, auth-guard.spec.ts, admin-gating.spec.ts via scripts/e2e.sh) runs inside the gate and is green.

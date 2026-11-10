@@ -1,4 +1,4 @@
-"""PKCE (RFC 7636) for `applika login` (KODI-060, ADR-0019).
+"""PKCE (RFC 7636) for `applika login` (ADR-0019).
 
 The verifier stays on this machine; only its S256 challenge goes to
 ``GET /auth/cli/authorize``. The verifier is sent once, with the code, on

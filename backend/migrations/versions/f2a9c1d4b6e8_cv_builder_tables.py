@@ -22,8 +22,8 @@ revision created, which is what .claude/rules/non-destructive-migrations.md
 points 1 and 5 ask for; nothing pre-existing is retired here, so there is no
 ``_old`` rename.
 
-**Amended in place by KODI-006**, on the owner's explicit order ("Amend
-KODI-001's revision instead"): ``education`` joined the JSONB section list and
+**Amended in place by the CV fidelity change**, on the owner's explicit order ("Amend
+[S1's] revision instead"): ``education`` joined the JSONB section list and
 ``skills`` changed from a list of strings to a list of categories. This
 revision has never run on any database, so there was no data to preserve and
 no deployed schema to protect - the narrow exception the owner granted to

@@ -16,7 +16,7 @@ class GeneralStatisticsUseCase:
     in both. The success rate is offers over all applications. Keyed on the
     event type, no longer on the "Offer"/"Denied" step names.
 
-    ``active`` (AC23, KODI-013) is the applications in the same scope/cycle
+    ``active`` (AC23) is the applications in the same scope/cycle
     as ``total_applications`` whose ``finalized_at`` is NULL — not closed,
     regardless of outcome.
     """

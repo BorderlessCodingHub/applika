@@ -109,6 +109,12 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   application: Application | null;
+  /**
+   * Where focus goes when the sheet closes (Radix `onCloseAutoFocus`): the
+   * phone Application screen hands it back to its More button, since the
+   * More sheet's Edit row that opened it is gone. Absent, Radix's default.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 function buildDefaultValues(application: Application | null) {
@@ -151,6 +157,7 @@ export function ApplicationFormSheet({
   open,
   onOpenChange,
   application,
+  onCloseAutoFocus,
 }: Props) {
   const { data: platforms, isLoading: platformsLoading } = usePlatforms();
   const { fetchCompanies } = useCompanySearch();
@@ -196,7 +203,12 @@ export function ApplicationFormSheet({
 
   return (
     <Sheet open={open}>
-      <SheetContent className="overflow-y-auto" size="wide" hideClose>
+      <SheetContent
+        className="overflow-y-auto"
+        size="wide"
+        hideClose
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <SheetHeader>
           <SheetTitle className="font-display text-xl">
             {application ? t("editTitle") : t("newTitle")}

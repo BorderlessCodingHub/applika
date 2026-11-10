@@ -146,6 +146,152 @@ describe("useDebouncedAutosave", () => {
     expect(result.current.status).toBe("saved");
   });
 
+  describe("on unmount (leaving the page, or crossing md)", () => {
+    it("sends the save still waiting out its delay, with the last value", async () => {
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      const { rerender, unmount } = renderHook(
+        ({ value }) => useDebouncedAutosave({ value, isReady: true, onSave }),
+        { initialProps: { value: "a" } },
+      );
+
+      rerender({ value: "b" });
+      act(() => vi.advanceTimersByTime(400));
+      rerender({ value: "bc" });
+      act(() => vi.advanceTimersByTime(400));
+      unmount();
+
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(onSave).toHaveBeenCalledWith("bc");
+      // No timer was left behind to send it a second time.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends nothing when nothing changed", async () => {
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      const { unmount } = renderHook(
+        ({ value }) => useDebouncedAutosave({ value, isReady: true, onSave }),
+        { initialProps: { value: "a" } },
+      );
+
+      unmount();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it("sends nothing while required fields are empty", () => {
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      const { rerender, unmount } = renderHook(
+        ({ value, isReady }) =>
+          useDebouncedAutosave({ value, isReady, onSave }),
+        { initialProps: { value: "a", isReady: true } },
+      );
+
+      rerender({ value: "b", isReady: false });
+      unmount();
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it("sends nothing more once the last change was already sent", async () => {
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      const { rerender, unmount } = renderHook(
+        ({ value }) => useDebouncedAutosave({ value, isReady: true, onSave }),
+        { initialProps: { value: "a" } },
+      );
+
+      rerender({ value: "b" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(onSave).toHaveBeenCalledTimes(1);
+      unmount();
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("never sends two at once: a change waiting behind the request in flight goes when it settles", async () => {
+      let settle: () => void = () => {};
+      const onSave = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((resolve) => {
+              settle = resolve;
+            }),
+        )
+        .mockResolvedValue(undefined);
+      const { rerender, unmount } = renderHook(
+        ({ value }) => useDebouncedAutosave({ value, isReady: true, onSave }),
+        { initialProps: { value: "a" } },
+      );
+
+      rerender({ value: "b" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(onSave).toHaveBeenCalledTimes(1);
+      rerender({ value: "bc" });
+      unmount();
+      // "b" is still in flight: "bc" waits for it.
+      expect(onSave).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        settle();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(onSave).toHaveBeenCalledTimes(2);
+      expect(onSave).toHaveBeenLastCalledWith("bc");
+    });
+
+    it("sends no second request when nothing waits behind the one in flight", async () => {
+      let settle: () => void = () => {};
+      const onSave = vi.fn().mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            settle = resolve;
+          }),
+      );
+      const { rerender, unmount } = renderHook(
+        ({ value }) => useDebouncedAutosave({ value, isReady: true, onSave }),
+        { initialProps: { value: "a" } },
+      );
+
+      rerender({ value: "b" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      unmount();
+      await act(async () => {
+        settle();
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("under Strict Mode (mount, unmount, mount again)", () => {
+    it("sends nothing for the extra unmount, then saves and says Saved", async () => {
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      const { result, rerender } = renderHook(
+        ({ value }) => useDebouncedAutosave({ value, isReady: true, onSave }),
+        { initialProps: { value: "a" }, reactStrictMode: true },
+      );
+      const sentOnMount = onSave.mock.calls.length;
+      expect(sentOnMount).toBe(0);
+
+      rerender({ value: "b" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(onSave).toHaveBeenLastCalledWith("b");
+      expect(result.current.status).toBe("saved");
+    });
+  });
+
   it("never sends a request while required fields are empty", () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const { result, rerender } = renderHook(

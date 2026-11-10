@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DraftFooterActions } from "@/components/application-drafts/draft-footer-actions";
 
 /**
- * KODI-036, step 1 Cancel (orchestrator decision, option C'): a plain
+ * PRD 0010, step 1 Cancel (orchestrator decision, option C'): a plain
  * `LinkButton` to `/applications`. When closing the tab right now would lose
  * unsaved work (`hasUnsavedRisk`), the click is intercepted and replaced with
  * `window.location.assign` — a real top-level navigation, so the page's own

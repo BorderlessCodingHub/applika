@@ -8,7 +8,7 @@ import {
 } from "./cv-diff-download-row";
 
 /**
- * The copy editor's "Download changes" row (KODI-017 part 3).
+ * The copy editor's "Download changes" row.
  *
  * Pinned: PDF and Markdown are two DISTINCT accessible names ("Download
  * changes as PDF" / "Download changes as Markdown"), never plain "PDF"/

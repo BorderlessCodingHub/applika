@@ -31,7 +31,7 @@ export interface ITailoredCvService {
    * a locked copy still downloads, which is half of what makes it readable.
    */
   exportPdf(applicationId: string): Promise<CvPdfExport>;
-  /** The same copy as Markdown (KODI-017 part 3), `GET .../cv/markdown`. */
+  /** The same copy as Markdown, `GET .../cv/markdown`. */
   exportMarkdown(applicationId: string): Promise<CvPdfExport>;
   /**
    * The diff between the copy and its baseline, as Markdown

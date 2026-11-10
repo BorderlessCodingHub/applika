@@ -1,4 +1,4 @@
-"""``--file`` loading and local validation (KODI-018).
+"""``--file`` loading and local validation.
 
 One module for both payload families the spec gives ``--file`` to: a CV
 document (``cvs create|edit``, ``applications cv create|edit``) and an

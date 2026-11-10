@@ -394,7 +394,7 @@ export function FeatureReleased({
   );
 }
 
-/** Pending keeps focus: aria-disabled, not disabled (KODI-048). */
+/** Pending keeps focus: aria-disabled, not disabled. */
 export function RetryButton({
   label,
   isRetrying,

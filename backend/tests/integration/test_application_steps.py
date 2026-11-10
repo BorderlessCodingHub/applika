@@ -461,7 +461,7 @@ async def test_edit_without_step_keeps_an_offer_and_its_salary(
 async def test_edit_without_step_keeps_a_denied_events_reason(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-014: symmetric to the offer/salary case above - a 0.1.4 `steps
+    """Symmetric to the offer/salary case above - a 0.1.4 `steps
     edit` without `--step` resending the event's own (strict) reverse step
     keeps its denied_reason too, instead of resetting it to unknown."""
     await _seed_app_and_steps(db_session)
@@ -679,7 +679,7 @@ async def test_create_step_invalid_time_ranges_return_422(
 async def test_update_step_with_both_times_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    # KODI-016: the schedule is interview-only, so the event has to already
+    # the schedule is interview-only, so the event has to already
     # be the interview STEP_PHASE_2 maps to (the 0.1.4 "resend the reverse
     # step, keep the event's own type" branch keeps it interview here -
     # see ``test_update_step_of_different_reverse_type_drops_the_schedule``
@@ -711,7 +711,7 @@ async def test_update_step_with_both_times_succeeds(
 async def test_update_step_of_a_non_interview_kind_drops_the_schedule(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-016 (R-038/R-039): a 0.1.4 client always sends times; when the
+    """R-038/R-039: a 0.1.4 client always sends times; when the
     event stays (or becomes) a non-interview kind, the compat route stores
     it without them, silently, never a 422
     (``.claude/rules/cli-compatibility.md``)."""

@@ -63,7 +63,7 @@ S2:
   `schemas/features.py` (new), strict bodies (`extra=forbid`).
 - `app/scripts/seed_e2e.py`, each run: enrol `e2e` in `jobs`, delete `e2e-admin` opt-outs; `e2e-discord` never enrolled.
 - `scripts/seed_mock_data.py`: no `jobs` in `/users/me/features` → skip keyword copy, searches, draft-from-job; log.
-- `backend/CLAUDE.md`: "Beta features (ADR-0018)" section, endpoint tables, domain models.
+- `backend/AGENTS.md`: "Beta features (ADR-0018)" section, endpoint tables, domain models.
 
 ## Frontend
 Module `frontend/src`, no i18n lib. Patterns: `app/(protected)/admin/jobs/jobs-page.tsx`, `admin/discord-webhooks/discord-webhooks-page.tsx`, `admin/users/users-page.tsx`, `components/layout/nav.ts`.
@@ -89,7 +89,7 @@ S3:
   "Release to everyone" / "Move back to beta" AlertDialog (move-back: "Users who are neither on this list nor admins
   lose access."). `admin-nav.tsx` tab "Features" (lucide `FlaskConical`). `hooks/use-admin.ts` keys
   `["admin","features"]`, `["admin","feature-users",key,params]`; mutations invalidate both + `["user","features"]`.
-- Design system (none named): `frontend/CLAUDE.md` "### App shell", "### Routing", "### Service Layer & DI", "### State
+- Design system (none named): `frontend/AGENTS.md` "### App shell", "### Routing", "### Service Layer & DI", "### State
   Management", "### Admin — Jobs", "### UI Components"; ADR-0006 tokens; ui-designer. Add "Beta features" section (nav 8/7).
 
 ## Contract
@@ -134,7 +134,7 @@ E2E: `frontend/e2e/beta-features.spec.ts` (new, serial). Admin: sees Jobs + Beta
 - `cli-compatibility.md`: no CLI route changes; `/users/me` untouched (sibling route). `changelogs.md`: backend every
   slice; `cli/CHANGELOG.md`: `tailoring: "keywords"` needs `jobs` beta (CLI never sends it).
 - `quality-gates.md`: ty clean on touched files, coverage ≥ 90, e2e real stack. `branches-and-commits.md`.
-- New, workspace: `.claude/rules/beta-features.md` (new) + line in workspace `CLAUDE.md` `## Rules`: every new
+- New, workspace: `.claude/rules/beta-features.md` (new) + line in workspace `AGENTS.md` `## Rules`: every new
   user-facing feature adds a `FeatureKey` member and a stage-`beta` seed row in its own Release A migration, gates
   routes with `require_feature` and UI with `useHasFeature`; release is an admin action; removing a gate is an owner order.
 

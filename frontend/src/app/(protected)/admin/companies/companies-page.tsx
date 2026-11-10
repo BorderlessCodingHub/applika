@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import type { AxiosError } from "axios";
+import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,6 +34,10 @@ import {
 import { APPROVE_COPY } from "@/components/admin/approve-catalog-button";
 import { word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
+import { getApiError } from "@/lib/api-client";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { CatalogScreenView } from "@/components/phone/screens/admin-catalog-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useTranslations } from "next-intl";
 import type { AdminCompanyRow } from "@/services/types/admin";
 
@@ -54,16 +60,19 @@ export function CompaniesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminCompanyRow | null>(null);
 
-  const { data, isLoading, isFetching, isError, refetch } = useAdminCompanies({
-    search: search || undefined,
-    visibility: visibilityParam(visibility),
-    page,
-    per_page: PAGE_SIZE,
-  });
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useAdminCompanies({
+      search: search || undefined,
+      visibility: visibilityParam(visibility),
+      page,
+      per_page: PAGE_SIZE,
+    });
 
-  const createCompany = useCreateAdminCompany();
-  const updateCompany = useUpdateAdminCompany();
-  const deleteCompany = useDeleteAdminCompany();
+  const isPhone = useIsPhone();
+  // Below md the sheets show a refusal in place: no toast on top of it.
+  const createCompany = useCreateAdminCompany({ toastError: !isPhone });
+  const updateCompany = useUpdateAdminCompany({ toastError: !isPhone });
+  const deleteCompany = useDeleteAdminCompany({ toastError: !isPhone });
   const publishCompany = usePublishCompany();
 
   const companies = data?.items ?? [];
@@ -105,6 +114,86 @@ export function CompaniesPage() {
     setEditTarget(company);
     editForm.reset({ name: company.name, url: company.url });
   };
+
+  // Below md v3/AdminCompanies (PRD 0022): the same query, forms, schema and
+  // mutations; Add, Edit, Approve and Delete open sheets that show the
+  // server's refusal inside them.
+  if (isPhone) {
+    // The switch and Edit share the update: tell a status change from a save.
+    const statusChange = updateCompany.variables?.data.is_active !== undefined;
+    return (
+      <CatalogScreenView
+        kind="company"
+        rows={fromQuery({ data, isError, error, isFetching, refetch })}
+        refreshing={isFetching && !!data}
+        search={search}
+        onSearchChange={(next) => {
+          setSearch(next);
+          setPage(1);
+        }}
+        visibility={visibility}
+        onVisibilityChange={(next) => {
+          setVisibility(next);
+          setPage(1);
+        }}
+        page={page}
+        onPageChange={setPage}
+        onAdd={() => {
+          createCompany.reset();
+          setCreateOpen(true);
+        }}
+        onEdit={(row) => {
+          // A status change still in flight keeps its pending switch; its
+          // error never reaches the sheet (`statusChange`).
+          if (!updateCompany.isPending) updateCompany.reset();
+          openEdit(row);
+        }}
+        onDelete={(row) => deleteCompany.mutateAsync(row.id)}
+        onApprove={async (row) => {
+          try {
+            await publishCompany.mutateAsync(row.id);
+          } catch (error) {
+            return safeErrorMessage(error, APPROVE_COPY.failed);
+          }
+        }}
+        onToggleActive={(row) =>
+          updateCompany.mutate(
+            { id: row.id, data: { is_active: !row.is_active } },
+            // The switch has no sheet: its refusal stays a toast.
+            { onError: (err) => toast.error(getApiError(err as AxiosError)) },
+          )
+        }
+        togglingId={
+          updateCompany.isPending && statusChange
+            ? (updateCompany.variables?.id ?? null)
+            : null
+        }
+        add={{
+          open: createOpen,
+          onOpenChange: setCreateOpen,
+          form: createForm,
+          onSubmit: handleCreate,
+          pending: createCompany.isPending,
+          error: createCompany.error
+            ? getApiError(createCompany.error as AxiosError)
+            : null,
+        }}
+        edit={{
+          open: !!editTarget,
+          onOpenChange: (open) => {
+            if (!open) setEditTarget(null);
+          },
+          form: editForm,
+          onSubmit: handleEdit,
+          pending: updateCompany.isPending && !statusChange,
+          error:
+            updateCompany.error && !statusChange
+              ? getApiError(updateCompany.error as AxiosError)
+              : null,
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">

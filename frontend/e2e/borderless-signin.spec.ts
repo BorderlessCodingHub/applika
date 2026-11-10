@@ -6,7 +6,6 @@ import {
   request as playwrightRequest,
   test,
   type APIRequestContext,
-  type Browser,
   type Page,
   type Request,
 } from "@playwright/test";
@@ -15,12 +14,18 @@ import {
   BORDERLESS_ACCOUNTS,
   apiUrl,
   borderlessUrl,
+  deleteAccount,
   loginAs,
   signInWithBorderlessButton,
   signInWithFake,
   type BorderlessAccount,
 } from "./support/auth";
 import { COOKIE_NOTICE_ACKNOWLEDGED } from "./support/cookie-notice";
+import {
+  PHONE,
+  expectNoSidewaysScroll,
+  expectPhoneTargets,
+} from "./support/phone";
 
 /**
  * Borderless OpenID Connect sign-in on the real stack (ADR-0026): the built
@@ -40,6 +45,15 @@ import { COOKIE_NOTICE_ACKNOWLEDGED } from "./support/cookie-notice";
  *   tokens would be forgotten and their sessions ended.
  * - Each test starts in a new browser context, so with no fake Borderless
  *   session: the first sign-in of a test always shows the fake's own page.
+ *
+ * `/login` is sign-in option C below md (signin/C_Mobile, its "Continue with
+ * Borderless" with Borderless's logo before the label) and option A at md
+ * and up (signin/A_Desktop: the paired tiles in one card, "Sign in with
+ * Borderless"), one tree per width by CSS: role queries see the tree the
+ * viewport shows; a `data-slot` locator names its tree. The last describe
+ * walks both trees' states signed out: C at 390×844 (and 320), A at 1280,
+ * pending included (recorded in the page the moment it renders; the real
+ * API answers, then the fake's page, and Back brings the page back ready).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -88,22 +102,6 @@ async function setFakeAccount(
   expect(response.status(), `fake account ${account.sub}`).toBe(200);
 }
 
-/** Signs `account` in through the fake in its own context, then `DELETE /users/me`. */
-async function deleteAccount(browser: Browser, account: BorderlessAccount) {
-  const context = await browser.newContext({
-    storageState: COOKIE_NOTICE_ACKNOWLEDGED,
-  });
-  try {
-    const page = await context.newPage();
-    await signInWithFake(page, account.email);
-    await page.waitForURL(/\/(welcome|dashboard)$/);
-    const response = await page.request.delete(apiUrl("/users/me"));
-    expect(response.status(), `delete ${account.email}`).toBeLessThan(300);
-  } finally {
-    await context.close();
-  }
-}
-
 /** A new account answers the one-time welcome choice; an existing one lands on the dashboard. */
 async function landSignedIn(page: Page, { isNew }: { isNew: boolean }) {
   if (isNew) {
@@ -116,8 +114,15 @@ async function landSignedIn(page: Page, { isNew }: { isNew: boolean }) {
   ).toBeVisible();
 }
 
-function signInError(page: Page) {
-  return page.locator('[data-slot="sign-in-error"]');
+type SignInTree = "sign-in-desktop" | "sign-in-phone";
+
+/** The refusal box of one width's tree (each tree has its own). */
+function signInError(page: Page, tree: SignInTree = "sign-in-desktop") {
+  return page.locator(`[data-slot="${tree}"] [data-slot="sign-in-error"]`);
+}
+
+function cliHint(page: Page, tree: SignInTree) {
+  return page.locator(`[data-slot="${tree}"] [data-slot="sign-in-cli-hint"]`);
 }
 
 function primaryNav(page: Page) {
@@ -420,6 +425,61 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
     expect(user.badges).toEqual([]);
   });
 
+  test("a new account answers the welcome choice on a phone (v2/Welcome)", async ({
+    browser,
+  }) => {
+    // STARTER answered on the desktop just before: deleted, it is new again.
+    await deleteAccount(browser, BORDERLESS_ACCOUNTS.starter);
+    const context = await browser.newContext({
+      viewport: PHONE,
+      storageState: COOKIE_NOTICE_ACKNOWLEDGED,
+    });
+    try {
+      const page = await context.newPage();
+      await signInWithFake(page, BORDERLESS_ACCOUNTS.starter.email);
+      await page.waitForURL("**/welcome");
+
+      await expect(page.locator('[data-slot="welcome-phone"]')).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Used applika with GitHub before?",
+          level: 1,
+        }),
+      ).toBeVisible();
+      const choice = page.getByRole("radiogroup", { name: "How to start" });
+      const restore = choice.getByRole("radio", {
+        name: "Bring back your old account",
+      });
+      const fresh = choice.getByRole("radio", {
+        name: "Start with an empty account",
+      });
+      await expect(restore).toBeChecked();
+      await expect(
+        page.getByRole("button", { name: "Restore your data from GitHub" }),
+      ).toBeVisible();
+      // The two answers and the button (the applika-cli banner shows on Today only).
+      await expectPhoneTargets(page, 3);
+      await expectNoSidewaysScroll(page);
+
+      // One button, for the answer picked.
+      await fresh.click();
+      await expect(fresh).toBeChecked();
+      await expect(
+        page.getByRole("button", { name: "Restore your data from GitHub" }),
+      ).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Start fresh", exact: true })
+        .click();
+
+      await page.waitForURL("**/dashboard");
+      await expect(page.locator('[data-slot="phone-tab-bar"]')).toBeVisible();
+      const user = await (await page.request.get(apiUrl("/users/me"))).json();
+      expect(user.github_restore).toEqual({ available: true, prompt: false });
+    } finally {
+      await context.close();
+    }
+  });
+
   test("the profile offers the GitHub restore; it leaves for github.com asking only read:user", async ({
     page,
   }) => {
@@ -711,5 +771,540 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
       data: { refresh_token: revokeCli!.refresh_token },
     });
     expect(signOut.status()).toBe(204);
+  });
+});
+
+test.describe("the sign-in page signed out: option C below md, option A at md and up", () => {
+  const AUTH_1046 =
+    "The sign-in expired or was started in another browser. Start it again";
+  const CLI_RETRY = "Return to your terminal and run applika login again.";
+
+  async function openPhone(page: Page, path: string) {
+    await page.setViewportSize(PHONE);
+    await page.goto(path);
+    await expect(page.locator('[data-slot="sign-in-phone"]')).toBeVisible();
+    await expect(page.locator('[data-slot="sign-in-desktop"]')).toBeHidden();
+  }
+
+  test("390×844, ready: C_Mobile's heading, the badge on the app icon, Continue with Borderless", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login");
+    const phone = page.locator('[data-slot="sign-in-phone"]');
+
+    await expect(
+      page.getByRole("heading", {
+        name: "One account for your whole job search",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(
+      phone.getByRole("img", { name: "Applika", exact: true }),
+    ).toBeVisible();
+    const badge = phone.getByRole("img", { name: "with Borderless" });
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveAttribute("src", "/borderless-logo.png");
+    // Served by the built frontend: the image decoded.
+    expect(
+      await badge.evaluate((img) => (img as HTMLImageElement).naturalWidth),
+    ).toBeGreaterThan(0);
+    await expect(phone.getByText("applika × Borderless")).toBeVisible();
+
+    // Focus on load lands in the visible tree's CTA.
+    const cta = signInWithBorderlessButton(page);
+    await expect(cta).toHaveCount(1);
+    await expect(cta).toBeVisible();
+    await expect(cta).toBeFocused();
+    await expect(cta).toHaveAccessibleName("Continue with Borderless");
+    // Borderless's mark before the label: decorative, decoded, 20×20.
+    const logo = cta.locator('img[data-slot="sign-in-logo"]');
+    await expect(logo).toHaveAttribute("alt", "");
+    await expect(cta.getByRole("img")).toHaveCount(0);
+    expect(
+      await logo.evaluate((img) => (img as HTMLImageElement).naturalWidth),
+    ).toBeGreaterThan(0);
+    const logoBox = (await logo.boundingBox())!;
+    expect(logoBox.width).toBeCloseTo(20, 0);
+    expect(logoBox.height).toBeCloseTo(20, 0);
+    expect(
+      await logo.evaluate((img) => getComputedStyle(img).borderRadius),
+    ).toBe("0px");
+    const label = await cta.evaluate((button) => {
+      const range = document.createRange();
+      const text = Array.from(button.childNodes).find(
+        (node) => node.nodeType === Node.TEXT_NODE,
+      )!;
+      range.selectNodeContents(text);
+      return range.getBoundingClientRect().x;
+    });
+    expect(logoBox.x + logoBox.width).toBeLessThanOrEqual(label);
+    // C's 56px button, unchanged.
+    expect((await cta.boundingBox())!.height).toBeCloseTo(56, 0);
+    await expect(cta).toHaveAccessibleDescription(
+      "Sign in with Borderless. It confirms it's you and sends you back here.",
+    );
+    const account = page.getByRole("link", {
+      name: "I don't have a Borderless account",
+    });
+    await expect(account).toBeVisible();
+    await expect(account).toHaveAttribute("target", "_blank");
+    await expect(account).toHaveAccessibleDescription("Opens in a new tab.");
+    await expect(
+      page.getByRole("link", { name: "Back to home", exact: true }),
+    ).toHaveAttribute("href", "/");
+    await expect(
+      page.getByRole("radiogroup", { name: "Toggle language" }),
+    ).toHaveCount(1);
+    await expect(signInError(page, "sign-in-phone")).toBeEmpty();
+    await expect(cliHint(page, "sign-in-phone")).toHaveCount(0);
+    await expect(page.locator("input")).toHaveCount(0);
+
+    await expectPhoneTargets(page, 5);
+    await expectNoSidewaysScroll(page);
+
+    // At 320 the button keeps its logo and its words on the page, nothing sideways.
+    await page.setViewportSize({ width: 320, height: 720 });
+    await expect(logo).toBeVisible();
+    await expectPhoneTargets(page, 5);
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("390×844 light, in Portuguese: C's words, the logo before Continuar com a Borderless", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login");
+    await page
+      .getByRole("button", { name: "Toggle theme", exact: true })
+      .click();
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    await page
+      .getByRole("radiogroup", { name: "Toggle language" })
+      .getByRole("radio", { name: "Português" })
+      .click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
+
+    const cta = signInWithBorderlessButton(page).or(
+      page.getByRole("button", { name: "Continuar com a Borderless" }),
+    );
+    await expect(cta).toHaveAccessibleName("Continuar com a Borderless");
+    await expect(cta.locator('img[data-slot="sign-in-logo"]')).toHaveAttribute(
+      "alt",
+      "",
+    );
+    await expect(
+      page.getByRole("heading", {
+        name: "Uma conta para toda a sua busca de emprego",
+        level: 1,
+      }),
+    ).toBeVisible();
+    const account = page.getByRole("link", {
+      name: "Não tenho conta na Borderless",
+    });
+    await expect(account).toHaveAttribute("target", "_blank");
+    await expect(account).toHaveAccessibleDescription("Abre em uma nova aba.");
+    // The label may take two lines below 340px: it stays inside the button.
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 720 });
+      const fit = await cta.evaluate((button) => ({
+        overflowX: button.scrollWidth - button.clientWidth,
+        overflowY: button.scrollHeight - button.clientHeight,
+      }));
+      expect(fit, `${width}px`).toEqual({ overflowX: 0, overflowY: 0 });
+      await expectPhoneTargets(page, 5);
+      await expectNoSidewaysScroll(page);
+    }
+  });
+
+  test("390×844, refused: ?error=AUTH-1046 says why in the phone tree's alert, focused", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login?error=AUTH-1046");
+
+    const alert = signInError(page, "sign-in-phone");
+    await expect(alert).toHaveAttribute("data-code", "AUTH-1046");
+    await expect(alert).toHaveText(AUTH_1046);
+    await expect(alert).toBeVisible();
+    await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
+    await expect(cliHint(page, "sign-in-phone")).toHaveCount(0);
+    // The way back is right below the words.
+    await expect(signInWithBorderlessButton(page)).toBeVisible();
+    await expectPhoneTargets(page, 5);
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("390×844, from the command line: &cli=1 shows the terminal hint", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login?cli=1");
+
+    const hint = cliHint(page, "sign-in-phone");
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveText(CLI_RETRY);
+    await expect(hint.locator("code")).toHaveText("applika login");
+    await expect(signInError(page, "sign-in-phone")).toBeEmpty();
+    // The h1 stays the web sign-in's: the button starts a web sign-in.
+    await expect(
+      page.getByRole("heading", {
+        name: "One account for your whole job search",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(signInWithBorderlessButton(page)).toBeFocused();
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("390×844, refused from the command line: the reason and the cli line in one alert", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login?error=AUTH-1046&cli=1");
+
+    const alert = signInError(page, "sign-in-phone");
+    await expect(alert).toHaveAttribute("data-code", "AUTH-1046");
+    await expect(alert).toContainText(AUTH_1046);
+    await expect(alert).toContainText(CLI_RETRY);
+    await expect(
+      alert.locator('[data-slot="sign-in-cli-hint"] code'),
+    ).toHaveText("applika login");
+    await expect(cliHint(page, "sign-in-phone")).toHaveCount(1);
+    await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
+    await expectPhoneTargets(page, 5);
+    await expectNoSidewaysScroll(page);
+  });
+
+  const A_LEAD =
+    "Use your Borderless account. Borderless confirms it's you and sends you back here.";
+  const DESKTOP = { width: 1280, height: 800 } as const;
+
+  async function openDesktop(page: Page, path: string) {
+    await page.setViewportSize(DESKTOP);
+    await page.goto(path);
+    await expect(page.locator('[data-slot="sign-in-desktop"]')).toBeVisible();
+    await expect(page.locator('[data-slot="sign-in-phone"]')).toBeHidden();
+  }
+
+  test("1280, ready: option A's card, the paired tiles, Continue with Borderless focused with its logo, the sign-up link in a new tab (dark)", async ({
+    page,
+  }) => {
+    await openDesktop(page, "/login");
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    const desktop = page.locator('[data-slot="sign-in-desktop"]');
+
+    await expect(
+      page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+    // No side panel: the card is the tree's one block (Sonner's toaster is a region of its own).
+    await expect(desktop.getByRole("region")).toHaveCount(0);
+
+    // The card: 448 wide, centred in the page.
+    const card = desktop.locator(".ph-a-card");
+    const cardBox = (await card.boundingBox())!;
+    expect(cardBox.width).toBeCloseTo(448, 0);
+    expect(cardBox.x + cardBox.width / 2).toBeCloseTo(DESKTOP.width / 2, 0);
+    expect(cardBox.y + cardBox.height / 2).toBeCloseTo(DESKTOP.height / 2, 0);
+
+    // The paired tiles: Applika, the hidden link mark, Borderless (decoded).
+    const tiles = desktop.locator('[data-slot="sign-in-tiles"]');
+    await expect(tiles.getByRole("img")).toHaveCount(2);
+    await expect(
+      tiles.getByRole("img", { name: "Applika", exact: true }),
+    ).toBeVisible();
+    const borderless = tiles.getByRole("img", {
+      name: "Borderless",
+      exact: true,
+    });
+    await expect(borderless).toBeVisible();
+    expect(
+      await borderless.evaluate(
+        (img) => (img as HTMLImageElement).naturalWidth,
+      ),
+    ).toBeGreaterThan(0);
+    for (const tile of await tiles.locator(".ph-a-tile").all()) {
+      const box = (await tile.boundingBox())!;
+      expect(box.width).toBeCloseTo(72, 0);
+      expect(box.height).toBeCloseTo(72, 0);
+    }
+    await expect(tiles.locator(".ph-a-link")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+
+    // The CTA: focused on load, A's words and lead, the logo decorative.
+    const cta = signInWithBorderlessButton(page);
+    await expect(cta).toHaveCount(1);
+    await expect(cta).toBeFocused();
+    await expect(cta).toHaveAccessibleName("Continue with Borderless");
+    await expect(cta).toHaveAccessibleDescription(A_LEAD);
+    const ctaBox = (await cta.boundingBox())!;
+    expect(ctaBox.height).toBeCloseTo(48, 0);
+    expect(ctaBox.width).toBeCloseTo(448 - 2 * 40 - 2, 0);
+    const logo = cta.locator('img[data-slot="sign-in-logo"]');
+    await expect(logo).toHaveAttribute("alt", "");
+    await expect(cta.getByRole("img")).toHaveCount(0);
+    expect(
+      await logo.evaluate((img) => (img as HTMLImageElement).naturalWidth),
+    ).toBeGreaterThan(0);
+    expect((await logo.boundingBox())!.width).toBeCloseTo(18, 0);
+
+    // The rule, then the sign-up line: Borderless's sign-up in a new tab.
+    await expect(desktop.locator('[data-slot="separator"]')).toBeVisible();
+    await expect(desktop.locator(".ph-a-foot")).toHaveText(
+      "No account yet? Create a Borderless account",
+    );
+    const account = page.getByRole("link", {
+      name: "Create a Borderless account",
+      exact: true,
+    });
+    await expect(account).toHaveAttribute(
+      "href",
+      "https://platform.borderlesscoding.com/sign-up",
+    );
+    await expect(account).toHaveAttribute("target", "_blank");
+    await expect(account).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(account).toHaveAccessibleDescription("Opens in a new tab.");
+
+    // The theme + language pair at top 20, right 24, theme first.
+    const pair = page.locator('[data-slot="sign-in-bar"] .ph-pair');
+    const group = page.getByRole("radiogroup", { name: "Toggle language" });
+    await expect(group).toHaveCount(1);
+    const theme = page.getByRole("button", {
+      name: "Toggle theme",
+      exact: true,
+    });
+    const pairBox = (await pair.boundingBox())!;
+    expect(pairBox.y).toBeCloseTo(20, 0);
+    expect(DESKTOP.width - (pairBox.x + pairBox.width)).toBeCloseTo(24, 0);
+    expect((await theme.boundingBox())!.x).toBeLessThan(
+      (await group.boundingBox())!.x,
+    );
+    await expect(
+      page.getByRole("link", { name: "Back to home", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.locator("input")).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+
+    // Tab order: the pair, then the CTA, then the sign-up link.
+    await page.keyboard.press("Tab");
+    await expect(account).toBeFocused();
+
+    // From md (768) up the card fits with no second breakpoint, clear of the pair.
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await expect(desktop).toBeVisible();
+    await expect(cta).toBeInViewport();
+    const narrowCard = (await card.boundingBox())!;
+    const narrowPair = (await pair.boundingBox())!;
+    // The pair (top right) and the centred card never cover each other.
+    expect(narrowPair.y + narrowPair.height).toBeLessThanOrEqual(narrowCard.y);
+    await expectNoSidewaysScroll(page);
+
+    // A phone in landscape (812×375) is md and up: the card sits below the
+    // pair and the page scrolls to the button.
+    await page.setViewportSize({ width: 812, height: 375 });
+    await expect(desktop).toBeVisible();
+    const shortCard = (await card.boundingBox())!;
+    const shortPair = (await pair.boundingBox())!;
+    expect(shortPair.y + shortPair.height).toBeLessThanOrEqual(shortCard.y);
+    await cta.scrollIntoViewIfNeeded();
+    await expect(cta).toBeInViewport();
+    await expectNoSidewaysScroll(page);
+
+    // A short wide screen (1280×450): the pair is beside the card, so the
+    // card stays centred as the board draws it, with nothing to scroll.
+    await page.setViewportSize({ width: 1280, height: 450 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(desktop).toBeVisible();
+    const wideCard = (await card.boundingBox())!;
+    const widePair = (await pair.boundingBox())!;
+    expect(wideCard.y + wideCard.height / 2).toBeCloseTo(450 / 2, 0);
+    expect(wideCard.x + wideCard.width / 2).toBeCloseTo(1280 / 2, 0);
+    expect(widePair.x).toBeGreaterThanOrEqual(wideCard.x + wideCard.width);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollHeight -
+          document.documentElement.clientHeight,
+      ),
+      "vertical scroll in px",
+    ).toBe(0);
+    await expect(cta).toBeInViewport();
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("1280 light, in Portuguese: option A's words", async ({ page }) => {
+    await openDesktop(page, "/login");
+    await page
+      .getByRole("button", { name: "Toggle theme", exact: true })
+      .click();
+    await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+    await page
+      .getByRole("radiogroup", { name: "Toggle language" })
+      .getByRole("radio", { name: "Português" })
+      .click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
+
+    await expect(
+      page.getByRole("heading", { name: "Entre no Applika", level: 1 }),
+    ).toBeVisible();
+    const cta = page.getByRole("button", {
+      name: "Continuar com a Borderless",
+      exact: true,
+    });
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveAccessibleDescription(
+      "Use sua conta Borderless. A Borderless confirma que é você e traz você de volta para cá.",
+    );
+    await expect(
+      page.locator('[data-slot="sign-in-desktop"] .ph-a-foot'),
+    ).toHaveText("Não tem uma conta ainda? Criar uma conta na Borderless");
+    const account = page.getByRole("link", {
+      name: "Criar uma conta na Borderless",
+      exact: true,
+    });
+    await expect(account).toHaveAttribute("target", "_blank");
+    await expect(account).toHaveAccessibleDescription("Abre em uma nova aba.");
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("1280, refused: ?error=AUTH-1047 says why between the lead and the button, focused", async ({
+    page,
+  }) => {
+    await openDesktop(page, "/login?error=AUTH-1047");
+
+    const alert = signInError(page, "sign-in-desktop");
+    await expect(alert).toHaveAttribute("data-code", "AUTH-1047");
+    await expect(alert).toHaveText(
+      "Borderless did not complete the sign-in. Try signing in again",
+    );
+    await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
+    const lead = page.locator('[data-slot="sign-in-desktop"] .ph-a-lead');
+    const cta = signInWithBorderlessButton(page);
+    const leadBox = (await lead.boundingBox())!;
+    const alertBox = (await alert.boundingBox())!;
+    const ctaBox = (await cta.boundingBox())!;
+    expect(leadBox.y + leadBox.height).toBeLessThanOrEqual(alertBox.y);
+    expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(ctaBox.y);
+    // The alert spans the card's content width, as the button does.
+    expect(alertBox.width).toBeCloseTo(ctaBox.width, 0);
+    await expect(cliHint(page, "sign-in-desktop")).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("1280, from the command line: ?cli=1 shows the terminal hint above the button; with an error, inside the alert", async ({
+    page,
+  }) => {
+    await openDesktop(page, "/login?cli=1");
+    const hint = cliHint(page, "sign-in-desktop");
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveText(CLI_RETRY);
+    await expect(hint.locator("code")).toHaveText("applika login");
+    await expect(signInError(page, "sign-in-desktop")).toBeEmpty();
+    await expect(
+      page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
+    ).toBeVisible();
+    await expect(signInWithBorderlessButton(page)).toBeFocused();
+    expect((await hint.boundingBox())!.y).toBeLessThan(
+      (await signInWithBorderlessButton(page).boundingBox())!.y,
+    );
+
+    await openDesktop(page, "/login?error=AUTH-1046&cli=1");
+    const alert = signInError(page, "sign-in-desktop");
+    await expect(alert).toContainText(AUTH_1046);
+    await expect(alert).toContainText(CLI_RETRY);
+    await expect(cliHint(page, "sign-in-desktop")).toHaveCount(1);
+    await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("pending at 1280 and 390: the spinner takes the logo's place in the same box, a second press starts nothing, the browser leaves; Back brings the page back ready", async ({
+    page,
+  }) => {
+    for (const [viewport, tree] of [
+      [DESKTOP, "sign-in-desktop"],
+      [PHONE, "sign-in-phone"],
+    ] as const) {
+      await page.setViewportSize(viewport);
+      await page.goto("/login");
+      const cta = signInWithBorderlessButton(page);
+      await expect(cta).toBeFocused();
+      const starts: string[] = [];
+      const onRequest = (request: Request) => {
+        if (new URL(request.url()).pathname.endsWith("/auth/borderless/login"))
+          starts.push(request.url());
+      };
+      page.on("request", onRequest);
+
+      // Pending lasts only until the browser leaves, so the page records it
+      // the moment it renders (the real API answers; nothing is stubbed),
+      // and presses the button a second time while it is pending.
+      await page.evaluate((slot) => {
+        const tree = document.querySelector(`[data-slot="${slot}"]`)!;
+        const button = tree.querySelector<HTMLButtonElement>(
+          'button[data-action="sign-in-borderless"]',
+        )!;
+        const box = (node: Element) => {
+          const r = node.getBoundingClientRect();
+          return [r.x, r.y, r.width, r.height].map(Math.round);
+        };
+        const container = button.closest(".ph-a-card") ?? button.parentElement!;
+        const ready = { button: box(button), container: box(container) };
+        new MutationObserver((_, observer) => {
+          if (button.getAttribute("aria-busy") !== "true") return;
+          observer.disconnect();
+          sessionStorage.setItem(
+            "e2e:pending",
+            JSON.stringify({
+              ready,
+              pending: { button: box(button), container: box(container) },
+              disabled: button.getAttribute("aria-disabled"),
+              text: button.textContent,
+              spinner: Boolean(button.querySelector("svg.ph-spin")),
+              logo: Boolean(button.querySelector('[data-slot="sign-in-logo"]')),
+              focused: document.activeElement === button,
+              status: document.querySelector(
+                '[data-slot="sign-in-pending-status"]',
+              )?.textContent,
+              wide: document.documentElement.scrollWidth > innerWidth,
+            }),
+          );
+          button.click();
+        }).observe(button, { attributes: true });
+      }, tree);
+      await cta.click();
+
+      await page.waitForURL(borderlessUrl("/**"));
+      await expect(
+        page.getByRole("heading", { name: "Sign in to Borderless (fake)" }),
+      ).toBeVisible();
+      page.off("request", onRequest);
+      expect(starts, `${tree}: one sign-in started`).toHaveLength(1);
+
+      await page.goBack();
+      await page.waitForURL((url) => url.pathname === "/login");
+      const seen = JSON.parse(
+        (await page.evaluate(() => sessionStorage.getItem("e2e:pending")))!,
+      );
+      expect(seen, tree).toMatchObject({
+        disabled: "true",
+        text: "Opening Borderless…",
+        spinner: true,
+        logo: false,
+        focused: true,
+        status: "Opening Borderless…",
+        wide: false,
+      });
+      // Nothing moves: the button and its card or column keep their boxes.
+      expect(seen.pending, tree).toEqual(seen.ready);
+
+      const ready = signInWithBorderlessButton(page);
+      await expect(ready).toBeVisible();
+      await expect(ready).not.toHaveAttribute("aria-busy", "true");
+      await expect(ready.locator('[data-slot="sign-in-logo"]')).toBeVisible();
+      await expect(
+        page.locator('[data-slot="sign-in-pending-status"]'),
+      ).toBeEmpty();
+      await page.evaluate(() => sessionStorage.removeItem("e2e:pending"));
+    }
   });
 });

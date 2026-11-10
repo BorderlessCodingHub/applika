@@ -4,12 +4,12 @@ Revision ID: c8b3e9f4a1d6
 Revises: afd4074c70c2
 Create Date: 2026-09-18 15:00:00.000000
 
-Plan ``docs/plan/0008-steps-as-timeline.md``, ticket KODI-014
+Plan ``docs/plan/0008-steps-as-timeline.md``, revision R3
 (R-033..R-036). Owner: "Fold into Release A" -- this revision chains
 R1 -> R3 -> R2, so it ships in the same release as R1
 (``.claude/rules/prod-release-runbook.md`` 4): **expand only**. Nothing
 under ``app/`` reads or writes ``timeline_events.denied_reason`` until
-Release B (KODI-014's backend part, T065); the ORM does not map it until
+Release B (R3's backend part, T065); the ORM does not map it until
 then either.
 
 ## What upgrade() does, in order
@@ -67,7 +67,7 @@ then either.
    old-code write it is syncing.
 
 No temporary table is used anywhere in this revision (upgrade or
-downgrade) -- KODI-013 (R2) hit a temp-table name collision
+downgrade) -- R2 hit a temp-table name collision
 (``timeline_downgrade_touched``) when a single ``alembic
 downgrade``/``upgrade`` command crossed two revisions' bodies inside one
 outer transaction (``migrations/env.py``); R3 sidesteps the whole class of

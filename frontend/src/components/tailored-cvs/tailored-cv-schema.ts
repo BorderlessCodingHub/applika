@@ -252,8 +252,8 @@ const languageSchema = z.object({
  * The tailored CV form schema. Required: the label, the identity and contact
  * block (bar the phone) and the summary — exactly the fields the editor marks
  * with a required marker. No section is required; blank rows are dropped on the
- * way to the wire. A row with anything in it has to be complete, and since
- * KODI-007 that includes the START of an experience or education period, which
+ * way to the wire. A row with anything in it has to be complete, and that
+ * now includes the START of an experience or education period, which
  * is required on both sections.
  */
 export const tailoredCvSchema = z.object({

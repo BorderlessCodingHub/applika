@@ -6,7 +6,7 @@ import { RETURN_TO_KEY } from "@/lib/return-to";
 import ProtectedLayout from "./layout";
 
 /**
- * KODI-058 (T036): the protected layout's return-to. A signed-out visit to
+ * T036 (PRD 0014): the protected layout's return-to. A signed-out visit to
  * `/device?code=` stores path + query before `router.replace("/login")`; the
  * first authenticated render consumes it once and goes back there. Only a
  * same-origin path (`/x`, never `//host`) is ever followed.

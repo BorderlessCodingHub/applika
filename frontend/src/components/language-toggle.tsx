@@ -55,6 +55,8 @@ export type LanguageToggleViewProps = {
   onLocaleChange: (locale: Locale) => void;
   isPending: boolean;
   label: string;
+  /** Each option shows its flag alone; the radio keeps its endonym as its name. */
+  flagsOnly?: boolean;
 };
 
 export function LanguageToggleView({
@@ -63,6 +65,7 @@ export function LanguageToggleView({
   onLocaleChange,
   isPending,
   label,
+  flagsOnly = false,
 }: LanguageToggleViewProps) {
   const tokens = LANGUAGE_TOGGLE_VARIANTS[variant];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -97,6 +100,7 @@ export function LanguageToggleView({
       onValueChange={handleValueChange}
       disabled={isPending}
       aria-label={label}
+      data-flags-only={flagsOnly ? "" : undefined}
       className={cn(
         LANGUAGE_TOGGLE_ROOT_CLASS,
         tokens.root,
@@ -116,7 +120,7 @@ export function LanguageToggleView({
           )}
         >
           <Flag className={LANGUAGE_TOGGLE_FLAG_CLASS} />
-          <span>{shortLabel}</span>
+          {flagsOnly ? null : <span>{shortLabel}</span>}
         </RadioGroup.Item>
       ))}
     </RadioGroup.Root>
@@ -127,12 +131,15 @@ export function LanguageToggleView({
  * The Borderless platform's language switcher, ported whole: a pill-shaped
  * radio group, EN (United States flag) then BR (Brazil flag), disabled while
  * a change is in progress. `variant="landing"` is the reference's look on the
- * dark landing hero. Mount it outside any `<form>`.
+ * dark landing hero. `flagsOnly` drops the EN / BR text. Mount it outside any
+ * `<form>`.
  */
 export function LanguageToggle({
   variant = "default",
+  flagsOnly = false,
 }: {
   variant?: LanguageToggleVariant;
+  flagsOnly?: boolean;
 }) {
   const { locale, setLocale, isPending } = useLocaleSwitch();
   const t = useTranslations("header");
@@ -143,6 +150,7 @@ export function LanguageToggle({
       onLocaleChange={setLocale}
       isPending={isPending}
       label={t("toggleLanguage")}
+      flagsOnly={flagsOnly}
     />
   );
 }

@@ -1,4 +1,4 @@
-"""List the job board for the acting user (KODI-047, PRD 0012 R-010,
+"""List the job board for the acting user (PRD 0012 R-010,
 R-011).
 
 Ported from Ían Muliterno's ``list_jobs.py`` (``job_scrapping``, PR origin

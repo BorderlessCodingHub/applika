@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { loginAs, type SeededRole } from "./support/auth";
 
 /**
- * Page smoke suite (KODI-001 / R-004, R-006).
+ * Page smoke suite (R-004, R-006).
  *
  * Opens every page of the app against the REAL stack and asserts it actually
  * rendered. Assertions are on VISIBLE TEXT and ARIA ROLES only — never on class
@@ -43,15 +43,16 @@ const PAGES: PageCase[] = [
     path: "/login",
     visitors: ["anon"],
     // The route lives at `src/app/login/`, OUTSIDE the `(public)` group, so it
-    // renders no landing header. It is the Borderless sign-in (ADR-0026): one
-    // "Sign in with Borderless" button, no field at all, no GitHub sign-in.
+    // renders no landing header. It is the Borderless sign-in (ADR-0026,
+    // option A at this desktop width): one "Continue with Borderless" button,
+    // no field at all, no GitHub sign-in.
     assert: async (page) => {
       await expect(
         page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
       ).toBeVisible();
       await expect(
         page.getByRole("button", {
-          name: "Sign in with Borderless",
+          name: "Continue with Borderless",
           exact: true,
         }),
       ).toBeVisible();
@@ -121,7 +122,7 @@ const PAGES: PageCase[] = [
   },
 
   {
-    // KODI-048/049 (Plan corrections 23): the job board. Its data-driven
+    // PRD 0012 (Plan corrections 23): the job board. Its data-driven
     // surfaces are `jobs.spec.ts`; this row proves the route boots.
     path: "/jobs",
     visitors: ["user", "admin"],
@@ -129,7 +130,7 @@ const PAGES: PageCase[] = [
   },
 
   {
-    // KODI-003. The route is only USEFUL with `?id=<application>` — the picker
+    // PRD 0007. The route is only USEFUL with `?id=<application>` — the picker
     // and the editor both need one — so the data-driven surfaces are covered by
     // `cv-builder.spec.ts` against a seeded application, not here. What this row
     // is worth is exactly what this suite is for: the route exists in the static
@@ -168,13 +169,13 @@ const PAGES: PageCase[] = [
     assert: heading("Report webhooks", 1),
   },
   {
-    // KODI-049 (Plan corrections 23).
+    // PRD 0012 (Plan corrections 23).
     path: "/admin/jobs",
     visitors: ["admin"],
     assert: heading("Job sources", 1),
   },
   {
-    // KODI-054 (PRD 0013): the beta features admin list.
+    // PRD 0013: the beta features admin list.
     path: "/admin/features",
     visitors: ["admin"],
     assert: heading("Features", 1),
@@ -193,13 +194,38 @@ const PAGES: PageCase[] = [
     },
   },
   {
-    // KODI-058: the CLI device approval page.
+    // The phone's fourth tab (ADR-0027). This suite is desktop, where the
+    // address goes to the dashboard (PRD 0021); the phone screen is walked in
+    // `shell-responsive.spec.ts`.
+    path: "/insights",
+    visitors: ["user"],
+    assert: async (page) => {
+      await page.waitForURL("**/dashboard");
+      await expect(
+        page.getByRole("heading", { name: "Dashboard", level: 1 }),
+      ).toBeVisible();
+    },
+  },
+  {
+    // The phone's Account hub (ADR-0027). At desktop the address goes to the
+    // profile (PRD 0021); the hub is walked in `shell-responsive.spec.ts`.
+    path: "/account",
+    visitors: ["user"],
+    assert: async (page) => {
+      await page.waitForURL("**/profile");
+      await expect(
+        page.getByRole("heading", { name: "Details" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    // PRD 0014: the CLI device approval page.
     path: "/device",
     visitors: ["user"],
     assert: heading("Sign in a device", 1),
   },
   {
-    // KODI-058: outside the groups like `/login`, no session; with no
+    // PRD 0014: outside the groups like `/login`, no session; with no
     // `?code=&state=` it says the link is missing its code, same h1.
     path: "/cli/code",
     visitors: ["anon"],
@@ -258,13 +284,14 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // covering less. The invariant is 22 routes, ALL of them exercised — the
   // `pending`/`pendingReason` parking mechanism is gone, so there is no longer
   // any way to keep a row in the table while skipping it at runtime.
-  // 14 until KODI-002 added `/cvs`; 17 since KODI-027 added
-  // `/admin/discord-webhooks`; 19 since KODI-049 added `/jobs` and
-  // `/admin/jobs` (Plan corrections 23); 20 since KODI-054 added
-  // `/admin/features`; 22 since KODI-058 added `/device` and `/cli/code`;
+  // 14 until PRD 0007 added `/cvs`; 17 since PRD 0009 added
+  // `/admin/discord-webhooks`; 19 since PRD 0012 added `/jobs` and
+  // `/admin/jobs` (Plan corrections 23); 20 since PRD 0013 added
+  // `/admin/features`; 22 since PRD 0014 added `/device` and `/cli/code`;
   // 23 since Borderless sign-in added `/welcome` (`/admin/report-webhooks`
-  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page.
-  expect(PAGES).toHaveLength(24);
+  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page;
+  // 26 since the phone shell added `/insights` and `/account`.
+  expect(PAGES).toHaveLength(26);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.

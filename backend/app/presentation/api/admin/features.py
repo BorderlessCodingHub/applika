@@ -1,4 +1,4 @@
-"""Admin beta features (KODI-052, ADR-0018): every feature with its beta
+"""Admin beta features (ADR-0018): every feature with its beta
 list count, a feature's beta list (list, add, remove), release and move
 back to beta, and the calling admin's own opt-out. Admin only
 (``AdminUserDp``, ADR-0004); a feature is never created, renamed or deleted

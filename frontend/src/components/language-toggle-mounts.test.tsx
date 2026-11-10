@@ -14,14 +14,20 @@ import {
 } from "@/components/language-toggle";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { Header } from "@/components/layout/header";
+import { PhoneLanding } from "@/components/phone/landing/phone-landing";
+import { PhonePublicBar } from "@/components/phone/phone-public-bar";
 import { LocaleProvider } from "@/i18n/locale-provider";
 import type { User } from "@/services/types/users";
 
 /**
- * Where the language switcher is mounted (plan 0019): the signed-in header,
- * the landing header (the cookie policy page shares it), the sign-in page and
- * the terminal code page. The `default` look everywhere, right before the
- * theme toggle; the `landing` look is ported but mounted nowhere.
+ * Where the language switcher is mounted (plan 0019, PRD 0021): the signed-in
+ * header, the landing header (md and up; the cookie policy and /cli pages
+ * share it), the phone landing's header and the phone public bar (below md:
+ * /cookie-policy, /cli), the sign-in page and the terminal code page (one
+ * mount each, laid out for both widths). The `default` look everywhere; the
+ * `landing` look is ported but mounted nowhere. Every mount puts it right
+ * after the theme toggle. Only the phone landing's header shows the flags
+ * alone.
  */
 
 vi.mock("next/navigation", () => ({
@@ -64,8 +70,8 @@ function Providers({ children }: { children: ReactNode }) {
 
 const DEFAULT_ROOT = `${LANGUAGE_TOGGLE_ROOT_CLASS} ${LANGUAGE_TOGGLE_VARIANTS.default.root}`;
 
-/** The one switcher on screen: default look, EN checked, right before the theme toggle. */
-function expectDefaultToggleBeforeTheme() {
+/** The one switcher on screen: default look, EN checked, a sibling of the theme toggle. */
+function expectOneDefaultToggle() {
   const groups = screen.getAllByRole("radiogroup", { name: "Toggle language" });
   expect(groups).toHaveLength(1);
   const group = groups[0];
@@ -76,11 +82,18 @@ function expectDefaultToggleBeforeTheme() {
   expect(english.className).toContain(LANGUAGE_TOGGLE_VARIANTS.default.active);
   const theme = screen.getByRole("button", { name: /toggle theme/i });
   expect(group.parentElement).toBe(theme.parentElement);
-  expect(group.nextElementSibling).toBe(theme);
+  return { group, theme };
+}
+
+/** Theme, then language: every mount. */
+function expectDefaultToggleAfterTheme() {
+  const { group, theme } = expectOneDefaultToggle();
+  expect(theme.nextElementSibling).toBe(group);
+  return group;
 }
 
 describe("LanguageToggle mounts", () => {
-  it("the signed-in header holds it, default look, before the theme toggle", () => {
+  it("the signed-in header holds it, default look, after the theme toggle", () => {
     render(
       <Header
         user={user}
@@ -90,31 +103,54 @@ describe("LanguageToggle mounts", () => {
       />,
       { wrapper: Providers },
     );
-    expectDefaultToggleBeforeTheme();
+    expect(expectDefaultToggleAfterTheme()).not.toHaveAttribute(
+      "data-flags-only",
+    );
     // Inside the z-30 header itself, no portal.
     expect(screen.getByRole("banner")).toContainElement(
       screen.getByRole("radiogroup", { name: "Toggle language" }),
     );
   });
 
-  it("the landing header (and so the cookie policy page) holds it, default look", () => {
+  it("the landing header (and so the cookie policy page) holds it, default look, after the theme toggle", () => {
     render(<LandingHeader />, { wrapper: Providers });
-    expectDefaultToggleBeforeTheme();
+    expect(expectDefaultToggleAfterTheme()).not.toHaveAttribute(
+      "data-flags-only",
+    );
     expect(screen.getByRole("banner")).toContainElement(
       screen.getByRole("radiogroup", { name: "Toggle language" }),
     );
   });
 
-  it("the sign-in page holds it in its top-right slot, outside the form", () => {
+  it("the sign-in page holds it in its top-right slot, after the theme toggle, outside the form", () => {
     render(<LoginPage />, { wrapper: Providers });
-    expectDefaultToggleBeforeTheme();
+    expectDefaultToggleAfterTheme();
     const group = screen.getByRole("radiogroup", { name: "Toggle language" });
     expect(group.closest("form")).toBeNull();
   });
 
-  it("the terminal code page holds it in its top-right slot", () => {
+  it("the terminal code page holds it in its top-right slot, after the theme toggle", () => {
     render(<CliCodeScreen code="abc" state="xyz" />, { wrapper: Providers });
-    expectDefaultToggleBeforeTheme();
+    expectDefaultToggleAfterTheme();
+  });
+
+  it("the phone landing's header holds it, default look, flags only, after the theme toggle", () => {
+    render(<PhoneLanding />, { wrapper: Providers });
+    expect(expectDefaultToggleAfterTheme()).toHaveAttribute(
+      "data-flags-only",
+      "",
+    );
+    expect(screen.getByRole("banner")).toContainElement(
+      screen.getByRole("radiogroup", { name: "Toggle language" }),
+    );
+  });
+
+  it("the phone public bar (cookie policy below md) holds it, default look, after the theme toggle", () => {
+    render(<PhonePublicBar />, { wrapper: Providers });
+    expectDefaultToggleAfterTheme();
+    expect(screen.getByRole("banner")).toContainElement(
+      screen.getByRole("radiogroup", { name: "Toggle language" }),
+    );
   });
 
   it("no source file mounts the landing look; every mount asks for default", () => {
@@ -134,10 +170,17 @@ describe("LanguageToggle mounts", () => {
       "components/cli-code/cli-code-screen.tsx",
       "components/landing/landing-header.tsx",
       "components/layout/header.tsx",
+      "components/phone/landing/phone-landing-header.tsx",
+      "components/phone/phone-public-bar.tsx",
     ]);
-    for (const [, text] of mounts) {
+    for (const [path, text] of mounts) {
       const tags = text.match(/<LanguageToggle\b[^>]*>/g) ?? [];
-      expect(tags).toEqual(['<LanguageToggle variant="default" />']);
+      // Only the phone landing's header asks for the flags alone.
+      expect(tags).toEqual([
+        path === "components/phone/landing/phone-landing-header.tsx"
+          ? '<LanguageToggle variant="default" flagsOnly />'
+          : '<LanguageToggle variant="default" />',
+      ]);
     }
   });
 });

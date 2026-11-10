@@ -4,29 +4,33 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Check, Copy, ExternalLink, Terminal } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { PhoneCli } from "@/components/phone/landing/phone-cli";
 import { Button } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config";
 import { cn } from "@/lib/utils";
 
-const COPIED_MS = 2000;
+export const COPIED_MS = 2000;
 
-const INSTALL = ["uv tool install applika-cli", "pipx install applika-cli"];
+export const INSTALL = [
+  "uv tool install applika-cli",
+  "pipx install applika-cli",
+];
 
-const SIGN_IN = [
+export const SIGN_IN = [
   "applika login",
   "applika login --manual",
   "applika login --device",
   "applika whoami",
 ];
 
-const TRACK = [
+export const TRACK = [
   "applika applications list --mode active --status active",
   'applika applications new --company "Stripe" --role "Backend Engineer" \\\n  --platform LinkedIn --mode active --date 2026-11-08',
   "applika applications timeline add <id> --type interview --date 2026-11-12",
   "applika applications finalize <id>",
 ];
 
-const SKILL = ["applika skill", "applika skill --local"];
+export const SKILL = ["applika skill", "applika skill --local"];
 
 const code = (chunks: ReactNode) => (
   <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em] text-foreground">
@@ -75,7 +79,7 @@ function CommandBlock({ commands }: { commands: string[] }) {
         onClick={() => void copy()}
         aria-label={copied ? t("copied") : t("copy")}
         className={cn(
-          "absolute top-2.5 right-2.5 rounded-md p-1.5 text-muted-foreground transition-colors",
+          "absolute top-2.5 right-2.5 rounded-md p-1.5 text-muted-foreground transition-colors max-md:top-0.5 max-md:right-0.5 max-md:p-3.5",
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-hidden",
         )}
@@ -111,82 +115,99 @@ export function CliPage() {
   const body = "text-sm leading-relaxed text-muted-foreground";
 
   return (
-    <main className="relative mx-auto max-w-5xl px-5 py-14 md:px-8 md:py-20">
-      <header className="space-y-4 border-b border-border/60 pb-10">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Terminal aria-hidden className="size-5" />
-        </div>
-        <p className="font-display text-[11px] font-semibold tracking-wide-label text-primary uppercase">
-          {t("eyebrow")}
-        </p>
-        <h1 className="font-mono text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-          {t("title")}
-        </h1>
-        <p className="max-w-2xl text-base leading-relaxed text-pretty text-muted-foreground">
-          {t("lead")}
-        </p>
-        <Button asChild size="sm" className="gap-2 font-display font-medium">
-          <a
-            href={APP_CONFIG.cli.url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {t("pypi")}
-            <ExternalLink aria-hidden className="size-3.5" />
-          </a>
-        </Button>
-      </header>
-
-      <Section title={t("installTitle")}>
-        <p className={body}>{t.rich("installBody", { code })}</p>
-        <CommandBlock commands={INSTALL} />
-      </Section>
-
-      <Section title={t("signInTitle")}>
-        <p className={body}>{t("signInBody")}</p>
-        <ul className={cn(body, "list-disc space-y-1.5 pl-5")}>
-          <li>{t.rich("signInBrowser", { strong, code })}</li>
-          <li>{t.rich("signInManual", { strong, code })}</li>
-          <li>{t.rich("signInDevice", { strong, code })}</li>
-        </ul>
-        <CommandBlock commands={SIGN_IN} />
-      </Section>
-
-      <Section title={t("trackTitle")}>
-        <p className={body}>{t.rich("trackBody", { code })}</p>
-        <CommandBlock commands={TRACK} />
-      </Section>
-
-      <Section title={t("skillTitle")}>
-        <p className={body}>{t.rich("skillBody", { code })}</p>
-        <CommandBlock commands={SKILL} />
-      </Section>
-
-      <Section title={t("moreTitle")}>
-        <p className={body}>{t("moreBody")}</p>
-        <a
-          href={APP_CONFIG.cli.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-2 hover:text-foreground"
-        >
-          {t("pypi")}
-          <ExternalLink aria-hidden className="size-3.5" />
-        </a>
-      </Section>
-
-      <footer className="mt-14 border-t border-border/60 pt-6 text-xs text-muted-foreground">
-        {t.rich("footer", {
-          link: (chunks) => (
-            <Link
-              href="/"
-              className="font-medium text-primary underline underline-offset-2 hover:text-foreground"
+    <>
+      <PhoneCli
+        commands={{
+          install: INSTALL,
+          signIn: SIGN_IN,
+          track: TRACK,
+          skill: SKILL,
+        }}
+        copiedMs={COPIED_MS}
+      />
+      <div data-slot="cli-desktop" className="hidden md:contents">
+        <main className="relative mx-auto max-w-5xl px-5 py-14 md:px-8 md:py-20">
+          <header className="space-y-4 border-b border-border/60 pb-10">
+            <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Terminal aria-hidden className="size-5" />
+            </div>
+            <p className="font-display text-[11px] font-semibold tracking-wide-label text-primary uppercase">
+              {t("eyebrow")}
+            </p>
+            <h1 className="font-mono text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+              {t("title")}
+            </h1>
+            <p className="max-w-2xl text-base leading-relaxed text-pretty text-muted-foreground">
+              {t("lead")}
+            </p>
+            <Button
+              asChild
+              size="sm"
+              className="gap-2 font-display font-medium max-md:h-11"
             >
-              {chunks}
-            </Link>
-          ),
-        })}
-      </footer>
-    </main>
+              <a
+                href={APP_CONFIG.cli.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t("pypi")}
+                <ExternalLink aria-hidden className="size-3.5" />
+              </a>
+            </Button>
+          </header>
+
+          <Section title={t("installTitle")}>
+            <p className={body}>{t.rich("installBody", { code })}</p>
+            <CommandBlock commands={INSTALL} />
+          </Section>
+
+          <Section title={t("signInTitle")}>
+            <p className={body}>{t("signInBody")}</p>
+            <ul className={cn(body, "list-disc space-y-1.5 pl-5")}>
+              <li>{t.rich("signInBrowser", { strong, code })}</li>
+              <li>{t.rich("signInManual", { strong, code })}</li>
+              <li>{t.rich("signInDevice", { strong, code })}</li>
+            </ul>
+            <CommandBlock commands={SIGN_IN} />
+          </Section>
+
+          <Section title={t("trackTitle")}>
+            <p className={body}>{t.rich("trackBody", { code })}</p>
+            <CommandBlock commands={TRACK} />
+          </Section>
+
+          <Section title={t("skillTitle")}>
+            <p className={body}>{t.rich("skillBody", { code })}</p>
+            <CommandBlock commands={SKILL} />
+          </Section>
+
+          <Section title={t("moreTitle")}>
+            <p className={body}>{t("moreBody")}</p>
+            <a
+              href={APP_CONFIG.cli.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-2 hover:text-foreground max-md:min-h-11"
+            >
+              {t("pypi")}
+              <ExternalLink aria-hidden className="size-3.5" />
+            </a>
+          </Section>
+
+          <footer className="mt-14 border-t border-border/60 pt-6 text-xs text-muted-foreground">
+            {t.rich("footer", {
+              link: (chunks) => (
+                <Link
+                  href="/"
+                  className="font-medium text-primary underline underline-offset-2 hover:text-foreground max-md:inline-flex max-md:min-h-11 max-md:items-center"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </footer>
+        </main>
+      </div>
+    </>
   );
 }

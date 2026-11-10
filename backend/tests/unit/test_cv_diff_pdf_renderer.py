@@ -1,4 +1,4 @@
-"""Unit tests for the diff PDF renderer (KODI-017, T091).
+"""Unit tests for the diff PDF renderer (T091).
 
 Real Typst compile, no database: the diff PDF is "the same content as the
 Markdown" (T091) wrapped in a minimal template that prints it through

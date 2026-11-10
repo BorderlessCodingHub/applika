@@ -149,7 +149,7 @@ export function FeatureStageAction({
           >
             {FEATURE_STAGE_COPY.cancel}
           </AlertDialogCancel>
-          {/* Pending keeps focus: aria-disabled, not disabled (KODI-048). */}
+          {/* Pending keeps focus: aria-disabled, not disabled. */}
           <AlertDialogAction
             variant={dialogReleasing ? "default" : "destructive"}
             aria-disabled={pending || undefined}

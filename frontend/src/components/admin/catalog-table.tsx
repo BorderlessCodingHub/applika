@@ -85,7 +85,7 @@ export interface CatalogTableProps<T extends CatalogRow> {
 }
 
 /**
- * The shared companies/platforms admin table (PRD 0010, KODI-035): search,
+ * The shared companies/platforms admin table (PRD 0010): search,
  * visibility filter, paging, Added by, Apps and Approve on private rows.
  * `kind="company"` additionally renders the Status column when
  * `onToggleActive` is given.

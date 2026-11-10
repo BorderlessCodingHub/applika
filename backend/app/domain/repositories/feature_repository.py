@@ -1,4 +1,4 @@
-"""Beta features (KODI-052, ADR-0018): the registry, the beta lists and the
+"""Beta features (ADR-0018): the registry, the beta lists and the
 admins' own opt-outs.
 
 The access rule is one predicate, run as ONE query per check and never

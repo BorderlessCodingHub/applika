@@ -109,7 +109,7 @@ async def test_list_cycles_returns_existing(
 
 
 # ---------------------------------------------------------------------------
-# Drafts are never archived (KODI-032, ADR-0014)
+# Drafts are never archived (ADR-0014)
 # ---------------------------------------------------------------------------
 
 

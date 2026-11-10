@@ -1,4 +1,4 @@
-"""The fixture scraper and the registry (KODI-046, T044, plan corrections
+"""The fixture scraper and the registry (T044, plan corrections
 10). ``tests/fixtures/jobs/postings.json`` is also what the e2e stack (K7)
 mounts."""
 

@@ -1,4 +1,4 @@
-"""retire users.is_org_member as is_org_member_old (S10, KODI-029, Release C)
+"""retire users.is_org_member as is_org_member_old (S10, Release C)
 
 Revision ID: 583226ca46bc
 Revises: ba44f9cfd3c1
@@ -14,8 +14,8 @@ ADR-0013 (Accepted 2026-09-24, "GitHub organisation membership is retired
 from the whole product"): "The ORM stops mapping ``users.is_org_member`` in
 the code release. A later, migration-only release renames the column to
 ``is_org_member_old``, and its downgrade renames it back." That code release
-is Release B (KODI-026, tag ``0009-release-b``) — ``app/`` has not mapped,
-read or written this column since that tag (see ``backend/CLAUDE.md``'s
+is Release B (tag ``0009-release-b``) — ``app/`` has not mapped,
+read or written this column since that tag (see ``backend/AGENTS.md``'s
 **User** entity bullet; ``grep -rn is_org_member app/`` finds nothing).
 This revision is Release C, the
 migration-only rename ``prod-release-runbook.md`` rule 4 calls for: the code
@@ -37,7 +37,7 @@ there is nothing to copy separately. Rule 5: ``downgrade()`` renames
 rename, reversed — nothing was ever copied out of place). Rule 6: not
 applicable, no column changes type, length or precision. Rule 7: ``app/``
 neither reads nor writes ``is_org_member`` or ``is_org_member_old``, and no
-ORM model maps either name (unchanged since Release B, KODI-026). Rule 9:
+ORM model maps either name (unchanged since Release B). Rule 9:
 ``is_org_member_old`` may be dropped later, only in a dedicated change the
 owner explicitly orders — not here.
 

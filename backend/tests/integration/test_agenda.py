@@ -61,7 +61,7 @@ async def test_agenda_lists_events_inside_the_default_window(
 async def test_agenda_respects_explicit_from_and_to_date(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    # KODI-016: the agenda is interview events only.
+    # the agenda is interview events only.
     await ts.seed(
         db_session,
         *ts.catalog(),
@@ -95,7 +95,7 @@ async def test_agenda_respects_explicit_from_and_to_date(
 async def test_agenda_is_ordered_by_date_then_start_time_unscheduled_last(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    # KODI-016: the agenda is interview events only, so every seeded row
+    # the agenda is interview events only, so every seeded row
     # here is an interview (only interview events may carry a schedule).
     day = TODAY + timedelta(days=1)
     await ts.seed(
@@ -140,7 +140,7 @@ async def test_agenda_is_ordered_by_date_then_start_time_unscheduled_last(
 async def test_agenda_is_scoped_to_the_acting_user(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    # KODI-016: the agenda is interview events only.
+    # the agenda is interview events only.
     await ts.seed(
         db_session,
         *ts.catalog(),
@@ -170,7 +170,7 @@ async def test_agenda_is_scoped_to_the_acting_user(
 async def test_agenda_excludes_non_interview_events(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-016 (R-038/R-039): a non-interview event carries no schedule
+    """R-038/R-039: a non-interview event carries no schedule
     any more, so the agenda - once the steps agenda's window/order for
     scheduled entries - now shows interview events only."""
     day = TODAY + timedelta(days=1)
@@ -229,7 +229,7 @@ async def test_agenda_requires_authentication(async_client: AsyncClient):
 async def test_agenda_excludes_draft_application_events(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """A draft has no timeline (KODI-032, acceptance #14); should one ever
+    """A draft has no timeline (acceptance #14); should one ever
     be seeded with events anyway, the agenda must still exclude it."""
     await ts.seed(
         db_session,

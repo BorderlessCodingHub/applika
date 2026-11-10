@@ -104,7 +104,7 @@ class FinalizeApplicationWithOutcomeUseCase:
     already closed (409, the same message :func:`guards.ensure_mutable`
     uses for a timeline write), then the event date (defaults to today,
     422 in the future), then the offer's salary_period (``hourly`` refused,
-    :func:`rules.ensure_offer_period_allowed` - fixed in KODI-011
+    :func:`rules.ensure_offer_period_allowed` - fixed in plan 0008's
     remediation round 1, R-032, so this offer event is never valid where
     a ``/timeline`` write of the same shape would be refused), then one
     write: the outcome event and

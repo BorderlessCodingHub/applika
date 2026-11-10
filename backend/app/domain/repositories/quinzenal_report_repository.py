@@ -30,7 +30,7 @@ def _report_cycle_filter(cycle_id: int | None):
 
 
 def _app_cycle_filter(cycle_id: int | None):
-    """Scope + draft exclusion (KODI-032): a draft never counts toward a
+    """Scope + draft exclusion: a draft never counts toward a
     report, whatever the cycle scope."""
     if cycle_id is not None:
         return sa.and_(ApplicationModel.cycle_id == cycle_id, NOT_DRAFT)

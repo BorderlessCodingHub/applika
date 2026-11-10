@@ -92,6 +92,7 @@ export function CvSkillsSection({
   defaultOpen,
   open,
   onOpenChange,
+  sectionId,
 }: CvSkillsSectionProps) {
   const t = useTranslations("cvs.sections.skills");
   const hintBaseId = useId();
@@ -120,6 +121,7 @@ export function CvSkillsSection({
       defaultOpen={defaultOpen}
       open={open}
       onOpenChange={onOpenChange}
+      sectionId={sectionId}
       footer={
         error ? (
           <p id={errorId} className="mt-3 text-xs text-destructive">

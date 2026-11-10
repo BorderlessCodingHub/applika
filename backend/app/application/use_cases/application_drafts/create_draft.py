@@ -40,7 +40,7 @@ async def resolve_draft_company(
 def to_draft_dto(application: ApplicationModel, has_cv: bool) -> DraftDTO:
     """Build the ``Draft`` response DTO - ``ApplicationModel`` has no
     ``has_cv`` attribute, so this is a manual mapping rather than
-    ``model_validate``. ``job_id`` (KODI-047) is the job the draft was
+    ``model_validate``. ``job_id`` is the job the draft was
     started from, ``None`` for a draft made by hand; only the draft shape
     carries it, never ``Application``."""
     return DraftDTO(
@@ -82,7 +82,7 @@ class CreateDraftUseCase:
 
     async def execute(self, data: DraftInputDTO) -> DraftDTO:
         # Date, then platform, then company, then the write - a 422 or a
-        # 404 on any of them writes nothing (ADR-0014, KODI-036).
+        # 404 on any of them writes nothing (ADR-0014).
         if data.application_date is not None:
             ensure_not_in_future(data.application_date, 'application_date')
 

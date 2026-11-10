@@ -1,4 +1,4 @@
-"""The job sources (KODI-046): the admin-managed catalog of boards the worker
+"""The job sources: the admin-managed catalog of boards the worker
 collects from. No ``user_id`` - a shared catalog (ADR-0004)."""
 
 from datetime import datetime

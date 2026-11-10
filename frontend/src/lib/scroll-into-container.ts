@@ -14,8 +14,14 @@ export function scrollIntoContainer(
 ): void {
   const container = scrollParent(element);
   if (!container) return;
-  const offset =
-    element.getBoundingClientRect().top - container.getBoundingClientRect().top;
+  // The document's own box moves with its scroll: its viewport top is 0. It
+  // honours `scroll-padding-top` (the phone shell's sticky back bar).
+  const page = container === document.scrollingElement;
+  const top = page ? 0 : container.getBoundingClientRect().top;
+  const padding = page
+    ? parseFloat(window.getComputedStyle(container).scrollPaddingTop) || 0
+    : 0;
+  const offset = element.getBoundingClientRect().top - top - padding;
   container.scrollTo({ top: container.scrollTop + offset, behavior });
 }
 

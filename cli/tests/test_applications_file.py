@@ -1,5 +1,4 @@
-"""``applications new|edit --file`` and the job-description options
-(KODI-018)."""
+"""``applications new|edit --file`` and the job-description options."""
 
 from __future__ import annotations
 
@@ -476,7 +475,7 @@ def test_edit_round_trips_an_application_entry(monkeypatch, runner, tmp_path):
     assert 'last_step' not in payload
 
 
-# --- API errors (KODI-018: print the detail, exit 1) ---------------------
+# --- API errors (print the detail, exit 1) -------------------------------
 
 
 def test_new_api_error_prints_the_detail(monkeypatch, runner, tmp_path):

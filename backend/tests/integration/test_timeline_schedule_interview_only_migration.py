@@ -1,5 +1,5 @@
 """Round-trip test for the schedule-interview-only revision
-``af50c83911a7`` (R4, KODI-016).
+``af50c83911a7`` (R4).
 
 ``.claude/rules/migration-tests.md``: the **real Alembic chain** against a
 dedicated testcontainers Postgres - upgrade to the revision, downgrade to
@@ -16,12 +16,12 @@ fires it exactly like an old-code write and produces a matching
 schedule fields), i.e. precisely the "dirty" pre-R4 shape this revision must
 clean up. One event (a native ``note``) is seeded directly into
 ``timeline_events`` with no ``application_steps`` counterpart at all - a
-Release B/C-native event a schedule (no validation existed before KODI-016's
+Release B/C-native event a schedule (no validation existed before R4's
 backend part), which is exactly the case the revision's own docstring
 documents as **not** recoverable on downgrade (owner: "you can remove the
 value in the database as well in case of problems").
 
-What is proved here, by acceptance criterion of KODI-016:
+What is proved here, by acceptance criterion of the R4 change:
 
 * 4 - ``downgrade()`` is not empty and works.
 * 5 - the real Alembic chain, seed before upgrade, assert after every step.
@@ -523,7 +523,7 @@ def test_no_temp_table_is_used() -> None:
 
 
 # --------------------------------------------------------------------------
-# Upgrade: schema inventory, schedule clearing (KODI-016 criterion 4, 5, 6)
+# Upgrade: schema inventory, schedule clearing (criterion 4, 5, 6)
 # --------------------------------------------------------------------------
 
 

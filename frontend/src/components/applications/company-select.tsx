@@ -60,7 +60,7 @@ function freeTextMessage(name: string): string {
 //   - string   → ID of an existing company selected from the dropdown
 //   - object   → new company created inline ({ name, url }), free text only —
 //                a URL-having company is resolved to an id by the picker
-//                itself (KODI-035, T111)
+//                itself (T111)
 //   - undefined → nothing selected yet
 // ---------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ export interface CompanySelectProps {
 }
 
 /**
- * The company field, on `CatalogSelect` (KODI-035, T108): the same picker and
+ * The company field, on `CatalogSelect` (T108): the same picker and
  * behaviour as the platform field (AC1). A URL confirmed in the create form
  * calls `POST /companies` and selects the returned id — 201 new or 200 reused
  * (AC2, R-021); a blank URL keeps the name as free text on this application
@@ -141,7 +141,7 @@ export function CompanySelect({
 
   const handleSearchChange = React.useCallback(
     async (query: string) => {
-      // A blank query still fetches (KODI-035, AC1): `fetchCompanies("")`
+      // A blank query still fetches (AC1): `fetchCompanies("")`
       // hits `GET /companies` with no `name`, i.e. every company the user
       // sees, so the list shows on open — the same "list on open, typing
       // narrows" behaviour as the platform picker — instead of staying

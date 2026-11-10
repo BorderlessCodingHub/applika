@@ -19,7 +19,7 @@ import type { TimelineEventView } from "@/components/timeline/timeline-types";
  * PRD 0008 / ADR 0012 (frontend): the timeline-event form zod DISCRIMINATED
  * UNION keyed on `event_type`, including
  * `interview_type` and the 20-currency / `monthly|annually` offer trio, plus
- * KODI-014's `denied_reason`.
+ * the denied event's `denied_reason`.
  *
  * - interview branch carries `interview_type` (default `unknown`), no salary,
  *   no reason, and is the ONLY branch with a schedule (start/end/timezone)
@@ -30,8 +30,8 @@ import type { TimelineEventView } from "@/components/timeline/timeline-types";
  * - note/feedback are gone (ADR 0020): the union refuses them, and
  *   `toTimelineEventPayload` OMITS every field a type does not carry
  * - scheduling fields collapse blanks to `null` on the wire and are sent ONLY
- *   for `interview`; every other `event_type` OMITS the three keys entirely
- *   (KODI-016), on CREATE and EDIT alike, replacing KODI-014's interim rule
+ *   for `interview`; every other `event_type` OMITS the three keys entirely,
+ *   on CREATE and EDIT alike, replacing an earlier interim rule
  *   that kept an already non-interview event's stored schedule on edit
  */
 
@@ -187,7 +187,7 @@ describe("timelineEventSchema — interview variant", () => {
   });
 });
 
-describe("timelineEventSchema — denied variant (KODI-014)", () => {
+describe("timelineEventSchema — denied variant", () => {
   it("accepts a denied event with the default unknown reason", () => {
     expect(timelineEventSchema.safeParse(deniedValues()).success).toBe(true);
   });
@@ -248,7 +248,7 @@ describe("timelineEventSchema — only interview, offer and denied (ADR 0020)", 
 
 describe("timelineEventSchema — server-limit parity (mirrors _TimelineEventWrite)", () => {
   // The schedule (start_time/end_time) pairing is validated ONLY for
-  // `interview` (KODI-014): the schedule group is unmounted for every other
+  // `interview`: the schedule group is unmounted for every other
   // type, so its rule must not reach an offer/denied event.
   it("rejects an interview with a start time and no end time, and vice versa", () => {
     expect(
@@ -376,7 +376,7 @@ describe("toTimelineEventPayload", () => {
     expect(payload).not.toHaveProperty("denied_reason");
   });
 
-  it("sends denied_reason for a denied event and OMITS interview_type and the salary trio (KODI-014)", () => {
+  it("sends denied_reason for a denied event and OMITS interview_type and the salary trio", () => {
     const payload = toTimelineEventPayload(
       deniedValues({ denied_reason: "skills_mismatch" }),
     );
@@ -471,11 +471,11 @@ describe("toTimelineEventPayload", () => {
     expect(payload).not.toHaveProperty("timezone");
   });
 
-  // KODI-016: a non-interview event never sends a schedule — on CREATE or
-  // EDIT, whatever was stored. This replaces KODI-014's interim rule, which
+  // A non-interview event never sends a schedule — on CREATE or
+  // EDIT, whatever was stored. This replaces an earlier interim rule, which
   // sent an already non-interview event's STORED schedule back unchanged on
   // an edit that left the type alone.
-  describe("a non-interview event never sends a schedule (KODI-016)", () => {
+  describe("a non-interview event never sends a schedule", () => {
     it.each(["offer", "denied"] as const)(
       "omits the schedule when editing a stored %s that already carries a legacy schedule",
       (type) => {
@@ -575,7 +575,7 @@ describe("emptyTimelineEventValues", () => {
     expect(values.denied_reason).toBe("");
   });
 
-  it("pre-fills the timezone with the browser's own zone (KODI-014)", () => {
+  it("pre-fills the timezone with the browser's own zone", () => {
     expect(emptyTimelineEventValues().timezone).toBe(browserTimeZone());
   });
 });
@@ -665,7 +665,7 @@ describe("timelineEventToFormValues", () => {
     expect(values.interview_type).toBe("");
   });
 
-  describe("denied reason (KODI-014)", () => {
+  describe("denied reason", () => {
     it("maps a loaded denied event's stored reason", () => {
       const event: TimelineEventView = {
         id: "4",
@@ -691,7 +691,7 @@ describe("timelineEventToFormValues", () => {
     });
   });
 
-  describe("timezone (KODI-014)", () => {
+  describe("timezone", () => {
     it("the stored timezone wins over the browser's own zone", () => {
       const event: TimelineEventView = {
         id: "5",

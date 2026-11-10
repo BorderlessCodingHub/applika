@@ -40,6 +40,12 @@ interface TimelineEventDialogProps {
   children: ReactNode;
   /** Footer actions, typically Cancel + a submit `<Button type="submit" form=…>`. */
   footer: ReactNode;
+  /**
+   * Where focus goes when the dialog closes (Radix `onCloseAutoFocus`). A
+   * phone screen that opens it with no Radix trigger hands focus back
+   * itself; absent, Radix's default.
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /** The default title and description per mode, in the active language (built at render). */
@@ -100,12 +106,16 @@ export function TimelineEventDialog({
   description,
   children,
   footer,
+  onCloseAutoFocus,
 }: TimelineEventDialogProps) {
   const defaults = useDefaults(mode);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-4 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] translate-y-0 flex-col gap-0 p-0 sm:top-[8dvh] sm:max-h-[84dvh] sm:max-w-3xl">
+      <DialogContent
+        className="top-4 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] translate-y-0 flex-col gap-0 p-0 sm:top-[8dvh] sm:max-h-[84dvh] sm:max-w-3xl"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>{title ?? defaults.title}</DialogTitle>
           <DialogDescription>

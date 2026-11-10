@@ -39,7 +39,7 @@ bucket `default` | `auth`, subject `user:<sub>` | `ip:<addr>`, window `floor(now
 - `backend/scripts/seed_mock_data.py`: `httpx.Client` waits `Retry-After`, retries once on 429.
 - `docker-compose.yml`, `docker-compose.e2e.yml` api env: `RATE_LIMIT_DEFAULT: "100000"`, `RATE_LIMIT_AUTH: "10000"`.
 - `backend/tests/conftest.py`: `envs.RATE_LIMIT_ENABLED = False` for the session. Limiter tests turn it on.
-- `backend/CLAUDE.md`: new env vars + "Rate limiting" section (Traefik, `FORWARDED_ALLOW_IPS`).
+- `backend/AGENTS.md`: new env vars + "Rate limiting" section (Traefik, `FORWARDED_ALLOW_IPS`).
 CLI (S4, `cli`):
 - `src/applika/lib/api.py:83` `_refresh`: on 429, keep the store and raise `ApiError(_extract_error_detail(response), 429)`.
   Commands already print an `ApiError` detail and exit 1. Any other non-200 → clear + `AuthError`, unchanged. No wait, no retry.
@@ -81,7 +81,7 @@ Module: `frontend/src/app/(protected)/agenda/` + `frontend/src/components/agenda
   - Untouched: the zone "·" in `timeline-format.ts` and the CV keyword separator (pinned with the server).
 - `src/contexts/auth-context.tsx` (S3): refresh `queryFn` catches axios 429 → returns cached `["applika-auth"]` data when
   present (query stays success); no cache → rethrow. Other errors unchanged.
-- i18n none. Design system: no separate document; frontend `CLAUDE.md` "### UI Components" (tabs `variant="line"`,
+- i18n none. Design system: no separate document; frontend `AGENTS.md` "### UI Components" (tabs `variant="line"`,
   `font-numeric`, `font-display`), "### Application Timeline" (`stageLabel`, `timeZoneLabel`), ADR 0006 tokens `src/app/globals.css`.
   Pattern files: `applications-page.tsx`, `application-item.tsx`, `timeline-panel.tsx` (read-only list).
 

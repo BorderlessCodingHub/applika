@@ -105,7 +105,7 @@ async def test_url_null_public_platform_is_listed_without_error(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """AC1: a platform may have no url, whoever adds it, and every list
-    shows it without error - fixes the pre-KODI-031 500 on a null url."""
+    shows it without error - fixes the old 500 on a null url."""
     db_session.add(
         PlatformModel(id=50, name='No Url Public', url=None, is_public=True)
     )

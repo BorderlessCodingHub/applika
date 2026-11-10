@@ -127,7 +127,7 @@ export interface PlatformSelectProps {
 }
 
 /**
- * Thin wrapper on `CatalogSelect` (KODI-035): keeps the exact external shape
+ * Thin wrapper on `CatalogSelect`: keeps the exact external shape
  * this component always had (options/onCreate driven by the caller), so
  * every existing caller and test is untouched. An exact, case-insensitive
  * match replaces "Create" (AC17, `exactMatchReplacesCreate`).

@@ -8,6 +8,8 @@ import {
   StartApplicationDialog,
   type StartApplicationChoice,
   type StartApplicationConflict,
+  type StartApplicationCvOption,
+  type StartApplicationDialogProps,
 } from "@/components/jobs/start-application-dialog";
 import { isBlankDescription } from "@/components/jobs/job-copy";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
@@ -46,6 +48,19 @@ export interface StartApplicationFlowProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** A CV option, with its last update for the phone sheet's hint. */
+export interface StartApplicationFlowCv extends StartApplicationCvOption {
+  updatedAt: string | null;
+}
+
+/** What `StartApplicationDialog` (and the phone's `StartApplicationSheetView`) take. */
+export type StartApplicationFlowState = Omit<
+  StartApplicationDialogProps,
+  "cvs"
+> & {
+  cvs: StartApplicationFlowCv[] | undefined;
+};
+
 /**
  * The data half of `StartApplicationDialog`, shared by /jobs and
  * /jobs/view: the master CVs, the job's detail (its description decides
@@ -53,11 +68,16 @@ export interface StartApplicationFlowProps {
  * create call, and the 409 turn into "Open draft" / "Open application"
  * (Plan corrections 6).
  */
-export function StartApplicationFlow({
+export function StartApplicationFlow(props: StartApplicationFlowProps) {
+  return <StartApplicationDialog {...useStartApplicationFlow(props)} />;
+}
+
+/** The flow's state and handlers, for the desktop dialog or the phone sheet. */
+export function useStartApplicationFlow({
   job,
   open,
   onOpenChange,
-}: StartApplicationFlowProps) {
+}: StartApplicationFlowProps): StartApplicationFlowState {
   const router = useRouter();
   const queryClient = useQueryClient();
   const baseCvs = useBaseCvs();
@@ -74,6 +94,7 @@ export function StartApplicationFlow({
     id: cv.id,
     name: cv.name,
     fit: fits.find((fit) => fit.base_cv_id === cv.id)?.score ?? null,
+    updatedAt: cv.updated_at,
   }));
 
   function handleOpenChange(next: boolean) {
@@ -121,23 +142,21 @@ export function StartApplicationFlow({
     });
   }
 
-  return (
-    <StartApplicationDialog
-      open={open && job !== null}
-      onOpenChange={handleOpenChange}
-      job={job}
-      cvs={cvs}
-      cvsLoading={baseCvs.isLoading}
-      cvsError={baseCvs.isError ? jobApiDetail(baseCvs.error) : null}
-      onRetryCvs={() => void baseCvs.refetch()}
-      canTailor={
-        detail.data ? !isBlankDescription(detail.data.description_text) : false
-      }
-      tailorLoading={detail.isLoading}
-      onSubmit={submit}
-      isPending={start.isPending || navigating}
-      error={error}
-      conflict={conflict}
-    />
-  );
+  return {
+    open: open && job !== null,
+    onOpenChange: handleOpenChange,
+    job,
+    cvs,
+    cvsLoading: baseCvs.isLoading,
+    cvsError: baseCvs.isError ? jobApiDetail(baseCvs.error) : null,
+    onRetryCvs: () => void baseCvs.refetch(),
+    canTailor: detail.data
+      ? !isBlankDescription(detail.data.description_text)
+      : false,
+    tailorLoading: detail.isLoading,
+    onSubmit: submit,
+    isPending: start.isPending || navigating,
+    error,
+    conflict,
+  };
 }

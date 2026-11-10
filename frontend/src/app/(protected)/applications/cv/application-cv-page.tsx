@@ -15,6 +15,8 @@ import type { BaseCv, CvFormValues } from "@/components/base-cvs/types";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
 import { FullWidthContent } from "@/components/layout/content-width";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { ApplicationCvScreenView } from "@/components/phone/screens/application-cv-screen";
 import { BaseCvPicker } from "@/components/tailored-cvs/base-cv-picker";
 import { CvDiffDownloadRow } from "@/components/tailored-cvs/cv-diff-download-row";
 import { CvFitPanel } from "@/components/tailored-cvs/cv-fit-panel";
@@ -47,6 +49,7 @@ import {
 } from "@/hooks/use-export-cv-diff";
 import { useExportTailoredCvMarkdown } from "@/hooks/use-export-tailored-cv-markdown";
 import { useExportTailoredCvPdf } from "@/hooks/use-export-tailored-cv-pdf";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { isNoTailoredCv, useTailoredCv } from "@/hooks/use-tailored-cv";
 import { useUpdateTailoredCv } from "@/hooks/use-update-tailored-cv";
 import { getApiError } from "@/lib/api-client";
@@ -216,7 +219,7 @@ function ApplicationCv() {
     cv?.name ?? "",
   );
 
-  // The diff downloads (KODI-017 part 3): the SAVED copy vs. its baseline,
+  // The diff downloads: the SAVED copy vs. its baseline,
   // rendered by the server. A 409 (no baseline) or any other failure sets
   // `diffDownloadError`, which disables the row with the server's own reason.
   const exportDiffMarkdownMutation = useExportCvDiffMarkdown(
@@ -230,7 +233,7 @@ function ApplicationCv() {
     { onNoBaseline: setDiffDownloadError },
   );
 
-  // Master CV delete/export for the picker (KODI-017), the same pattern
+  // Master CV delete/export for the picker, the same pattern
   // `cvs-page.tsx` uses — named distinctly from the tailored-CV `exportMutation`
   // above since both mount on this page.
   const deleteBaseCvMutation = useDeleteBaseCv({
@@ -304,7 +307,7 @@ function ApplicationCv() {
   const sourceCvName =
     baseCvs.data?.find((item) => item.id === cv?.base_cv_id)?.name ?? null;
 
-  // Baseline resolution (KODI-017): the snapshot taken at copy time, else the
+  // Baseline resolution: the snapshot taken at copy time, else the
   // CURRENT master CV via `base_cv_id`, else no diff UI at all — the "source
   // CV deleted" note above stays exactly as it is either way.
   const baselineSnapshot: CvDiffSnapshot | null = useMemo(() => {
@@ -334,6 +337,128 @@ function ApplicationCv() {
     adjustments: cv?.adjustments,
     readOnly: Boolean(readOnlyReason),
   });
+  const isPhone = useIsPhone();
+
+  if (isPhone)
+    return (
+      <>
+        <ApplicationCvScreenView
+          beta={beta}
+          applicationId={applicationId}
+          applicationLoading={applicationLoading}
+          application={application}
+          applicationError={
+            applicationError
+              ? getApiError(applicationError as AxiosError)
+              : null
+          }
+          readOnlyReason={readOnlyReason}
+          noCopyYet={noCopyYet}
+          copyError={cvError ? getApiError(cvError as AxiosError) : null}
+          copyLoading={cvLoading || !cv}
+          picker={{
+            masterCvs: fromQuery(baseCvs),
+            selectedId: selectedBaseCvId,
+            onSelect: handleSelect,
+            onCreate: () => {
+              if (!selectedBaseCvId) return;
+              createMutation.mutate({
+                baseCvId: selectedBaseCvId,
+                tailoring: jobTools && tailorByKeywords ? "keywords" : "copy",
+              });
+            },
+            creating: createMutation.isPending,
+            tailorByKeywords,
+            onTailorByKeywordsChange: jobTools
+              ? setTailorByKeywords
+              : undefined,
+            onDelete: handleDeleteBaseCv,
+            deletingId: deletingBaseCvId,
+            onExportPdf: handleExportBaseCv,
+            exportingPdfId: exportingBaseCvId,
+            onExportMarkdown: handleExportBaseCvMarkdown,
+            exportingMarkdownId: exportingBaseCvMarkdownId,
+          }}
+          editor={
+            cv && application
+              ? {
+                  form,
+                  onSubmit: form.handleSubmit(
+                    (values) =>
+                      updateMutation.mutate(toTailoredCvPayload(values)),
+                    (errors) => {
+                      const message = sectionErrorMessage(errors);
+                      if (message) toast.error(message);
+                    },
+                  ),
+                  saving: updateMutation.isPending,
+                  sourceDeleted: cv.base_cv_id === null,
+                  sourceCvName,
+                  jobDescription: application.job_description,
+                  onAddJobDescription: () => setEditingApplication(true),
+                  fit:
+                    jobTools && !fitIsNoCopy
+                      ? {
+                          data: fit.data,
+                          loading: fit.isLoading,
+                          error: fit.isError,
+                          onRetry: () => void fit.refetch(),
+                          retrying: fit.isFetching,
+                          dirty: !readOnlyReason && form.formState.isDirty,
+                        }
+                      : null,
+                  changes: cvDiff.hasBaseline
+                    ? {
+                        baseline: {
+                          label: sourceCvName,
+                          count: cvDiff.diffResult?.total ?? 0,
+                          showChanges: cvDiff.showChanges,
+                          onShowChangesChange: cvDiff.setShowChanges,
+                        },
+                        onExportPdf: () => {
+                          setDiffDownloadError(null);
+                          exportDiffPdfMutation.mutate();
+                        },
+                        onExportMarkdown: () => {
+                          setDiffDownloadError(null);
+                          exportDiffMarkdownMutation.mutate();
+                        },
+                        exportingPdf: exportDiffPdfMutation.isPending,
+                        exportingMarkdown: exportDiffMarkdownMutation.isPending,
+                        disabledReason: diffDownloadError,
+                      }
+                    : diffUnresolved
+                      ? {
+                          baseline: null,
+                          onExportPdf: () => {},
+                          onExportMarkdown: () => {},
+                          exportingPdf: false,
+                          exportingMarkdown: false,
+                          disabledReason: t("diffUnresolved"),
+                        }
+                      : null,
+                  diff: cvDiff.slots,
+                  sectionChanges: cvDiff.diffResult?.sections,
+                  adjustments: cv.adjustments ?? [],
+                  onExportPdf: () => exportMutation.mutate(),
+                  exportingPdf: exportMutation.isPending,
+                  onExportMarkdown: () => exportMarkdownMutation.mutate(),
+                  exportingMarkdown: exportMarkdownMutation.isPending,
+                  onDelete: () => deleteMutation.mutate(),
+                  deleting: deleteMutation.isPending,
+                }
+              : null
+          }
+        />
+        {application && !readOnlyReason ? (
+          <ApplicationFormSheet
+            open={editingApplication}
+            onOpenChange={setEditingApplication}
+            application={application}
+          />
+        ) : null}
+      </>
+    );
 
   function renderBody() {
     if (!applicationId) {
@@ -426,7 +551,7 @@ function ApplicationCv() {
       <>
         {/*
           The editor is the ONLY surface on this route that spends the whole
-          shell width (KODI-017) — every other branch above (no application,
+          shell width — every other branch above (no application,
           loading, error, the picker in every one of its states) stays in the
           reading column. `readOnlyReason` does not branch the return here, so
           one marker covers both the editable and the read-only editor.

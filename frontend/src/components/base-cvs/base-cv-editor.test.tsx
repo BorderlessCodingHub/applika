@@ -24,7 +24,7 @@ import {
 } from "./types";
 
 /**
- * Master CV form and cap affordance (KODI-002 / R-001, R-002, R-003).
+ * Master CV form and cap affordance (R-001, R-002, R-003).
  *
  * Three properties hang off this file:
  *  - AC1 — the form captures the label, the identity and contact block, the
@@ -596,7 +596,7 @@ describe("BaseCvEditor", () => {
     expect(screen.getByText("An email is required")).toBeInTheDocument();
   });
 
-  it("carries the export beside the submit, both reachable (KODI-004)", () => {
+  it("carries the export beside the submit, both reachable", () => {
     render(
       <Harness
         onValid={() => {}}
@@ -690,7 +690,7 @@ describe("BaseCvEditor", () => {
     expect(wrapper.className).toContain("relative");
   });
 
-  it("splits the editor into two equal halves, with no cap on either (KODI-009 AC3)", () => {
+  it("splits the editor into two equal halves, with no cap on either (AC3)", () => {
     // The owner: "increace the preview width size keep 50/50 "w-1/2" to the CV
     // form and "w-1/2" to CV preview". Two `minmax(0,1fr)` tracks ARE those two
     // halves; two `w-1/2` flex children plus the `gap-6` between them would
@@ -702,7 +702,7 @@ describe("BaseCvEditor", () => {
     const split = container.querySelector("form > div.grid") as HTMLElement;
     expect(split).not.toBeNull();
     expect(split.className).toContain("md:grid-cols-2");
-    // KODI-008's `2xl:grid-cols-[minmax(0,1fr)_38rem]` gave the surplus to the
+    // The old `2xl:grid-cols-[minmax(0,1fr)_38rem]` gave the surplus to the
     // form. The owner reversed it; nothing may pin either side to a width.
     expect(split.className).not.toMatch(/grid-cols-\[/);
     expect(split.className).not.toMatch(/2xl:/);
@@ -734,7 +734,7 @@ describe("BaseCvEditor", () => {
   });
 });
 
-describe("the experience and education periods (KODI-007)", () => {
+describe("the experience and education periods", () => {
   /*
    * The owner: "Today for Education and Experience, the period input is
    * optional, this must be required, and needs to change, instead of a bare

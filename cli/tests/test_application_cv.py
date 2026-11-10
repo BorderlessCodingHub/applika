@@ -1,4 +1,4 @@
-"""``applika applications cv …`` - the CV copy commands (KODI-018)."""
+"""``applika applications cv …`` - the CV copy commands."""
 
 from __future__ import annotations
 

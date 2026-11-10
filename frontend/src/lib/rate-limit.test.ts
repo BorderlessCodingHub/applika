@@ -107,11 +107,11 @@ describe("rateLimitNotice", () => {
 });
 
 /**
- * KODI-058 (ADR-0019 "fail closed"): a 503 "Session service unavailable"
+ * PRD 0014 (ADR-0019 "fail closed"): a 503 "Session service unavailable"
  * means Redis is down, not that the session ended. It is temporary like a
  * 429, so the web waits `Retry-After` and retries, never signs out.
  */
-describe("isTemporary / isServiceUnavailable (KODI-058)", () => {
+describe("isTemporary / isServiceUnavailable", () => {
   it("is true for a 429 and for a 503", () => {
     expect(isTemporary(rateLimitError())).toBe(true);
     expect(isTemporary(rateLimitError({ status: 503 }))).toBe(true);
@@ -136,7 +136,7 @@ describe("isTemporary / isServiceUnavailable (KODI-058)", () => {
   });
 });
 
-describe("retryAfterMs on a 503 (KODI-058)", () => {
+describe("retryAfterMs on a 503", () => {
   it("reads the 503's Retry-After: 5 as 5000ms", () => {
     expect(retryAfterMs(rateLimitError({ status: 503, retryAfter: "5" }))).toBe(
       5_000,

@@ -529,7 +529,7 @@ test("an admin page is Portuguese", async ({ page }) => {
 
 test.describe("pt-BR sweep: no English word left on any page", () => {
   test("the sweep reads smoke.spec.ts's whole route list", () => {
-    expect(SMOKE_ROUTES).toHaveLength(24);
+    expect(SMOKE_ROUTES).toHaveLength(26);
     expect(ENGLISH_ONLY.size).toBeGreaterThan(1000);
   });
 
@@ -542,7 +542,11 @@ test.describe("pt-BR sweep: no English word left on any page", () => {
 
       await page.goto(route.path);
       await expectLanguage(page, "pt-BR");
-      await expect(page.locator("h1, h2").first()).toBeVisible();
+      // The public screens hold both widths' trees (PRD 0021): the first
+      // heading in the DOM can be the hidden phone tree's.
+      await expect(
+        page.locator("h1, h2").filter({ visible: true }).first(),
+      ).toBeVisible();
       await page.waitForLoadState("networkidle");
 
       // Polled: the first paint is English (the static HTML), and data-driven
@@ -602,6 +606,102 @@ test("a garbage NEXT_LOCALE cookie is ignored: the browser's language decides", 
   }
 });
 
+test.describe("320px: a longer Portuguese label truncates on the phone", () => {
+  test.use({ viewport: { width: 320, height: 720 } });
+
+  test("tab labels and pills truncate instead of wrapping", async ({
+    page,
+    context,
+  }) => {
+    await setLocaleCookie(context, "pt-BR");
+    await loginAs(page, "user");
+    await page.goto("/dashboard");
+    await expectLanguage(page, "pt-BR");
+    await expect(
+      page.getByRole("navigation", { name: "Principal" }).getByRole("link"),
+    ).toHaveText(["Hoje", "Funil", "Agenda", "Insights"]);
+
+    const overflow = (selector: string) =>
+      page.evaluate((labelSelector) => {
+        return Array.from(
+          document.querySelectorAll<HTMLElement>(labelSelector),
+        ).map((label) => {
+          const style = getComputedStyle(label);
+          return {
+            text: label.textContent,
+            nowrap: style.whiteSpace === "nowrap",
+            ellipsis: style.textOverflow === "ellipsis",
+            clipped: style.overflow === "hidden" || style.overflow === "clip",
+            oneLine:
+              label.getBoundingClientRect().height <
+              parseFloat(style.fontSize) * 2,
+          };
+        });
+      }, selector);
+
+    const tabLabels = await overflow('[data-slot="phone-tab-bar"] a > span');
+    expect(tabLabels).toHaveLength(4);
+    for (const label of tabLabels) {
+      expect(label, label.text ?? "").toMatchObject({
+        nowrap: true,
+        ellipsis: true,
+        clipped: true,
+        oneLine: true,
+      });
+    }
+
+    await page.goto("/account");
+    await expect(
+      page.getByRole("radiogroup", { name: "Idioma" }),
+    ).toBeVisible();
+    const pills = await overflow('[data-slot="phone-pill"] > span');
+    // e2e-user holds PSP (the seed): its pill is on the hub.
+    expect(pills.length).toBeGreaterThan(0);
+    for (const pill of pills) {
+      expect(pill, pill.text ?? "").toMatchObject({
+        nowrap: true,
+        ellipsis: true,
+        clipped: true,
+        oneLine: true,
+      });
+    }
+  });
+});
+
+test.describe("a count of 0 in Portuguese on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("Cycles reads 0 in the plural (0 ofertas), never the singular", async ({
+    page,
+    context,
+    request,
+  }) => {
+    // e2e-discord's current cycle: no offer ever (no spec writes one for it).
+    const stats = await request.get(apiUrl("/applications/statistics"), {
+      headers: apiHeaders("discord"),
+    });
+    expect(stats.ok(), await stats.text()).toBeTruthy();
+    const { total_applications: applications, offers } =
+      (await stats.json()) as { total_applications: number; offers: number };
+    expect(offers, "e2e-discord's offers: the 0 to read").toBe(0);
+    const words = (count: number, one: string, many: string) =>
+      `${count} ${count === 1 ? one : many}`;
+
+    await setLocaleCookie(context, "pt-BR");
+    await loginAs(page, "discord");
+    await page.goto("/cycles");
+    await expectLanguage(page, "pt-BR");
+    const current = page.locator('[data-slot="cycles-current"]');
+    await expect(current).toContainText(
+      `${words(applications, "candidatura", "candidaturas")} · ${words(offers, "oferta", "ofertas")}`,
+    );
+    await expect(current).toContainText("0 ofertas");
+    await expect(current).not.toContainText(
+      /(^|\D)0 (candidatura|oferta)( |·|$)/,
+    );
+  });
+});
+
 test.describe("320px: no sideways scroll", () => {
   test.use({ viewport: { width: 320, height: 720 } });
 
@@ -620,11 +720,24 @@ test.describe("320px: no sideways scroll", () => {
       }
 
       await loginAs(page, "user");
-      for (const path of ["/", "/dashboard", "/applications"]) {
+      for (const path of ["/", "/dashboard", "/applications", "/account"]) {
         await page.goto(path);
         await expectLanguage(page, lang);
-        await expect(page.locator("h1, h2").first()).toBeVisible();
-        await expect(page.getByRole("radiogroup").first()).toBeVisible();
+        await expect(
+          page.locator("h1, h2").filter({ visible: true }).first(),
+        ).toBeVisible();
+        if (path === "/") {
+          await expect(page.getByRole("radiogroup").first()).toBeVisible();
+        }
+        if (path === "/account") {
+          // Below md a signed-in page has no header: the language choice is
+          // the Account hub's (ADR-0027).
+          await expect(
+            page.getByRole("radiogroup", {
+              name: lang === "en" ? "Language" : "Idioma",
+            }),
+          ).toBeVisible();
+        }
         await page.waitForLoadState("networkidle");
         await noSidewaysScroll(page);
       }

@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { COOKIE_NOTICE_ACKNOWLEDGED } from "./e2e/support/cookie-notice";
 
 /**
- * Playwright E2E — drives the REAL application stack (KODI-001 / R-002).
+ * Playwright E2E — drives the REAL application stack (R-002).
  *
  * `frontend/scripts/e2e.sh` is the single entry point: it builds and
  * starts `docker-compose.e2e.yml` (the built API, the built static frontend

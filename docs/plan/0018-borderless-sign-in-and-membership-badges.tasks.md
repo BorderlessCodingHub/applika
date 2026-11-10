@@ -51,7 +51,7 @@ K1 (KODI-077) Release A migration → K2 (KODI-078) backend → K3 (KODI-079) we
 16. **E2E pins.** `e2e/smoke.spec.ts` l.53 and `e2e/auth-guard.spec.ts` l.44 assert the "Login with GitHub" link; `smoke.spec.ts` l.154 lists `/admin/discord-webhooks` and l.229 pins `toHaveLength(22)` (K3: `/admin/report-webhooks` replaces it, `/welcome` added → 23, and a redirect test like l.210 for `/admin/discord-webhooks`); `auth-guard.spec.ts` `PROTECTED_PATHS` l.20-31 gains `/welcome`; `admin-gating.spec.ts` l.23. K3 T043.
 17. **Web fixtures and dead code.** The new `User` type breaks `contexts/auth-context.test.tsx` l.100-102, `components/layout/user-menu.test.tsx` l.24-26, `app/(protected)/profile/profile-page.test.tsx` l.30. `admin/jobs/jobs-page.tsx` l.36 names the Discord page in a comment. `components/brand-icons.tsx` `DiscordIcon` (l.44) has no caller once `connected-accounts.tsx` goes. K3 T037, T039, T042.
 18. **Sign-in method history.** Ended `github_web` rows stay listed for `SESSION_HISTORY_DAYS`. `services/types/sessions.ts`, `components/profile/devices-copy.ts` l.55 and `presentation/schemas/user_sessions.py` keep `github_web` beside the new `borderless`; the CHECK keeps `github_revoked` as an end reason. K2 T025, K3 T040.
-19. **CLI docs.** `cli/README.md` l.56 also says "signs in with GitHub" (the plan names `auth.py`, `SKILL.md`, `cli/CLAUDE.md`). No version bump: `cli/pyproject.toml` is 1.1.0 and `cli/CHANGELOG.md` already has `## [Unreleased]` (l.7). K2 T030.
+19. **CLI docs.** `cli/README.md` l.56 also says "signs in with GitHub" (the plan names `auth.py`, `SKILL.md`, `cli/AGENTS.md`). No version bump: `cli/pyproject.toml` is 1.1.0 and `cli/CHANGELOG.md` already has `## [Unreleased]` (l.7). K2 T030.
 20. **E2E between K2 and K3.** After K2 the old web runs on the new API through the seeded cookies; `e2e/profile-discord.spec.ts` and `e2e/admin-discord-webhooks.spec.ts` call removed routes. K2 runs the suite without those two; K3 deletes and replaces them and runs it whole.
 21. **Real Borderless and real GitHub.** An agent never holds the owner's Borderless or GitHub credentials. The stub carries every walk; the GitHub restore is walked up to the consent URL and its callback is carried by `test_github_restore_flow.py`. One real Borderless sign-in and one real GitHub restore on the dev stack are owner steps before the B merge. K4 T050.
 22. **ty baseline.** 171, ratchets down only, compared with `develop`; every file a ticket creates or changes is clean.
@@ -135,7 +135,7 @@ AC:
 
 ## K2 — Backend: Borderless sign-in, user-id sessions, badges and confirmation, GitHub restore, badge-gated reports and report webhooks; Discord and GitHub sign-in removed; Borderless stub and E2E seed   side: backend (+ CLI help text)   covers: R-001 (API), R-002, R-003 (API), R-004 (API), R-005 (API), R-006 (API), R-007, R-008, R-009, R-010 (API), R-011, R-012, R-013, R-014, R-015, R-018, R-019 (API), R-020 (API), R-021, R-022 (API), R-023 (API), R-024 (API), R-025 (API), R-026 (lookup), R-027 (API), R-036 (API), R-037 (API), R-038, R-028, R-029 (API), R-030, R-031 (routing), R-032 (API), R-033, R-034, R-035 (B half)   deps: K1
 Goal: The API signs users in only with Borderless (server-side credential proxy), opens sessions with `sub` = `users.id`, reads the membership at every sign-in, confirmation and refresh while the 7-day token lives, keeps badges (held only while the token lives), confirms a membership without a new session, restores GitHub-era data one-shot, gates and routes reports by badge, lets admins manage report webhooks. Discord linking and GitHub sign-in are gone. A Borderless stub, the e2e compose service and the seed let the whole stack run without Borderless.
-Owner change 2026-10-29 (`## Order`): every K2 commit is rebuilt on A2. What moves here: T012 `ReportWebhookModel` maps no `badge`, new `ReportWebhookBadgeModel` mirrors A2; T016 `report_webhook_repository.py` writes the webhook and its badge rows in one commit, PATCH `badges` replaces the set, `list_by_badges` joins the link rows; T022 routing to every webhook whose badges include a held badge, each address once; T023 admin CRUD and `schemas/report_webhook.py` take `badges`; T028, T029 tests (validation, resolve, admin API, a hook holding both, plan `## Tests`); T030 backend/CLAUDE.md (Admin report webhooks, Domain Model) and backend/CHANGELOG.md say `badges`. Contract below and plan `## Contract`.
+Owner change 2026-10-29 (`## Order`): every K2 commit is rebuilt on A2. What moves here: T012 `ReportWebhookModel` maps no `badge`, new `ReportWebhookBadgeModel` mirrors A2; T016 `report_webhook_repository.py` writes the webhook and its badge rows in one commit, PATCH `badges` replaces the set, `list_by_badges` joins the link rows; T022 routing to every webhook whose badges include a held badge, each address once; T023 admin CRUD and `schemas/report_webhook.py` take `badges`; T028, T029 tests (validation, resolve, admin API, a hook holding both, plan `## Tests`); T030 backend/AGENTS.md (Admin report webhooks, Domain Model) and backend/CHANGELOG.md say `badges`. Contract below and plan `## Contract`.
 Owner's words: "As an applika user who belongs to the Borderless community, I want to sign in to applika with my Borderless email and password instead of GitHub, so that my BASE or PSP membership shows up as a badge on my account and gives me access to the biweekly reports. If I used applika before with GitHub, I want my old data back: automatically when my Borderless email matches my old account's email, or by linking my GitHub account from my profile when it doesn't. As an admin, I want to assign each report webhook to a badge (BASE or PSP), so that a member's report goes to the webhooks of their community. Discord linking goes away."
 Clarified: "replace github login, and replace discord link to github link, this is necessary to restore all user data from old github login"; "Revoke, keep history (Recommended)"; "Email match, else Link GitHub (Recommended)"; "remove discord integration, the reports feature will be available only to users with "psp" or "base" badges, the webhook will use those roles to determine which webhook to report the status"; "Gate nothing, exception (Recommended)"; "Badge holders only (Recommended)"; "the github link only exists to fetch old user data, after this step the link have no pourposes"; "every sign-in and token refresh"; "Lock reports until re-sign-in (Recommended)"; probe: "Refresh token in body: False", "data.token.expiresIn: int = 604800", "membership at data.user.membership: 'PSP'".
 Covers: as the header.
@@ -154,8 +154,8 @@ Touch:
 - backend/tests/fixtures/borderless/stub.py, accounts.json (new); docker-compose.e2e.yml; frontend/scripts/e2e.sh; docker-compose.yml, backend/docker-compose.yml, .env.example
 - backend/app/scripts/seed_e2e.py, backend/scripts/seed_mock_data.py (header)
 - backend/tests/conftest.py, base_db_setup.py, sessions_seed.py, integration/conftest.py; backend/tests/unit/…, backend/tests/integration/… (T028, T029)
-- backend/CLAUDE.md, backend/README.md, README.md, backend/CHANGELOG.md, cli/CHANGELOG.md
-- cli/src/applika/commands/auth.py (l.66 docstring), cli/src/applika/skills/applika-cli/SKILL.md (l.14, l.33), cli/CLAUDE.md (l.200), cli/README.md (l.56)
+- backend/AGENTS.md, backend/README.md, README.md, backend/CHANGELOG.md, cli/CHANGELOG.md
+- cli/src/applika/commands/auth.py (l.66 docstring), cli/src/applika/skills/applika-cli/SKILL.md (l.14, l.33), cli/AGENTS.md (l.200), cli/README.md (l.56)
 Pattern:
 - backend/app/application/services/discord_oauth_service.py (httpx client, `repr=False` token fields; deleted after)
 - backend/app/presentation/api/account_link.py + use_cases/account_link_state.py (one-shot OAuth nonce, callback resolving the caller's own `__access`; deleted after)
@@ -242,10 +242,10 @@ Steps:
   - fixtures: tests/conftest.py (`UserDTO` without `github_id`; `reports_badge` fixture, Plan corrections 9), base_db_setup.py, sessions_seed.py (the hash), integration/conftest.py, every `github_id=` in a fixture (Plan corrections 8);
   - deleted: test_account_link_discord.py, test_admin_discord_webhooks.py.
 - T030 [US1] [US6] Docs and changelogs (no ticket keys):
-  - backend/CLAUDE.md: Authentication, GitHub restore (replaces Account links), Users, Reports (gate, routing), Admin report webhooks, Exception Handling, Environment Variables, Domain Model; backend/README.md l.60; README.md env;
+  - backend/AGENTS.md: Authentication, GitHub restore (replaces Account links), Users, Reports (gate, routing), Admin report webhooks, Exception Handling, Environment Variables, Domain Model; backend/README.md l.60; README.md env;
   - backend/CHANGELOG.md `## [Unreleased]`: Added (signin, confirm, restore, badges, report webhooks, settings, the stub); Changed (`sub`, refresh, `/admin/users` `github_id`, posts carry no mention); Removed (Discord link, its routes and settings, GitHub sign-in, fastapi-sso);
   - cli/CHANGELOG.md `## [Unreleased]` (changelogs rule 3): `/users/me` adds `badges`, `borderless`, `github_restore`, drops `discord` and `discord_linked`, `github_id` nullable; every user signs in again at the release; `applika login` completes on applika's Borderless sign-in page (every version); the help text;
-  - CLI help text: cli/src/applika/commands/auth.py l.66 docstring, SKILL.md l.14, l.33, cli/CLAUDE.md l.200, cli/README.md l.56 → Borderless (Plan corrections 19). No version bump.
+  - CLI help text: cli/src/applika/commands/auth.py l.66 docstring, SKILL.md l.14, l.33, cli/AGENTS.md l.200, cli/README.md l.56 → Borderless (Plan corrections 19). No version bump.
 - T031 [US1] Checks, gate, close:
   - `uv run pytest tests -k "steps or finalize or supports"`; `cd cli && make lint && make test`;
   - `grep -rn "require_feature\|FeatureKey" backend/app/presentation/api/borderless_auth.py backend/app/presentation/api/github_restore.py backend/app/presentation/api/admin/report_webhooks.py backend/app/presentation/api/reports.py` → none; `git -C applika diff develop -- backend/app/core/features.py` → empty;
@@ -314,7 +314,7 @@ Touch:
 - frontend/src/components/profile/devices-copy.ts; components/brand-icons.tsx
 - deleted: components/profile/connected-accounts.tsx (+ test), discord-link-notice.tsx, hooks/use-account-links.ts (+ test), admin/discord-webhooks/discord-webhooks-page.tsx (+ test), components/admin/discord-webhook-list.tsx, discord-webhook-form-dialog.tsx, e2e/profile-discord.spec.ts, e2e/admin-discord-webhooks.spec.ts
 - frontend/e2e/borderless-signin.spec.ts, admin-report-webhooks.spec.ts (new); e2e/smoke.spec.ts, auth-guard.spec.ts, admin-gating.spec.ts, support/auth.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/app/(protected)/cvs/editor/page.tsx (Suspense shell for `?query=`)
 - frontend/src/app/(protected)/profile/profile-page.tsx (lazy `useState` from the outcome query, `replaceState`, one-shot `useRef`)
@@ -357,7 +357,7 @@ Steps:
   - app/(protected)/admin/report-webhooks/page.tsx + report-webhooks-page.tsx (new), components/admin/report-webhook-list.tsx + report-webhook-form-dialog.tsx (new, from the Discord ones): URL, badge checkboxes (BASE, PSP, or both; at least one on create and edit; a carried-over row reads "No badge, receives nothing" and Edit assigns at least one; never emptied), optional label; no Discord wording except the URL field (R-039); the URL reopens blank on edit and blank keeps the stored one; masked address only; 409 and 422 inline;
   - admin/discord-webhooks/page.tsx → `router.replace("/admin/report-webhooks")`; components/admin/admin-nav.tsx tab "Report webhooks"; admin/users/users-page.tsx l.392 "—" when `github_id` is null; admin/jobs/jobs-page.tsx l.36 comment;
   - deleted: discord-webhooks-page.tsx (+ test), discord-webhook-list.tsx, discord-webhook-form-dialog.tsx.
-- T040 [P] [US1] components/profile/devices-copy.ts: `borderless` → "Borderless in the browser", `github_web` kept; frontend/CLAUDE.md: Routing (`/welcome`, `/login?cli=1`), Auth (Borderless form, no GitHub), Profile (badge, confirm, restore; Discord section gone), Reports gate, Admin report webhooks, E2E (stub accounts), Backend Context.
+- T040 [P] [US1] components/profile/devices-copy.ts: `borderless` → "Borderless in the browser", `github_web` kept; frontend/AGENTS.md: Routing (`/welcome`, `/login?cli=1`), Auth (Borderless form, no GitHub), Profile (badge, confirm, restore; Discord section gone), Reports gate, Admin report webhooks, E2E (stub accounts), Backend Context.
 - T041 [US1] [US3] [US7] [US8] [US11] ui-designer pass: sign-in form, welcome screen, badge chip, confirm-membership form, restore card and notices; ADR-0022 tokens; both themes; desktop and 390px.
 - T042 [P] [US1] [US3] [US5] [US7] [US8] [US9] [US11] Vitest:
   - new: login-page.test.tsx (each status word, the hint, `?cli=1` follows `redirect_to` and never auto-redirects), welcome-page.test.tsx, membership-badge.test.tsx, badge-gate.test.tsx (three states), confirm-membership-form.test.tsx, github-restore-card.test.tsx, report-webhooks-page.test.tsx;
@@ -396,7 +396,7 @@ AC:
 - Playwright runs against the real stack: the built API, the built frontend, a real Postgres and a real Redis, migrated with `alembic upgrade head`. No mocked API. (.claude/rules/quality-gates.md)
 
 ## K4 — Closing 0018: full gate, E2E, ADR-0024, walk, Release B   side: both (backend, frontend, cli)   covers: — (closing)   deps: K3
-Goal: Prove Release B whole: the full gate in CLAUDE.md order plus the target gates, the whole E2E suite with the stub, ADR-0024 Accepted and matching the build, no test infrastructure left, a walk by hand on a real stack, both changelogs, the `0018-release-b` tag. No new feature work.
+Goal: Prove Release B whole: the full gate in AGENTS.md order plus the target gates, the whole E2E suite with the stub, ADR-0024 Accepted and matching the build, no test infrastructure left, a walk by hand on a real stack, both changelogs, the `0018-release-b` tag. No new feature work.
 Owner's words: "As an applika user who belongs to the Borderless community, I want to sign in to applika with my Borderless email and password instead of GitHub, so that my BASE or PSP membership shows up as a badge on my account and gives me access to the biweekly reports. If I used applika before with GitHub, I want my old data back: automatically when my Borderless email matches my old account's email, or by linking my GitHub account from my profile when it doesn't. As an admin, I want to assign each report webhook to a badge (BASE or PSP), so that a member's report goes to the webhooks of their community. Discord linking goes away. Build it as decided in docs/adr/0024-borderless-sole-login-and-membership-badges.md, in the three releases that ADR describes (migration A, code B, migration C), and settle its open questions before the plan is final."
 Clarified: success signals: a GitHub-era user whose email matches sees their old applications on their first Borderless sign-in, with no extra step; no Borderless password, Borderless token or GitHub token appears in a log, a response or the database unencrypted; a PSP member's report reaches the PSP webhooks and no BASE webhook; a membership change shows within one session refresh while the access is alive, else at the next confirmation; a member confirms in under 30 seconds from the Reports page without losing their session; `applika whoami` from 0.1.4, 1.0.1 and 1.1.0 works after signing in again; no report submission fails because a webhook failed; no restore leaves a user with two accounts that both hold data.
 Covers: — (closing)
@@ -408,7 +408,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0014-cli-device-sign-in-and-devices.tasks.md K5
 Contract: none new.
 Steps:
-- T045 On `labs01-147` after the K3 tip. Gate in CLAUDE.md order:
+- T045 On `labs01-147` after the K3 tip. Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -447,7 +447,7 @@ Steps:
   - the owner steps of `### Releases` (B only after A's `alembic upgrade head` is confirmed; the env vars; deploy while Borderless is up; assign the carried-over webhooks; an admin needs a badge to test reports); C only after B runs in prod; rollback C, B, then A;
   - the agent never touches prod or `main`.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171 and touched files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171 and touched files clean, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0024, Accepted 2026-10-29; ADR-0002 and ADR-0013 Superseded by it, ADR-0004 and ADR-0019 Amended, ADR-0018 carries its exception; bound ADR-0005 and ADR-0009 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases, testcontainers or Borderless stub left running.
 - The E2E the feature earned (borderless-signin.spec.ts and admin-report-webhooks.spec.ts, the whole suite green via frontend/scripts/e2e.sh with the Borderless stub) runs inside the gate and is green; refusals, membership reads, restore outcomes, routing, installed CLIs and the Release A round trip are carried by the cheaper layers named in T047.
@@ -464,7 +464,7 @@ Release: C, tag `0018-release-c`. Plan: `## Data` (C1), `## Scope` (Releases), `
 Touch:
 - backend/migrations/versions/<rev>_retire_github_discord_objects.py (new)
 - backend/tests/integration/test_migration_retire_github_discord.py (new)
-- backend/CHANGELOG.md, backend/CLAUDE.md (Domain Model: the four `_old` objects)
+- backend/CHANGELOG.md, backend/AGENTS.md (Domain Model: the four `_old` objects)
 Pattern:
 - backend/migrations/versions/583226ca46bc_retire_users_is_org_member.py (a Release C rename to `_old`)
 - backend/tests/integration/test_migration_retire_is_org_member.py (its round trip)
@@ -486,10 +486,10 @@ Steps:
   - `grep -nE "op\.drop_(column|table)"` on the revision → none; `grep -rn "_old" backend/app/` → none; `UserModel` maps neither `github_id` nor `encrypted_github_token`; no model maps `discord_*`;
   - local DB: `uv run alembic downgrade -1 && uv run alembic upgrade head`; `uv run pytest tests/integration -k migration`;
   - full `frontend/scripts/e2e.sh` green (the stack migrates to head, C included); no applika-e2e container, network or volume left.
-- T056 [US8] backend/CHANGELOG.md `## [Unreleased]` `### Changed`: `- discord_connections, discord_report_webhooks, users.github_id and users.encrypted_github_token renamed to *_old, data kept; github_connections and report_webhooks topped up with the rows created between the two migrations (Release C, ADR-0024).` No CLI entry. backend/CLAUDE.md Domain Model names the four `_old` objects (no code reads them; removal only on an explicit owner order).
+- T056 [US8] backend/CHANGELOG.md `## [Unreleased]` `### Changed`: `- discord_connections, discord_report_webhooks, users.github_id and users.encrypted_github_token renamed to *_old, data kept; github_connections and report_webhooks topped up with the rows created between the two migrations (Release C, ADR-0024).` No CLI entry. backend/AGENTS.md Domain Model names the four `_old` objects (no code reads them; removal only on an explicit owner order).
 - T057 [US8] Gate, tag, record:
-  - gate in CLAUDE.md order (backend, frontend, cli) and the target gates as K4 T045, T046;
-  - `git -C applika diff 0018-release-b --name-only` → only `backend/migrations/versions/`, `backend/tests/integration/`, `backend/CHANGELOG.md`, `backend/CLAUDE.md`;
+  - gate in AGENTS.md order (backend, frontend, cli) and the target gates as K4 T045, T046;
+  - `git -C applika diff 0018-release-b --name-only` → only `backend/migrations/versions/`, `backend/tests/integration/`, `backend/CHANGELOG.md`, `backend/AGENTS.md`;
   - commits conventional, no ticket key (e.g. `feat(db): retire github and discord objects`);
   - annotated local tag `0018-release-c` on the K5 tip;
   - owner steps: merge only after B runs in prod; `alembic upgrade head` → restart → confirm; after C, unset the Discord OAuth keys and `GITHUB_TOKEN_ENCRYPTION_KEY` if wanted; rollback `alembic downgrade <A2 rev>` before any image rollback past B. The agent never touches prod or `main`.

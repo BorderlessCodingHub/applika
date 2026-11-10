@@ -13,7 +13,7 @@ vi.mock("@/hooks/use-user", () => ({
   useAgenda: (...args: unknown[]) => useAgendaMock(...args),
 }));
 
-// The chevron body (KODI-038, R-012) mounts a wired `useTimeline` once opened
+// The chevron body (R-012) mounts a wired `useTimeline` once opened
 // — a real service call, so it needs a mocked service module.
 const timelineListMock = vi.fn().mockResolvedValue([]);
 vi.mock("@/services/services", () => ({

@@ -71,7 +71,7 @@ export interface BaseCvPickerProps {
   onExport: (cv: BaseCv) => void;
   /** Id of the master CV whose PDF render is in flight. */
   exportingId?: string | null;
-  /** Asks the server for one master CV's Markdown (KODI-017 part 3), beside the PDF. */
+  /** Asks the server for one master CV's Markdown, beside the PDF. */
   onExportMarkdown: (cv: BaseCv) => void;
   /** Id of the master CV whose Markdown render is in flight. */
   exportingMarkdownId?: string | null;
@@ -210,7 +210,7 @@ export function BaseCvPicker({
             className="max-w-prose flex-1 basis-72"
           />
         ) : null}
-        {/* Pending keeps focus: aria-disabled, not disabled (KODI-048). */}
+        {/* Pending keeps focus: aria-disabled, not disabled. */}
         <Button
           type="button"
           onClick={() => {

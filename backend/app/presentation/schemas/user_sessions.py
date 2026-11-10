@@ -1,4 +1,4 @@
-"""Device list schemas (KODI-057, ADR-0019). Ids are Snowflake strings on
+"""Device list schemas (ADR-0019). Ids are Snowflake strings on
 the wire (ADR-0003). No refresh value, no user agent string."""
 
 from datetime import datetime

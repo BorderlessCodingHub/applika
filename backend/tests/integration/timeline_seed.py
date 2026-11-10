@@ -115,7 +115,7 @@ def event(
     # any other type has no interview type, as the CHECK requires.
     if values['event_type'] is EventType.INTERVIEW:
         values.setdefault('interview_type', InterviewType.UNKNOWN)
-    # KODI-014: a denied event defaults to unknown unless the caller picks a
+    # a denied event defaults to unknown unless the caller picks a
     # reason, same as a real write (``rules.normalize_event``).
     if values['event_type'] is EventType.DENIED:
         values.setdefault('denied_reason', DeniedReason.UNKNOWN)

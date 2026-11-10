@@ -1,4 +1,4 @@
-"""In-memory fakes for the job collection use cases (KODI-046, T047).
+"""In-memory fakes for the job collection use cases (T047).
 
 Each fake keeps the contract of its repository - what it returns and what a
 call changes - so the use cases are tested without a database. The real

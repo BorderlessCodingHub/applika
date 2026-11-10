@@ -14,9 +14,13 @@ COMPOSE := docker compose
 
 # gitleaks, configured by .gitleaks.toml, with the old findings in .gitleaksignore.
 # A gitleaks on the PATH is used when there is one; otherwise the pinned image runs
-# in Docker, so nothing has to be installed.
+# in Docker, so nothing has to be installed. The image mounts the checkout at its
+# own path, plus the git common dir read-only: inside a git worktree the history
+# lives there, outside the checkout, and the worktree's .git file names it by its
+# absolute path. In a plain checkout the common dir is $(CURDIR)/.git.
 GITLEAKS_VERSION ?= 8.30.1
-GITLEAKS ?= $(if $(shell command -v gitleaks 2>/dev/null),gitleaks,docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/repo" -w /repo ghcr.io/gitleaks/gitleaks:v$(GITLEAKS_VERSION))
+GIT_COMMON_DIR := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+GITLEAKS ?= $(if $(shell command -v gitleaks 2>/dev/null),gitleaks,docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):$(CURDIR)" $(if $(GIT_COMMON_DIR),-v "$(GIT_COMMON_DIR):$(GIT_COMMON_DIR):ro") -w "$(CURDIR)" ghcr.io/gitleaks/gitleaks:v$(GITLEAKS_VERSION))
 GITLEAKS_FLAGS := --no-banner --redact --verbose --config .gitleaks.toml --gitleaks-ignore-path .gitleaksignore
 
 # The fake Borderless OpenID Connect provider (ADR-0026 §12), run on its own
@@ -46,8 +50,21 @@ help: ## List the targets
 
 # Every commit in the history, then the staged and the unstaged changes. New
 # files are scanned once they are staged. A finding prints redacted and fails.
+# The history scan also fails when gitleaks reports 0 commits scanned, or no
+# count: git was not readable there, so no commit was checked.
 leaks: ## Secrets: gitleaks on every commit and on staged and unstaged changes
-	$(GITLEAKS) git $(GITLEAKS_FLAGS) .
+	@echo '$(GITLEAKS) git $(GITLEAKS_FLAGS) .'
+	@$(GITLEAKS) git $(GITLEAKS_FLAGS) . 2>&1 | awk '{ print; fflush() } \
+		{ gsub(/\033\[[0-9;]*m/, "") } \
+		match($$0, /[0-9]+ commits? scanned/) { n = substr($$0, RSTART, RLENGTH) + 0; seen = 1 } \
+		END { exit (seen && n > 0) ? 0 : 3 }'; \
+	st=("$${PIPESTATUS[@]}"); \
+	if [ "$${st[0]}" -ne 0 ]; then exit "$${st[0]}"; fi; \
+	if [ "$${st[1]}" -ne 0 ]; then \
+		echo "leaks: gitleaks scanned 0 commits, so no commit was checked." >&2; \
+		echo "leaks: is the git history readable here (in a worktree, the git common dir)?" >&2; \
+		exit 1; \
+	fi
 	$(GITLEAKS) git $(GITLEAKS_FLAGS) --pre-commit --staged .
 	$(GITLEAKS) git $(GITLEAKS_FLAGS) --pre-commit .
 

@@ -1,4 +1,4 @@
-"""Device-flow user codes (KODI-057, RFC 8628 section 6.1).
+"""Device-flow user codes (RFC 8628 section 6.1).
 
 Eight letters from a 20-consonant alphabet (no vowels, so no words; no
 look-alike digits), shown as ``XXXX-XXXX``. Input is normalised: case,

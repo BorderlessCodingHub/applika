@@ -5,12 +5,12 @@ import { TimelineEventCard } from "@/components/timeline/timeline-event-card";
 import type { TimelineEventView } from "@/components/timeline/timeline-types";
 
 /**
- * PRD 0008 / ADR 0012, KODI-016. AC1 (web part): a non-interview event never
+ * PRD 0008 / ADR 0012. AC1 (web part): a non-interview event never
  * shows a schedule, whether its wire keys are `null` or entirely absent. AC2:
  * the card shows the zone READABLE (underscores as spaces), exactly like the
  * timezone select.
  */
-describe("TimelineEventCard — schedule (AC1/AC2, KODI-016)", () => {
+describe("TimelineEventCard — schedule (AC1/AC2)", () => {
   it("shows the readable zone for an interview event", () => {
     const event: TimelineEventView = {
       id: "1",
@@ -44,7 +44,7 @@ describe("TimelineEventCard — schedule (AC1/AC2, KODI-016)", () => {
     expect(screen.getByText("Just a note")).toBeInTheDocument();
   });
 
-  it("renders without crashing, and shows no schedule, when a non-interview event's schedule keys are entirely absent (KODI-016)", () => {
+  it("renders without crashing, and shows no schedule, when a non-interview event's schedule keys are entirely absent", () => {
     const event = {
       id: "3",
       type: "denied",

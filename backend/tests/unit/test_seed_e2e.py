@@ -124,7 +124,7 @@ class FakeUserSessionRepository:
 
 
 def _fake_sessions(monkeypatch) -> FakeUserSessionRepository:
-    """KODI-057: ``mint_session`` opens a real device session through
+    """``mint_session`` opens a real device session through
     ``OpenSessionUseCase``; the row goes to this fake, the keys to
     ``FakeRedis``."""
     repo = FakeUserSessionRepository()
@@ -134,7 +134,7 @@ def _fake_sessions(monkeypatch) -> FakeUserSessionRepository:
 
 
 async def _no_reset(*_identities) -> None:
-    """``seed()`` resets the beta features (KODI-052); the contract tests
+    """``seed()`` resets the beta features; the contract tests
     here do not touch a database."""
 
 
@@ -321,7 +321,7 @@ async def test_minted_session_is_a_real_device_session(monkeypatch):
         fake_redis.expire_at[f'applika:session:{refresh_token}']
         == fake_redis.expire_at[f'applika:session:id:{row.id}']
     )
-    # Nothing reads or writes the pre-KODI-057 keys any more (R-023).
+    # Nothing reads or writes the legacy refresh keys any more (R-023).
     assert not any('refresh_token' in key for key in fake_redis.store)
 
 
@@ -348,7 +348,7 @@ async def test_minted_cli_session_is_named_and_typed(monkeypatch):
 
 async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
     """seed() returns all three web sessions and e2e-user's CLI session
-    under the agreed contract keys (KODI-057: eleven, plan correction
+    under the agreed contract keys (eleven, plan correction
     4)."""
     repo = _fake_sessions(monkeypatch)
     user = seed_e2e.Identity(user_id=11)
@@ -445,7 +445,7 @@ def test_e2e_discord_identity():
 
 
 # ---------------------------------------------------------------------------
-# KODI-052: the beta features are reset on every run
+# the beta features are reset on every run
 # ---------------------------------------------------------------------------
 
 

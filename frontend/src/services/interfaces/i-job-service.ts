@@ -1,6 +1,6 @@
 import type { JobDetail, JobFilters, JobPage } from "@/services/types/jobs";
 
-/** The job board (PRD 0012, KODI-047 `/jobs`), ported from Ían Muliterno's `i-job-service.ts`. */
+/** The job board (PRD 0012, `/jobs`), ported from Ían Muliterno's `i-job-service.ts`. */
 export interface IJobService {
   /** `GET /jobs`: 25 per page; defaults are omitted and tags go as repeated `tags=` keys. */
   list(filters: JobFilters, page: number): Promise<JobPage>;

@@ -10,7 +10,7 @@
 # `frontend/docker/Dockerfile` (the Next.js static export served by nginx),
 # against a real Postgres and a real Redis. The schema comes from the real
 # Alembic chain — `alembic upgrade head` runs on every `api` start.
-# `worker` and `scheduler` (ADR-0016, KODI-046) run the same backend image
+# `worker` and `scheduler` (ADR-0016) run the same backend image
 # with taskiq instead of uvicorn: the hourly job collection and the fit
 # recompute. They start once `api` is healthy, i.e. after the migration ran,
 # and never run Alembic themselves.
@@ -72,7 +72,7 @@ x-api-environment: &api-environment
   GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
   DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
   ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
-  # KODI-039/ADR-0015: the rate limiter is ON by default, but this dev
+  # ADR-0015: the rate limiter is ON by default, but this dev
   # stack raises both limits well above anything a developer or the
   # seed script would hit - the point here is the API being wired up
   # end to end, not exercising 429s.

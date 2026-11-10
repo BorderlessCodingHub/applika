@@ -15,8 +15,10 @@ import { JobLoadError } from "@/components/jobs/job-list-states";
 import { StartApplicationFlow } from "@/components/jobs/start-application-flow";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
+import { JobDetailScreen } from "@/components/phone/screens/job-detail-screen";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import {
   apiStatus,
   jobApiDetail,
@@ -29,12 +31,15 @@ import { unknownErrorMessage } from "@/lib/api-error-message";
 /**
  * `/jobs/view?id=` (R-012): the description, the link to the source, and
  * each master CV's fit. A 404 (unknown, or no longer listed without an
- * application of the user's) is "This job is no longer listed".
+ * application of the user's) is "This job is no longer listed". Below md the
+ * v2/JobDetail board (PRD 0021), inside the same gate; at md and up today's
+ * page, unchanged.
  */
 export function JobViewPage() {
+  const isPhone = useIsPhone();
   return (
     <FeatureGate feature="jobs">
-      <JobView />
+      {isPhone ? <JobDetailScreen /> : <JobView />}
     </FeatureGate>
   );
 }

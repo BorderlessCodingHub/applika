@@ -15,7 +15,7 @@ import { USER_QUERY_KEY } from "@/hooks/use-user";
 import type { User } from "@/services/types/users";
 
 /**
- * T042/T043 (KODI-041): a rate-limited report submit shows the server's
+ * T042/T043: a rate-limited report submit shows the server's
  * own `detail` in the usual error toast instead of the fixed "Failed to
  * submit report" text (R-025); any other failure keeps that fixed text.
  */

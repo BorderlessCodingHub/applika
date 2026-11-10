@@ -13,7 +13,7 @@ import { word } from "@/i18n/translator";
 
 /**
  * Validation + value-mapping for the add/edit timeline-event form (PRD 0008,
- * ADR 0012, KODI-014).
+ * ADR 0012).
  *
  * A zod DISCRIMINATED UNION keyed on `event_type`, with `interview_type`:
  * the `interview` branch carries `interview_type`
@@ -24,10 +24,10 @@ import { word } from "@/i18n/translator";
  * reasons, default `unknown`). Note and feedback are gone (ADR 0020):
  * the union has three event branches. The `interview` branch is the only one that can ever WRITE a
  * start/end/timezone from form input. A non-interview event never sends a
- * schedule (KODI-016): `start_time`/`end_time`/`timezone` are OMITTED from
+ * schedule: `start_time`/`end_time`/`timezone` are OMITTED from
  * the wire body entirely (not sent as `null`) for every non-interview
  * `event_type`, on both CREATE and EDIT, whatever schedule the event
- * previously had stored. This replaces KODI-014's interim
+ * previously had stored. This replaces an earlier interim
  * keep-the-stored-schedule-on-edit rule: the backend also accepts an
  * explicit `null` for these keys, but this module picks omission and pins
  * it in tests. Interview behaviour is unchanged. Salary/amount numerics
@@ -84,7 +84,7 @@ const commonShape = {
  * — the end must be strictly after the start (`HH:mm` compares correctly as
  * a string). Applied once, after the discriminated union, since the pair is
  * shared by every branch. Runs ONLY for `interview`: the schedule group is
- * unmounted for every other type (KODI-014), so a stray value left in form
+ * unmounted for every other type, so a stray value left in form
  * state from a prior interview selection must never block a save.
  */
 function validateSchedule(
@@ -123,7 +123,7 @@ const interviewSchema = z.object({
   salary_currency: z.string().optional(),
 });
 
-/** denied branch — `denied_reason` is required (default `unknown`, KODI-014). No salary. */
+/** denied branch — `denied_reason` is required (default `unknown`). No salary. */
 const deniedSchema = z.object({
   event_type: z.literal("denied"),
   interview_type: z.string().optional(),
@@ -253,7 +253,7 @@ export type TimelineEventCloseValues = Exclude<
  * `unknown` on today's date, with `close_application` true: the "Close the
  * application" box shows only for an Offer or Denied, and it is ticked every
  * time the dialog opens.
- * `timezone` pre-fills with the browser's own zone (KODI-014): the select
+ * `timezone` pre-fills with the browser's own zone: the select
  * cannot be cleared, so a create flow that never touches the field still
  * carries a real zone once the type becomes `interview`.
  */
@@ -300,7 +300,7 @@ export function emptyCloseValues(): TimelineEventFormValues {
  * Map a loaded event view-model into editor form values (edit flow). The
  * stored `timezone` always wins over the browser's; only an EMPTY stored
  * value (legacy offer/denied events, or an interview recorded
- * before this slice) falls back to `browserTimeZone()` (KODI-014).
+ * before this slice) falls back to `browserTimeZone()`.
  */
 export function timelineEventToFormValues(
   event: TimelineEventView,
@@ -365,9 +365,9 @@ function blankToNull(value: string): string | null {
 }
 
 /**
- * Convert validated form values into the wire payload (KODI-016: a
+ * Convert validated form values into the wire payload (PRD 0008: a
  * non-interview event never sends a schedule, on CREATE or EDIT — this
- * replaces KODI-014's interim rule that kept an already non-interview
+ * replaces an earlier interim rule that kept an already non-interview
  * event's STORED schedule on an unrelated edit).
  *
  * The scheduling trio is sent ONLY for `interview`, read from the FORM

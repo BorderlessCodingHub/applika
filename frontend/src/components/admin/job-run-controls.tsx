@@ -54,7 +54,7 @@ export function JobSourcesHeader({
             {JOB_SOURCES_COPY.description}
           </p>
         </div>
-        {/* Pending keeps focus: aria-disabled, not disabled (KODI-048). */}
+        {/* Pending keeps focus: aria-disabled, not disabled. */}
         <Button
           ref={runNowRef}
           type="button"

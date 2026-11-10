@@ -1,4 +1,4 @@
-"""The background-job settings (KODI-046, ADR-0016, T040)."""
+"""The background-job settings (ADR-0016, T040)."""
 
 import pytest
 from pydantic import ValidationError

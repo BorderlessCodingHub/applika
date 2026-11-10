@@ -1,4 +1,4 @@
-"""Saved job searches (KODI-047, T072; PRD 0012 R-030, R-032) against the
+"""Saved job searches (T072; PRD 0012 R-030, R-032) against the
 testcontainers Postgres: at most ten per user, names unique per user
 ignoring case, per user only (admins included), and nothing that notifies.
 """
@@ -24,7 +24,7 @@ from tests.base_db_setup import base_data
 from tests.features_seed import enrol
 from tests.integration.conftest import SECOND_USER_ID, as_user
 
-# KODI-052 (ADR-0018): every route here sits behind the "jobs" beta
+# ADR-0018: every route here sits behind the "jobs" beta
 # feature; ``jobs_beta`` seeds it and puts the ``async_client`` user on its
 # list.
 pytestmark = pytest.mark.usefixtures('jobs_beta')
@@ -34,7 +34,7 @@ pytestmark = pytest.mark.usefixtures('jobs_beta')
 async def second_user(
     second_user: UserModel, db_session: AsyncSession, jobs_beta: int
 ) -> UserModel:
-    """The conftest second user, on the "jobs" beta list too (KODI-052)."""
+    """The conftest second user, on the "jobs" beta list too."""
     await enrol(db_session, second_user.id, jobs_beta)
     return second_user
 

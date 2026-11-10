@@ -118,6 +118,10 @@ export function useReports(cycleId?: string | null) {
     isLoading: query.isLoading,
     isValidating: query.isFetching,
     error: query.error,
+    /** The raw answer and its query state, for a section's `fromQuery`. */
+    data: query.data,
+    isError: query.isError,
+    refetch: query.refetch,
   };
 }
 

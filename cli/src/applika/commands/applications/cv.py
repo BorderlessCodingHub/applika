@@ -1,4 +1,4 @@
-"""``applika applications cv …`` - an application's CV copy (KODI-018).
+"""``applika applications cv …`` - an application's CV copy.
 
 Routes: ``POST/GET/PUT/DELETE /applications/{id}/cv``,
 ``POST /applications/{id}/cv/pdf``, ``GET /applications/{id}/cv/markdown``,

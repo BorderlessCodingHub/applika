@@ -27,7 +27,7 @@ export interface ExportBaseCvPdfVariables {
  * demand and the result is never cached — and for the same reason this
  * invalidates NOTHING: a download changes no row.
  *
- * The id and the name are MUTATION VARIABLES, not hook arguments (KODI-009).
+ * The id and the name are MUTATION VARIABLES, not hook arguments.
  * `/cvs` renders up to `BASE_CVS_MAX` tiles and each needs the same download,
  * and a hook cannot be called in a loop; binding the CV at creation time would
  * have forced a second export path per row. One hook instance per surface, the

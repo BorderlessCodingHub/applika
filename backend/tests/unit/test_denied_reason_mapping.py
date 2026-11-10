@@ -1,5 +1,5 @@
 """Pins the app-side legacy feedback -> denied reason map against R3's own
-copy (KODI-014, R-036).
+copy (R-036).
 
 ``LEGACY_FEEDBACK_TO_DENIED_REASON`` (``use_cases/compat/legacy_finalize.py``)
 is what the 0.1.4 legacy finalize body uses to map a feedback name to a

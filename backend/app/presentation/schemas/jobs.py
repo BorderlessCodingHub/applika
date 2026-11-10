@@ -1,4 +1,4 @@
-"""Wire schemas of the job board (KODI-047, plan 0012 ``## Contract``).
+"""Wire schemas of the job board (plan 0012 ``## Contract``).
 
 ``JobFilters`` is the one shape of "what the list shows": the query of
 ``GET /jobs`` and the ``filters`` body of a saved search

@@ -15,7 +15,7 @@ export interface ExportBaseCvMarkdownVariables {
 }
 
 /**
- * Download the server-rendered Markdown of one master CV (KODI-017 part 3,
+ * Download the server-rendered Markdown of one master CV (PRD 0007,
  * ADR 0011). The Markdown twin of `useExportBaseCvPdf`: same mutation-
  * variables shape (one hook per gallery, the CV named at press time), same
  * "no invalidation, no success toast" contract — a download changes no row

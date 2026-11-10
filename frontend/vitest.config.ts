@@ -13,7 +13,7 @@ export default defineConfig({
      *
      * The CV editor journeys drive ~60 real keystrokes through a form that
      * re-renders itself AND the live document preview on every one of them,
-     * and KODI-009 put a Radix disclosure around each of the nine sections:
+     * and PRD 0007 put a Radix disclosure around each of the nine sections:
      * measured, that is ~33% more work per render (1865ms -> 2476ms on
      * `new-cv-page`, isolated). The default 5s was already 84% spent by that
      * one test before this slice when the whole suite runs in parallel, so it

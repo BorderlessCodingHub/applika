@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useCreateCycle, useDeleteCycle } from "@/hooks/use-cycles";
 
 /**
- * T042/T043 (KODI-041): a rate-limited create/delete shows the server's own
+ * T042/T043: a rate-limited create/delete shows the server's own
  * `detail` in the usual error toast instead of the fixed "Failed to create
  * cycle"/"Failed to delete cycle" text (R-025); any other failure keeps that
  * fixed text.

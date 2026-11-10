@@ -1,15 +1,15 @@
 """tailored_cvs.base_snapshot: a nullable JSONB snapshot of the master CV a
-copy was made from (R5, KODI-017 part 2)
+copy was made from (R5)
 
 Revision ID: c1d9f4a7b3e6
 Revises: ad747aba90fc
 Create Date: 2026-09-19 10:00:00.000000
 
-Plan: the KODI-017 ticket's PART 2 block, T086. The owner: "I want something
+Plan: the base-snapshot block, T086. The owner: "I want something
 in the form to tell me what was from the original cv and what changed (a
 diff)" and, on the baseline design, "Snapshot taken at copy time
 (Recommended)". This revision adds the column the baseline is read from;
-KODI-017 part 2's backend slice (T087) fills it on copy creation.
+The backend slice (T087) fills it on copy creation.
 
 ## What this revision does
 
@@ -34,7 +34,7 @@ column, so the API keeps working against the old schema in the gap between
 the CD image deploy and the owner's manual ``alembic upgrade head``. The
 owner explicitly waived that separation for this column ("New revision at
 head (after R2)" — see the PRD 0007 Clarifications entry dated
-2026-09-19, KODI-017): ``base_snapshot`` ships in the **same** release as the
+2026-09-19): ``base_snapshot`` ships in the **same** release as the
 backend code that reads and writes it (T087) and the frontend diff UI that
 reads it (T088), because splitting the column into an earlier, code-free
 release would gain nothing here — the column is optional input to a new

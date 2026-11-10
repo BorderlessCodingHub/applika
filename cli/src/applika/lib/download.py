@@ -1,5 +1,5 @@
 """Shared ``--type`` / ``--dir`` / ``--filename`` / ``--force`` download
-helper (KODI-018).
+helper.
 
 Four routes use it - a master CV's PDF and Markdown, a CV copy's PDF and
 Markdown, and the copy's diff in both formats - so the file-naming rules of

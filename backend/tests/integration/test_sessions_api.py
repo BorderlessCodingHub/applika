@@ -1,6 +1,6 @@
 """The caller's devices: ``GET /users/me/sessions``, ``DELETE
 /users/me/sessions/{id}`` and ``POST /users/me/sessions/revoke-others``
-(KODI-057, ADR-0019, R-009..R-014).
+(ADR-0019, R-009..R-014).
 
 Real Postgres and Redis, the REAL ``get_current_user`` (``real_client``),
 sessions opened through the app's own ``OpenSessionUseCase``

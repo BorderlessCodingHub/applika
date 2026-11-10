@@ -1,6 +1,6 @@
 """Render a :class:`~app.application.services.cv_diff.CVDiffResult` as Markdown.
 
-KODI-017 T091, "Diff Markdown document (backend)" (PINNED):
+T091, "Diff Markdown document (backend)" (PINNED):
 
     deterministic; "# Changes to <copy name>", a line "Compared with
     <baseline label>: N changes", then one "## <Section> (n)" per section
@@ -19,7 +19,7 @@ titles, so this module extends the same "<Verb> <label>: <before> -> <after>"
 field below, and is exercised end to end in
 ``tests/unit/test_cv_diff_markdown.py``.
 
-KODI-017 remediation (round 1): the ticket's literal "N changes" wording is
+Remediation (round 1): the spec's literal "N changes" wording is
 matched to the web's ``cvDiffCountLabel`` (see ``_count_label`` below) rather
 than printed verbatim, so the summary line reads "no changes" / "1 change" /
 "N changes" exactly like ``cv-diff-summary-bar.tsx``, on both the Markdown
@@ -155,7 +155,7 @@ def _inline(value: object) -> str:
 def _count_label(count: int) -> str:
     """The "N changes" text, pluralised like the web's ``cvDiffCountLabel``.
 
-    KODI-017 remediation (round 1): the server used to always say "N
+    Remediation (round 1): the server used to always say "N
     changes", even for 0 or 1, while
     ``frontend/src/components/tailored-cvs/cv-diff-summary-bar.tsx``'s
     ``cvDiffCountLabel`` says "no changes" for 0 and "1 change" for 1. This

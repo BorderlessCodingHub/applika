@@ -64,7 +64,7 @@ _STOP_WORDS: frozenset[str] = frozenset(
 # dots (``node.js``), and one leading dot (``.net``, so the tag ``.NET``
 # never matches "Net income"; a dot after a word is already that word's
 # inner dot, ``acme.net``). A trailing dot or hyphen is punctuation, not
-# the word. ``_`` is not a word character, as before (KODI-046 widening,
+# the word. ``_`` is not a word character, as before (keyword widening,
 # owner 2026-10-12).
 _WORD_CHAR = r'(?:[^\W_]|[+#\-])'
 _WORD_RE = re.compile(rf'\.?[^\W_]{_WORD_CHAR}*(?:\.{_WORD_CHAR}+)*')

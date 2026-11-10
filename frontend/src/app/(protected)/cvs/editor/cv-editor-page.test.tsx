@@ -9,13 +9,13 @@ import type { MyFeature } from "@/services/types/features";
 import type { BaseCv } from "@/services/types/base-cv";
 
 /**
- * `/cvs/editor?id=` (KODI-002 / R-001, R-003).
+ * `/cvs/editor?id=` (R-001, R-003).
  *
  * AC3 — the page shows one of the user's own master CVs and saves changes back.
  * It also pins the id round trip: the client-generated section item ids that
  * came off the wire are the ones that go back onto it.
  *
- * KODI-004 adds the PDF export to this route — and only to this route, never to
+ * PRD 0007 adds the PDF export to this route — and only to this route, never to
  * `/cvs/new`: the server typesets the STORED CV (ADR 0011), so there is nothing
  * to render until the CV has been saved once.
  */
@@ -127,7 +127,7 @@ beforeEach(() => {
 });
 
 describe("CvEditorPage", () => {
-  it("mounts the PDF export and asks the server for the saved CV (KODI-004)", async () => {
+  it("mounts the PDF export and asks the server for the saved CV", async () => {
     const saved: string[] = [];
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
@@ -150,7 +150,7 @@ describe("CvEditorPage", () => {
     click.mockRestore();
   });
 
-  it("mounts the Markdown export beside the PDF one (KODI-017 part 3)", async () => {
+  it("mounts the Markdown export beside the PDF one", async () => {
     const saved: string[] = [];
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")

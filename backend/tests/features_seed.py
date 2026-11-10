@@ -1,4 +1,4 @@
-"""Seed helpers for the beta features (KODI-052, ADR-0018).
+"""Seed helpers for the beta features (ADR-0018).
 
 ``create_all`` builds the three tables but not revision ``641001baff09``'s
 seed row, so :func:`seed_jobs_feature` inserts the ``jobs`` feature exactly

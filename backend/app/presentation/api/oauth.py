@@ -304,7 +304,7 @@ async def cli_exchange(
     open_session: OpenSessionUseCaseDp,
 ):
     """Redeem the short-lived auth handoff code for a session of its own
-    (``cli_legacy``, KODI-057). Same JSON shape as before: the access value
+    (``cli_legacy``). Same JSON shape as before: the access value
     is now a JWT with ``sid`` and the refresh value a uuid7."""
     code_state = await auth_handoff_state_use_case.pop_exchange_code(
         payload.code

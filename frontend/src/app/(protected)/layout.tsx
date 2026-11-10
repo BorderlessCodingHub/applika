@@ -38,7 +38,7 @@ export default function ProtectedLayout({
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
-      // `/device?code=` must survive the sign-in round trip (KODI-058).
+      // `/device?code=` must survive the sign-in round trip.
       if (remembersReturnTo(window.location.pathname)) {
         storeReturnTo(window.location.pathname + window.location.search);
       }

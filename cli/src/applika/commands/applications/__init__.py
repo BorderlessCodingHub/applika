@@ -100,7 +100,7 @@ applications_app.add_typer(timeline_app, name='timeline')
 
 cv_app = typer.Typer(
     name='cv',
-    help="Manage an application's CV copy (KODI-018).",
+    help="Manage an application's CV copy.",
     no_args_is_help=True,
 )
 

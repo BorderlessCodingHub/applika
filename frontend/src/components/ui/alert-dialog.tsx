@@ -149,7 +149,7 @@ function AlertDialogMedia({
  * Radix's Slot CONCATENATES the two classNames instead of merging them through
  * twMerge — so a `bg-destructive` here does not override the Button's own
  * `bg-primary`; two equal-specificity utilities are then decided by stylesheet
- * order, not by attribute order. KODI-002 fixed three delete confirmations that
+ * order, not by attribute order. PRD 0007 fixed three delete confirmations that
  * had come back teal this way.
  */
 function AlertDialogAction({
@@ -175,7 +175,7 @@ function AlertDialogAction({
  * Radix's Slot CONCATENATES the two classNames instead of merging them through
  * twMerge — so a `bg-destructive` here does not override the Button's own
  * `bg-primary`; two equal-specificity utilities are then decided by stylesheet
- * order, not by attribute order. KODI-002 fixed three delete confirmations that
+ * order, not by attribute order. PRD 0007 fixed three delete confirmations that
  * had come back teal this way.
  */
 function AlertDialogCancel({

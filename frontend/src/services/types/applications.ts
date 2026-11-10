@@ -46,7 +46,7 @@ export interface AgendaStep {
  * Body for `POST /applications/{id}/finalize`. `outcome: undefined`/omitted
  * sends a bodyless request (idempotent close, no outcome event). `offer`
  * requires the salary triad; `denied` takes only the date/observation and an
- * optional `denied_reason` (KODI-014, default `unknown`) — `denied_reason` is
+ * optional `denied_reason` (default `unknown`) — `denied_reason` is
  * 422 with any other outcome, so it is never sent for `offer`.
  */
 export interface FinalizeApplicationPayload {
@@ -57,7 +57,7 @@ export interface FinalizeApplicationPayload {
   salary_amount?: string;
   salary_currency?: SalaryCurrency;
   salary_period?: OfferSalaryPeriod;
-  /** Denied-only (KODI-014); omitted for `offer`. */
+  /** Denied-only; omitted for `offer`. */
   denied_reason?: DeniedReason;
 }
 
@@ -79,7 +79,7 @@ export interface Application {
   work_mode?: WorkModeType;
   country?: string;
   observation?: string;
-  /** The job posting's text, kept beside the application's CV copy (KODI-003). */
+  /** The job posting's text, kept beside the application's CV copy. */
   job_description?: string | null;
   finalized: boolean;
   /**
@@ -88,6 +88,22 @@ export interface Application {
    * event, no edit application, Reopen offered (PRD 0008, ADR 0012).
    */
   finalized_at: string | null;
+  /**
+   * The latest timeline event as its legacy step (the CLI 0.1.4 summary the
+   * API derives): "Initial Screen", "Phase 2" (any other interview), "Offer"
+   * or "Denied"; `null` with no event. The phone Pipeline's stage reads it
+   * (`pipelineStage`, `src/lib/pipeline.ts`). Optional here so a fixture may
+   * leave it out: absent reads as `null`.
+   */
+  last_step?: ApplicationLastStep | null;
+}
+
+/** `Application.last_step`: `date` is the event's `YYYY-MM-DD`. */
+export interface ApplicationLastStep {
+  id: string;
+  name: string;
+  color: string;
+  date: string;
 }
 
 export interface CreateApplicationPayload {

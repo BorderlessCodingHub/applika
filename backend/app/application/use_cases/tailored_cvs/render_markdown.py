@@ -1,4 +1,4 @@
-"""Render-application-CV-copy-to-Markdown use case (KODI-017, T090)."""
+"""Render-application-CV-copy-to-Markdown use case (T090)."""
 
 import time
 

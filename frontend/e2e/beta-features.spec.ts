@@ -27,10 +27,10 @@ import {
 } from "./support/beta-features";
 
 /**
- * Beta features end to end against the REAL stack (PRD 0013, KODI-054, T050).
+ * Beta features end to end against the REAL stack (PRD 0013, T050).
  *
- * The admin screens at `/admin/features` drive the real KODI-052 API and the
- * real KODI-053 gate: the rail, `/jobs` and `GET /jobs` follow what the admin
+ * The admin screens at `/admin/features` drive the real PRD 0013 API and the
+ * real `jobs` gate: the rail, `/jobs` and `GET /jobs` follow what the admin
  * does, on the next page load, with no deploy (AC7). No `page.route`, no
  * mocked API.
  *

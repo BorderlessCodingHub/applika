@@ -196,13 +196,13 @@ describe("useStartApplicationFromJob (AC11)", () => {
 });
 
 /**
- * KODI-050: the draft carries the user's LOCAL calendar day, never the UTC one.
+ * PRD 0012: the draft carries the user's LOCAL calendar day, never the UTC one.
  * Each case pins `process.env.TZ` (Node re-reads it at runtime) and fakes only
  * `Date` at an instant where the local day and the UTC day differ, so the
  * assertion holds in any runner timezone — in UTC both days would agree and
  * the test would pass vacuously, which the guard assertions rule out.
  */
-describe("useStartApplicationFromJob sends the local day (KODI-050)", () => {
+describe("useStartApplicationFromJob sends the local day", () => {
   const originalTz = process.env.TZ;
 
   afterEach(() => {

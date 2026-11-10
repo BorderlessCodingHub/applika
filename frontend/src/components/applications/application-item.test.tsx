@@ -97,13 +97,13 @@ describe("ApplicationItem — open application", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the Active status pill with tone=success (KODI-015 G1/G2)", () => {
+  it("shows the Active status pill with tone=success (G1/G2)", () => {
     renderItem(baseApplication());
     const pill = screen.getByText("Active").closest("[data-tone]");
     expect(pill).toHaveAttribute("data-tone", "success");
   });
 
-  it("composes accessible names with the role and company (WCAG 2.5.3, KODI-015)", () => {
+  it("composes accessible names with the role and company (WCAG 2.5.3)", () => {
     renderItem(baseApplication());
     expect(
       screen.getByRole("button", {
@@ -128,7 +128,7 @@ describe("ApplicationItem — open application", () => {
   });
 });
 
-describe("ApplicationItem — defaultExpanded (R-011, KODI-038)", () => {
+describe("ApplicationItem — defaultExpanded (R-011)", () => {
   it("starts expanded when defaultExpanded is true", async () => {
     renderItem(baseApplication(), { defaultExpanded: true });
     expect(
@@ -186,7 +186,7 @@ describe("ApplicationItem — closed application", () => {
     expect(screen.queryByTitle("Close")).not.toBeInTheDocument();
   });
 
-  it("shows the neutral Closed status pill, not an outcome (KODI-015 G1)", () => {
+  it("shows the neutral Closed status pill, not an outcome (G1)", () => {
     renderItem(
       baseApplication({
         finalized: true,
@@ -244,7 +244,7 @@ describe("ApplicationItem — closed application", () => {
   });
 });
 
-describe("ApplicationItem — details tile order (KODI-015 G4/G5)", () => {
+describe("ApplicationItem — details tile order (G4/G5)", () => {
   it("renders the five image tiles first, then the extras, with Notes last", async () => {
     const user = userEvent.setup();
     renderItem(

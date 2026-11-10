@@ -27,7 +27,7 @@ atomic write (pattern `cli/src/applika/lib/session.py` l.33-47), 0o644, no secre
 - `backend/tests/unit/test_cv_diff_fixtures.py` l.25 → `Path(__file__).resolve().parents[1] / 'fixtures' / 'cv-diff'`;
   docstring l.1-6. `test_fixtures_directory_is_not_empty` stays (fails when missing).
 - Text only: `backend/app/application/services/cv_diff.py` l.7; `backend/app/scripts/seed_e2e.py` l.4 and
-  `backend/CLAUDE.md` l.49 → `frontend/scripts/e2e.sh`. Moved README: l.3 drop ticket key, l.6 suite →
+  `backend/AGENTS.md` l.49 → `frontend/scripts/e2e.sh`. Moved README: l.3 drop ticket key, l.6 suite →
   `cv-diff.fixtures.test.ts`, paths → new folder.
 - `backend/CHANGELOG.md` [Unreleased] `### Changed`: one line, fixtures moved; l.307 (older entry) untouched.
   `backend/Dockerfile` copies `migrations`, `alembic.ini`, `app` only → fixtures never ship. No `.dockerignore`.
@@ -65,7 +65,7 @@ Module `cli/src/applika/`. Patterns: `commands/version.py` (PyPI), `lib/session.
 - `app.py`: l.27 `app.command('update')(update)`; `_root` puts source in `AppConfig`; then
   `if ctx.invoked_subcommand != 'update': ctx.call_on_close(lambda: updater.after_command(ctx.obj))`.
 - Docs: `cli/README.md` "Updates" section (auto, `applika update`, `--force`, env var, URL rule, manual command per
-  installer; editable dev install l.42-45 never updates) + env table row l.622; `cli/CLAUDE.md` command table, env
+  installer; editable dev install l.42-45 never updates) + env table row l.622; `cli/AGENTS.md` command table, env
   vars, package tree. `cli/CHANGELOG.md` [Unreleased] `### Added` ×2, no key. `pyproject.toml` untouched, no new dep.
 
 ## Frontend (slice A)
@@ -76,7 +76,7 @@ Module `cli/src/applika/`. Patterns: `commands/version.py` (PyPI), `lib/session.
   names the path), then files > 0; read files only when present. Comment l.8-19: backend owns it, missing fails.
 - `cv-diff.ts` l.8; `playwright.config.ts` l.6; `e2e/support/auth.ts` l.6, 27, 51, 77 (thrown text: "`frontend/scripts/
   e2e.sh` from the repo root"), 149; `e2e/profile-discord.spec.ts` l.11; `e2e/shell-responsive.spec.ts` l.15.
-- `frontend/CLAUDE.md` l.78-80 → `./scripts/e2e.sh …` (from `frontend/`); l.84, 89, 1496, 1498 runner; l.773, 847-850
+- `frontend/AGENTS.md` l.78-80 → `./scripts/e2e.sh …` (from `frontend/`); l.84, 89, 1496, 1498 runner; l.773, 847-850
   fixtures path + "fails when missing". Prettier checks it. Design system: none (no UI).
 
 ## Repo root and CI (slice A)

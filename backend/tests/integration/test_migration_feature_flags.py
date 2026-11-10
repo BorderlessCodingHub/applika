@@ -1,5 +1,5 @@
 """Round-trip test for the feature registry, the beta list and the admin
-opt-outs, revision ``641001baff09`` (KODI-051, Release A of plan 0013).
+opt-outs, revision ``641001baff09`` (Release A of plan 0013).
 
 ``.claude/rules/migration-tests.md`` 2: this drives the **real Alembic
 chain** against a dedicated testcontainers Postgres - upgrade to the
@@ -846,13 +846,13 @@ def test_reupgrade_seeds_jobs_again_when_it_went_missing(
 
 
 # --------------------------------------------------------------------------
-# KODI-052 (Release B) maps the three tables, never an ``*_old`` twin, and
+# Release B maps the three tables, never an ``*_old`` twin, and
 # the ``create_all`` test schema equals the migrated one
 # --------------------------------------------------------------------------
 
 
 def test_orm_maps_the_three_tables_and_no_old_object() -> None:
-    """Release A mapped nothing (KODI-051); Release B (KODI-052) maps the
+    """Release A mapped nothing; Release B maps the
     three tables. No ``*_old`` object is ever mapped (rule 7)."""
     from app.domain.models import Base
 

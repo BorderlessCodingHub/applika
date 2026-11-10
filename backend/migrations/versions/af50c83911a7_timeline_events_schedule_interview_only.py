@@ -5,7 +5,7 @@ Revision ID: af50c83911a7
 Revises: c8b3e9f4a1d6
 Create Date: 2026-09-18 16:00:00.000000
 
-Plan ``docs/plan/0008-steps-as-timeline.md``, ticket KODI-016
+Plan ``docs/plan/0008-steps-as-timeline.md``, revision R4
 (R-038, R-039). Owner, verbatim: "clear it on edit, this must be blocked
 ever on backend, if event type is different from interview, these
 attributes must be blocked, you can remove the value in the database as
@@ -17,7 +17,7 @@ Owner's choice folds this revision into Release A too, chained
 R1 -> R3 -> **R4** (this revision) -> R2: this side branch (``release-a/
 0008-denied-reason``) carries **no** application code
 (``.claude/rules/prod-release-runbook.md`` 4). Nothing under ``app/`` reads
-or writes this CHECK or the cleared columns differently until KODI-016's
+or writes this CHECK or the cleared columns differently until R4's
 backend part (T078) ships on the integration branch, after the owner
 confirms ``alembic upgrade head`` ran. The three columns themselves are not
 new — ``afd4074c70c2`` (R1) already created them nullable on every event
@@ -80,7 +80,7 @@ no column's width, precision or scale changes here).
    revision actually changed.
 
 No temporary table is used anywhere in this revision (R3's own
-precedent, sidestepping the KODI-013 temp-table name collision class of
+precedent, sidestepping the R2 temp-table name collision class of
 bug entirely).
 
 ## What downgrade() does
@@ -113,7 +113,7 @@ by this revision, so there is nothing to copy into an ``_old`` companion).
 ``application_steps`` (rule 5's spirit, applied to a CHECK tightening
 rather than a rename). No column shrinks (rule 6). No ORM model or
 application code treats this CHECK, or the cleared columns, differently
-until KODI-016's backend part ships (rule 7).
+until R4's backend part ships (rule 7).
 """
 
 from typing import Sequence, Union

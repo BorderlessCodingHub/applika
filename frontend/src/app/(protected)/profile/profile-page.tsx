@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
 import { useAuth } from "@/contexts/auth-context";
@@ -11,11 +10,14 @@ import { UserProfileEditForm } from "@/components/profile/edit-form";
 import { useGeneralStats } from "@/hooks/use-statistics";
 import { UserProfileSkeleton } from "@/components/profile/sub-components";
 import { GithubRestoreNotice } from "@/components/profile/github-restore-notice";
+import { useGithubRestoreReturn } from "@/hooks/use-github-restore";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import {
-  isGithubRestoreStatus,
-  type GithubRestoreStatus,
-} from "@/components/profile/github-restore-copy";
-import { USER_QUERY_KEY } from "@/hooks/use-user";
+  PROFILE_SECTION_HREF,
+  ProfileScreen,
+  type ProfileSection,
+} from "@/components/phone/screens/profile-screen";
+import { DevicesScreen } from "@/components/phone/screens/devices-screen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DevicesTab } from "@/components/profile/devices-tab";
 import {
@@ -31,7 +33,7 @@ function isProfileTab(value: string | null): value is ProfileTab {
 }
 
 /**
- * The Devices tab's data half (KODI-058). Mounted only while its tab is open
+ * The Devices tab's data half. Mounted only while its tab is open
  * (Radix unmounts an inactive `TabsContent`), so the list is fetched on first
  * open, not with the profile.
  */
@@ -67,65 +69,68 @@ export function ProfileDevices() {
   );
 }
 
+/**
+ * `/profile`: below md the Profile and Devices boards, one screen with a
+ * Profile / Devices switch (PRD 0021); at md and up today's two tabs,
+ * unchanged.
+ */
 export function ProfilePage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <ProfilePhonePage /> : <ProfileDesktopPage />;
+}
+
+/**
+ * Below md `?tab=` is read on every render (the Account hub's "Devices & CLI"
+ * and `/device`'s "See your devices" open Devices): a plain tap on the
+ * switch `pushState`s it, so Back returns to the other section. Never
+ * `router.push` on the same path (a no-op in this static export).
+ */
+function ProfilePhonePage() {
+  const searchParams = useSearchParams();
+  const section: ProfileSection =
+    searchParams.get("tab") === "devices" ? "devices" : "profile";
+  const [notice, setNotice] = useGithubRestoreReturn();
+  const [editing, setEditing] = useState(false);
+  // After a tap on the switch, the other section's nav takes the focus.
+  const [switched, setSwitched] = useState(false);
+  const select = (next: ProfileSection) => {
+    setSwitched(true);
+    window.history.pushState(null, "", PROFILE_SECTION_HREF[next]);
+  };
+
+  return section === "devices" ? (
+    <DevicesScreen onSelectSection={select} focusSections={switched} />
+  ) : (
+    <ProfileScreen
+      notice={notice}
+      onDismissNotice={() => setNotice(null)}
+      editing={editing}
+      onEditingChange={(next) => {
+        // Edit and Cancel remount the nav: only a section switch moves focus to it.
+        setSwitched(false);
+        setEditing(next);
+      }}
+      onSelectSection={select}
+      focusSections={switched}
+    />
+  );
+}
+
+function ProfileDesktopPage() {
   const [editing, setEditing] = useState(false);
   const t = useTranslations("profile.tabs");
 
   const { user } = useAuth();
   const stats = useGeneralStats();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
 
-  // Copy the status into state from a LAZY initializer — read once, on the
-  // page's first render, straight off the incoming URL — rather than from an
-  // effect (`react-hooks/set-state-in-effect`). That is what makes the notice
-  // survive the URL cleanup below: by the time that runs and clears the query
-  // string, `notice` already holds its own copy.
-  const [notice, setNotice] = useState<GithubRestoreStatus | null>(() => {
-    const account = searchParams.get("account");
-    const status = searchParams.get("status");
-    return account === "github" && isGithubRestoreStatus(status)
-      ? status
-      : null;
-  });
+  const [notice, setNotice] = useGithubRestoreReturn();
   // `?tab=devices` (the `/device` page's "See your devices" link) opens the
   // Devices tab once; switching tabs afterwards is local state only.
   const [tab, setTab] = useState<ProfileTab>(() => {
     const requested = searchParams.get("tab");
     return isProfileTab(requested) ? requested : "profile";
   });
-  // Guards against React Strict Mode's deliberate double-invoke of effects:
-  // the invalidate/clear-URL side effects below must run exactly once per
-  // redirect, never twice.
-  const consumed = useRef(false);
-
-  useEffect(() => {
-    if (consumed.current) return;
-    const account = searchParams.get("account");
-    const status = searchParams.get("status");
-    if (account !== "github" || !isGithubRestoreStatus(status)) return;
-
-    consumed.current = true;
-    // `restored` signed this browser in as the old account: refetch who we
-    // are (and everything cached for the deleted new account).
-    if (status === "restored") {
-      void queryClient.invalidateQueries();
-    } else {
-      void queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY });
-    }
-    // Next's app-router `useRouter().replace()` is a no-op here: this app is
-    // a fully static export (`output: "export"`, no server to resolve a
-    // route transition against) and clearing ONLY the query string on the
-    // SAME path never triggers a navigation in this build (verified against
-    // the real e2e stack — `router.replace("/profile")` left the URL bar
-    // showing the original `?account=&status=` query indefinitely). The
-    // History API is what the browser actually uses to update the address
-    // bar, so we drive it directly rather than through a router that isn't
-    // doing anything on this specific transition.
-    if (typeof window !== "undefined") {
-      window.history.replaceState(null, "", "/profile");
-    }
-  }, [searchParams, queryClient]);
 
   if (!user) return <UserProfileSkeleton />;
 

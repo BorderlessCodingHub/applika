@@ -1,6 +1,6 @@
-"""DTOs for the "new application with CV" draft flow (KODI-032, ADR-0014,
-KODI-036). A draft carries every field the ordinary application
-create/update flow does. ``application_date`` (KODI-036, R-003) is optional
+"""DTOs for the "new application with CV" draft flow (ADR-0014).
+A draft carries every field the ordinary application
+create/update flow does. ``application_date`` (R-003) is optional
 on ``DraftInputDTO``: ``None`` means "create with the server's own day" on
 ``ApplicationRepository.create_draft`` and "keep the stored value" on
 ``UpdateDraftUseCase`` - it never clears a stored date. ``DraftFinishDTO
@@ -78,7 +78,7 @@ class DraftDTO(BaseSchema):
     country: str | None = None
     job_description: str | None = None
     has_cv: bool
-    # KODI-047: the job the draft was started from, ``None`` for a draft
+    # the job the draft was started from, ``None`` for a draft
     # made by hand. Kept by update and finish (never part of
     # ``DraftInputDTO``, so a full-replace PUT cannot clear it).
     job_id: int | None = None

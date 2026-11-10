@@ -14,7 +14,7 @@ import {
 } from "@/hooks/use-features";
 
 /**
- * KODI-053 (PRD 0013): the caller's features. Loading and failure both read
+ * PRD 0013: the caller's features. Loading and failure both read
  * as "no features", and nothing is cached for long (AC2).
  */
 

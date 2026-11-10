@@ -159,7 +159,7 @@ async def test_seeded_base_platform_is_public_for_every_user(
 async def test_supports_platforms_stay_ordered_by_id_not_name(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """R-036/S7 plan correction: KODI-035 widened ``list_visible`` with a
+    """R-036/S7 plan correction: the company picker widened ``list_visible`` with a
     name-ordered mode for the new ``GET /platforms``, but ``/supports``
     itself must keep passing neither ``name`` nor ``order_by_name`` and
     stay ``ORDER BY id`` - name order and id order deliberately disagree

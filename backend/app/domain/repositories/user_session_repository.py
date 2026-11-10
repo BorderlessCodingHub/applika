@@ -1,4 +1,4 @@
-"""Device session rows (KODI-057, ADR-0019): one row per sign-in, kept after
+"""Device session rows (ADR-0019): one row per sign-in, kept after
 it ends. Owner-scoped reads (ADR-0004); no refresh value ever reaches this
 table."""
 

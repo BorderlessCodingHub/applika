@@ -1,5 +1,4 @@
-"""Behaviour shared by ``applika cvs`` and ``applika applications cv``
-(KODI-018).
+"""Behaviour shared by ``applika cvs`` and ``applika applications cv``.
 
 The two command families differ only in their routes and in the HTTP verb
 their edit uses (``PATCH`` for a master CV, a full-document ``PUT`` for a

@@ -1,4 +1,4 @@
-"""Integration tests for the rate limiter (KODI-039, ADR-0015, T033).
+"""Integration tests for the rate limiter (ADR-0015, T033).
 
 Uses ``redis_client`` (a real Redis testcontainer, overriding ``get_redis``)
 and low limits set through ``monkeypatch`` on ``envs``. The limiter is OFF
@@ -164,7 +164,7 @@ async def test_two_users_at_the_limit_on_the_same_ip_do_not_share_quota(
 async def test_bearer_tokens_count_per_user_on_the_same_ip(
     async_client, redis_client, monkeypatch
 ):
-    """KODI-057 (ADR-0019): applika-cli 1.1.0 sends ``Authorization:
+    """ADR-0019: applika-cli 1.1.0 sends ``Authorization:
     Bearer``; the limiter counts it against the token's user, not the IP."""
     _enable_limiter(monkeypatch, default=2)
 

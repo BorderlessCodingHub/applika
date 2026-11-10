@@ -60,7 +60,7 @@ export interface CvEditorFooterProps {
  * RESERVING its own height instead of floating over the column beside it.
  *
  * `sticky`, never `fixed`: `CookieConsent` reserves its height on `body`, so
- * this row lands above the bar at every width (frontend/CLAUDE.md, "Stacking
+ * this row lands above the bar at every width (frontend/AGENTS.md, "Stacking
  * contract"). The e2e suite hit-tests both facts with real geometry.
  *
  * It is shared by `BaseCvEditor` and `TailoredCvEditor` so the two cannot

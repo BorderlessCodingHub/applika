@@ -86,19 +86,25 @@ function renderView(
     variant: LanguageToggleVariant;
     locale: Locale;
     isPending: boolean;
+    flagsOnly: boolean;
   }> = {},
 ) {
   const onLocaleChange = vi.fn();
-  render(
+  const result = render(
     <LanguageToggleView
       variant={props.variant}
       locale={props.locale ?? "en"}
       isPending={props.isPending ?? false}
       onLocaleChange={onLocaleChange}
       label="Toggle language"
+      {...("flagsOnly" in props ? { flagsOnly: props.flagsOnly } : {})}
     />,
   );
-  return { onLocaleChange };
+  return {
+    onLocaleChange,
+    container: result.container,
+    unmount: result.unmount,
+  };
 }
 
 describe("LanguageToggleView: the reference, ported whole", () => {
@@ -198,6 +204,95 @@ describe("LanguageToggleView: the reference, ported whole", () => {
     const { onLocaleChange } = renderView();
     await user.click(screen.getByRole("radio", { name: "Português" }));
     expect(onLocaleChange).toHaveBeenCalledWith("pt-BR");
+  });
+});
+
+describe("LanguageToggleView: flags only (the phone landing header)", () => {
+  it("drops the EN / BR text: each radio holds its flag alone", () => {
+    renderView({ flagsOnly: true });
+    const group = screen.getByRole("radiogroup", { name: "Toggle language" });
+
+    expect(group).toHaveAttribute("data-flags-only", "");
+    expect(group).not.toHaveTextContent(/\S/);
+    for (const radio of within(group).getAllByRole("radio")) {
+      expect(radio.children).toHaveLength(1);
+      const flag = radio.firstElementChild!;
+      expect(flag.tagName.toLowerCase()).toBe("svg");
+      expect(flag).toHaveAttribute("aria-hidden", "true");
+      expect(flag).toHaveAttribute("class", FLAG);
+      expect(radio.querySelector("span")).toBeNull();
+    }
+  });
+
+  it("keeps each radio's name (its endonym), its lang and its checked state", () => {
+    renderView({ flagsOnly: true, locale: "pt-BR" });
+    const [enItem, brItem] = screen.getAllByRole("radio");
+
+    expect(enItem).toHaveAccessibleName("English");
+    expect(enItem).toHaveAttribute("lang", "en");
+    expect(enItem).toHaveAttribute("aria-checked", "false");
+    expect(brItem).toHaveAccessibleName("Português");
+    expect(brItem).toHaveAttribute("lang", "pt-BR");
+    expect(brItem).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("keeps every class constant: the 44px squares come from phone.css", () => {
+    renderView({ flagsOnly: true });
+    const tokens = VARIANTS.default;
+
+    expect(screen.getByRole("radiogroup")).toHaveAttribute(
+      "class",
+      `${ROOT} ${tokens.root}`,
+    );
+    const [active, inactive] = screen.getAllByRole("radio");
+    expect(active).toHaveAttribute(
+      "class",
+      `${ITEM} ${tokens.active} ${tokens.focus}`,
+    );
+    expect(inactive).toHaveAttribute(
+      "class",
+      `${ITEM} ${tokens.inactive} ${tokens.focus}`,
+    );
+  });
+
+  it("still reports a pick and still disables while pending", async () => {
+    const user = userEvent.setup();
+    const { onLocaleChange, unmount } = renderView({ flagsOnly: true });
+    await user.click(screen.getByRole("radio", { name: "Português" }));
+    expect(onLocaleChange).toHaveBeenCalledWith("pt-BR");
+    unmount();
+
+    renderView({ flagsOnly: true, isPending: true });
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+    }
+  });
+
+  it("off by default: the default mount renders exactly what flagsOnly={false} does, text and all", () => {
+    const omitted = renderView();
+    const byDefault = omitted.container.innerHTML;
+    expect(screen.getByRole("radiogroup")).not.toHaveAttribute(
+      "data-flags-only",
+    );
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual([
+      "EN",
+      "BR",
+    ]);
+    omitted.unmount();
+
+    const explicit = renderView({ flagsOnly: false });
+    expect(explicit.container.innerHTML).toBe(byDefault);
+  });
+
+  it("LanguageToggle passes flagsOnly through", () => {
+    render(
+      <LocaleProvider>
+        <LanguageToggle flagsOnly />
+      </LocaleProvider>,
+    );
+    const group = screen.getByRole("radiogroup", { name: "Toggle language" });
+    expect(group).toHaveAttribute("data-flags-only", "");
+    expect(group).not.toHaveTextContent(/\S/);
   });
 });
 

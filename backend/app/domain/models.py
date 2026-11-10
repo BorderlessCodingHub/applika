@@ -40,7 +40,7 @@ class SalaryPeriodType(sa.types.TypeDecorator[SalaryPeriod]):
     and reads both ``ANNUAL`` and ``ANNUALLY`` as ``SalaryPeriod.ANNUALLY``,
     so the API never returns ``annual`` and never writes ``ANNUAL``. The
     labels themselves are untouched: remapping the rows is the contract
-    migration's job (R2, KODI-013).
+    migration's job (R2).
     """
 
     impl = sa.Enum(
@@ -556,8 +556,8 @@ class CycleModel(BaseMixin, Base):
 
 
 class ApplicationModel(BaseMixin, Base):
-    """Job applications (R-001..R-020) plus the draft flag (ADR-0014,
-    KODI-032). ``is_draft`` (``server_default false``, migration
+    """Job applications (R-001..R-020) plus the draft flag (ADR-0014).
+    ``is_draft`` (``server_default false``, migration
     ``3b78c3cd2a71``) marks a "new application with CV" draft: it is
     excluded from every read model by default
     (``domain/repositories/application_filters.NOT_DRAFT``) - the
@@ -578,7 +578,7 @@ class ApplicationModel(BaseMixin, Base):
             'user_id',
             postgresql_where=sa.text('is_draft'),
         ),
-        # KODI-047, revision b28d5134631f: one application per user per job
+        # Revision b28d5134631f: one application per user per job
         # (R-021). NULLs are free, so hand-made applications never collide.
         sa.Index(
             'uq_applications_user_job',
@@ -663,7 +663,7 @@ class ApplicationModel(BaseMixin, Base):
         sa.DateTime(timezone=True), nullable=True
     )
 
-    # KODI-032, ADR-0014: a "new application with CV" draft. Excluded from
+    # ADR-0014: a "new application with CV" draft. Excluded from
     # every read model by default (NOT_DRAFT); see the class docstring.
     is_draft: Mapped[bool] = mapped_column(
         sa.Boolean,
@@ -672,7 +672,7 @@ class ApplicationModel(BaseMixin, Base):
         nullable=False,
     )
 
-    # KODI-047 (PRD 0012 R-017/R-021): the job this application was started
+    # PRD 0012 R-017/R-021: the job this application was started
     # from, kept when the job leaves the list (R-007) and cleared only when
     # the job row itself is deleted (``ON DELETE SET NULL``). Read only by the
     # drafts and the jobs routes: the ``Application`` response schema - what
@@ -729,10 +729,10 @@ class TimelineEventModel(BaseMixin, Base):
     ``uq_timeline_events_one_initial_screening`` carry the revision's names and
     definitions, because the tests build their schema with ``create_all`` and
     the code relies on every one of them. ``denied_reason`` and its CHECK
-    were added by migration R3 (``c8b3e9f4a1d6``, KODI-014), folded into
+    were added by migration R3 (``c8b3e9f4a1d6``), folded into
     Release A ahead of this ORM mapping (Release B).
     ``ck_timeline_events_schedule_interview_only`` was added by migration R4
-    (``af50c83911a7``, KODI-016), folded into Release A the same way.
+    (``af50c83911a7``), folded into Release A the same way.
 
     * ``event_type`` is one of three fixed values, interview, offer or denied
       (``ck_timeline_events_event_type``, ADR-0020); ``interview_type`` is set
@@ -743,7 +743,7 @@ class TimelineEventModel(BaseMixin, Base):
     * ``denied_reason`` is set on ``denied`` events only, defaulting to
       ``unknown`` (``ck_timeline_events_denied_reason``, R-033..R-036).
     * ``start_time``, ``end_time`` and ``timezone`` are set on interview
-      events only (``ck_timeline_events_schedule_interview_only``, KODI-016,
+      events only (``ck_timeline_events_schedule_interview_only``,
       R-038/R-039). Owner: "if event type is different from interview,
       these attributes must be blocked".
     * At most one ``initial_screening`` interview per application (R-030,
@@ -1068,8 +1068,8 @@ class TailoredCVModel(BaseMixin, Base):
     constraint and the ``user_id`` index. The primary key is the inherited
     Snowflake ``BaseMixin.id`` (BIGINT, generated in Python, no sequence, no
     server default - docs/adr/0003-snowflake-string-ids.md).
-    ``base_snapshot`` mirrors revision ``c1d9f4a7b3e6`` (R5, KODI-017 part
-    2): nullable JSONB, no server default, no backfill.
+    ``base_snapshot`` mirrors revision ``c1d9f4a7b3e6`` (R5):
+    nullable JSONB, no server default, no backfill.
 
     There is deliberately no index on ``base_cv_id``: it has none in the
     migration either, and at current volume the sequential scan
@@ -1148,7 +1148,7 @@ class TailoredCVModel(BaseMixin, Base):
     adjustments: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
 
     # A snapshot of the master CV this copy was made from, taken once at
-    # create time (revision ``c1d9f4a7b3e6``, R5, KODI-017 part 2). Nullable,
+    # create time (revision ``c1d9f4a7b3e6``, R5). Nullable,
     # no server default, never backfilled: a copy created before this
     # revision reads back ``None``, and the web diff falls back to the
     # current master CV via ``base_cv_id`` for it. Never changed after
@@ -1165,7 +1165,7 @@ class TailoredCVModel(BaseMixin, Base):
     )
 
 
-# --- Job board (KODI-046, plan 0012 ``## Data``, revision b28d5134631f) ---
+# --- Job board (plan 0012 ``## Data``, revision b28d5134631f) -------------
 #
 # The three tables the background worker (ADR-0016) writes. Each mapping
 # mirrors revision ``b28d5134631f`` object for object - column names, types,
@@ -1426,7 +1426,7 @@ class SavedJobSearchModel(BaseMixin, Base):
 
 
 class FeatureModel(BaseMixin, Base):
-    """A feature behind the beta rule (ADR-0018, KODI-052).
+    """A feature behind the beta rule (ADR-0018).
 
     A shared catalog row with no owner, managed by admins. A feature joins
     only through an Alembic seed row (``641001baff09`` seeds ``jobs``) at
@@ -1545,13 +1545,13 @@ class FeatureAdminOptOutModel(BaseMixin, Base):
 
 
 class UserSessionModel(BaseMixin, Base):
-    """One sign-in, which is one device (KODI-057, ADR-0019).
+    """One sign-in, which is one device (ADR-0019).
 
     ``created_at`` is when access was granted. The row keeps the device's
     details and history; the live state (the refresh value and the last
     use) lives in Redis on ``REDIS_URL``. No refresh value and no hash of
     it is ever stored here. An ended row stays, so ended devices remain
-    visible. ``__table_args__`` mirror revision ``ed39a0fad1e5`` (KODI-056)
+    visible. ``__table_args__`` mirror revision ``ed39a0fad1e5``
     name for name, so ``create_all`` builds the migrated schema.
     """
 

@@ -1,4 +1,4 @@
-"""Dismiss a job from the acting user's list (KODI-047, PRD 0012 R-029)."""
+"""Dismiss a job from the acting user's list (PRD 0012 R-029)."""
 
 from app.application.use_cases.jobs.get_job import JOB_NOT_FOUND
 from app.core.error_codes import ErrorCode

@@ -51,7 +51,7 @@ S4:
 - Use cases `base_cvs/render_pdf.py`, `tailored_cvs/render_pdf.py` (new). Log `cv.pdf.rendered` ids, bytes, ms; never content.
 - `main.py` CORS: `expose_headers=['Content-Disposition']` (separate origins, ADR 0010).
 - Image impact: `backend/Dockerfile` unchanged (wheels via existing `uv sync --frozen --no-dev`); theme files ship inside `./app`; runtime grows est. 40–100 MB (typst binary + bundled fonts + rendercv deps); build adds seconds of wheel download. S4 PR records `docker image ls` before/after. Verify typst wheel for Python 3.14 / linux amd64 first.
-All slices: update `scripts/seed_mock_data.py` (backend CLAUDE.md rule) and `backend/CLAUDE.md` endpoints + entities.
+All slices: update `scripts/seed_mock_data.py` (backend AGENTS.md rule) and `backend/AGENTS.md` endpoints + entities.
 
 ## Frontend
 Module `frontend/src`. Stack: react-query, axios, react-hook-form + zod (present). i18n: none. Design-system doc: none; source = PRD 0006 look.

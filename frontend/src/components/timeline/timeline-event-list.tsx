@@ -17,7 +17,7 @@ interface TimelineEventListProps {
 
 /**
  * The event list: an ordered list of cards, newest first, with no rail or dot
- * (KODI-015 image element index — the timeline reads as a stack of cards, not
+ * (PRD 0008 image element index — the timeline reads as a stack of cards, not
  * a vertical rail). Semantic `<ol>`/`<li>` so the sequence is still announced
  * to assistive tech. Presentational — pass sorted events; the panel owns
  * empty/read-only states.

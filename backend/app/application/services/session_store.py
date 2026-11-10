@@ -1,4 +1,4 @@
-"""The live half of a device session, in Redis (KODI-057, ADR-0019).
+"""The live half of a device session, in Redis (ADR-0019).
 
 Redis on ``REDIS_URL`` - the rate limiter's instance - holds two keys per
 session, both expiring at the same instant (``EXAT``/``EXPIREAT``):

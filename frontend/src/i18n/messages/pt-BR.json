@@ -29,14 +29,26 @@
     "logout": "Sair",
     "signIn": {
       "title": "Entre no Applika",
-      "lead": "Use sua conta da Borderless. A Borderless confirma que é você e traz você de volta para cá.",
-      "signInWithBorderless": "Entrar com a Borderless",
       "pending": "Abrindo a Borderless…",
       "cliCommand": "applika login",
       "cliRetry": "Volte ao seu terminal e execute <code>{command}</code> novamente.",
-      "noAccount": "Ainda não tem conta na Borderless?",
-      "createAccount": "Criar uma conta na Borderless",
-      "opensInNewTab": "Abre em uma nova aba."
+      "opensInNewTab": "Abre em uma nova aba.",
+      "optionC": {
+        "backToHome": "Voltar ao início",
+        "logo": "Applika",
+        "badge": "com a Borderless",
+        "eyebrow": "applika × Borderless",
+        "headline": "Uma conta para toda a sua busca de emprego",
+        "lead": "Entre com a Borderless. Ela confirma que é você e traz você de volta para cá.",
+        "continue": "Continuar com a Borderless",
+        "noAccount": "Não tenho conta na Borderless"
+      },
+      "optionA": {
+        "logo": "Applika",
+        "borderless": "Borderless",
+        "lead": "Use sua conta Borderless. A Borderless confirma que é você e traz você de volta para cá.",
+        "noAccount": "Não tem uma conta ainda? <link>Criar uma conta na Borderless</link>"
+      }
     }
   },
   "cookies": {
@@ -978,8 +990,8 @@
       "emptyDescription": "Não há atividade registrada para esta candidatura."
     },
     "count": {
-      "events": "{count, plural, one {# evento} other {# eventos}}",
-      "applications": "{count, plural, one {# candidatura} other {# candidaturas}}",
+      "events": "{count, plural, =0 {# eventos} one {# evento} other {# eventos}}",
+      "applications": "{count, plural, =0 {# candidaturas} one {# candidatura} other {# candidaturas}}",
       "tab": "{tab} ({count})"
     },
     "names": {
@@ -1018,7 +1030,7 @@
       "emptyAction": "Crie sua primeira candidatura",
       "focusNotInCycle": "Esta candidatura não está no ciclo que você está vendo."
     },
-    "found": "{count, plural, one {# candidatura encontrada} other {# candidaturas encontradas}}",
+    "found": "{count, plural, =0 {# candidaturas encontradas} one {# candidatura encontrada} other {# candidaturas encontradas}}",
     "status": {
       "active": "Ativa",
       "srPrefix": "Status"
@@ -1593,7 +1605,7 @@
     },
     "preview": {
       "pageLabel": "Página {page} de {total}",
-      "pageCount": "{total, plural, one {Pré-visualização do CV: # página.} other {Pré-visualização do CV: # páginas.}}",
+      "pageCount": "{total, plural, =0 {Pré-visualização do CV: # páginas.} one {Pré-visualização do CV: # página.} other {Pré-visualização do CV: # páginas.}}",
       "documentLabel": "Pré-visualização do CV de {name}",
       "documentLabelUnnamed": "Pré-visualização do seu CV",
       "overflowNote": "Um item é maior que uma página A4.",
@@ -1786,10 +1798,10 @@
     "savedCount": "{count} de {max}",
     "jobCount": "{total, plural, =0 {0 vagas} one {# vaga} other {# vagas}}",
     "page": "Página {page} de {totalPages}",
-    "moreFiltersActive": "Mais filtros ({count, plural, one {# ativo} other {# ativos}})",
+    "moreFiltersActive": "Mais filtros ({count, plural, =0 {# ativos} one {# ativo} other {# ativos}})",
     "fitLabel": "Aderência {score}%",
     "minFitOption": "{value}% ou mais",
-    "postedWithinOption": "{days, plural, one {# dia} other {# dias}}",
+    "postedWithinOption": "{days, plural, =0 {# dias} one {# dia} other {# dias}}",
     "fitAtLeast": "Aderência {value}%+",
     "summaryBestFit": "Melhor aderência"
   },
@@ -2054,8 +2066,8 @@
     "time": {
       "today": "hoje",
       "yesterday": "ontem",
-      "daysAgo": "há {days, plural, one {# dia} other {# dias}}",
-      "monthsAgo": "há {months, plural, one {# mês} other {# meses}}"
+      "daysAgo": "há {days, plural, =0 {# dias} one {# dia} other {# dias}}",
+      "monthsAgo": "há {months, plural, =0 {# meses} one {# mês} other {# meses}}"
     },
     "pager": {
       "page": "Página {page} de {total}",
@@ -2254,6 +2266,375 @@
       "webhookAdded": "Webhook adicionado",
       "webhookUpdated": "Webhook atualizado",
       "webhookDeleted": "Webhook excluído"
+    }
+  },
+  "phone": {
+    "shell": {
+      "today": "Hoje",
+      "pipeline": "Funil",
+      "insights": "Insights",
+      "add": "Adicionar",
+      "account": "Conta",
+      "back": "Voltar",
+      "home": "Início",
+      "application": "Candidatura"
+    },
+    "account": {
+      "workspace": "Espaço de trabalho",
+      "viewProfile": "Ver perfil",
+      "devices": "Dispositivos e CLI",
+      "signedIn": "{count, plural, =0 {# conectados} one {# conectado} other {# conectados}}",
+      "codeFormat": "XXXX-XXXX",
+      "reportDay": "Dia {day}",
+      "language": "Idioma",
+      "english": "English",
+      "portuguese": "Português (BR)",
+      "theme": "Tema",
+      "light": "Claro",
+      "dark": "Escuro",
+      "sendFeedback": "Enviar feedback",
+      "cookiePolicy": "Política de cookies",
+      "openSource": "Applika.dev · código aberto"
+    },
+    "landing": {
+      "eyebrow": "Rastreador de candidaturas gratuito e de código aberto",
+      "heroTitle": "Gerencie sua busca de emprego com <highlight>clareza</highlight>.",
+      "heroBody": "Cada candidatura, entrevista e resultado em um lugar tranquilo — com os números que mostram o que está funcionando.",
+      "previewLabel": "Prévia do produto",
+      "preview": {
+        "initials": "NL",
+        "company": "Northwind Labs",
+        "role": "Engenheiro de back-end sênior",
+        "applied": "Enviada",
+        "event": "Entrevista técnica",
+        "eventTime": "sáb. 14:00",
+        "successRate": "Taxa de sucesso"
+      },
+      "features": {
+        "track": {
+          "title": "Acompanhe cada candidatura",
+          "body": "Empresa, cargo, plataforma e salário — e a etapa em que cada processo está."
+        },
+        "interviews": {
+          "title": "Nunca perca uma entrevista",
+          "body": "Cada etapa entra na sua agenda, com alertas antes de começar."
+        },
+        "learn": {
+          "title": "Descubra o que funciona",
+          "body": "Conversão por etapa, dias por etapa e busca ativa vs. passiva."
+        }
+      },
+      "stepsTitle": "Pronto para usar em minutos",
+      "steps": {
+        "signIn": {
+          "title": "Entre com a Borderless.",
+          "body": "Sem senha nova: sua conta da Borderless é a sua conta do Applika."
+        },
+        "add": {
+          "title": "Adicione suas candidaturas.",
+          "body": "Três campos bastam para começar."
+        },
+        "analyze": {
+          "title": "Analise e otimize.",
+          "body": "Seus insights se completam conforme você avança."
+        }
+      },
+      "openSourceTitle": "Código aberto, feito às claras",
+      "openSourceBody": "Cada linha de código é pública. Pedidos de recursos, relatos de bugs e pull requests são bem-vindos.",
+      "viewOnGithub": "Ver no GitHub",
+      "copyright": "© {name}"
+    },
+    "welcome": {
+      "howToStart": "Como começar"
+    },
+    "load": {
+      "retry": "Tentar de novo"
+    },
+    "today": {
+      "greeting": {
+        "morning": "Bom dia, {name}",
+        "afternoon": "Boa tarde, {name}",
+        "evening": "Boa noite, {name}"
+      },
+      "nextInterview": "Próxima entrevista · {when}",
+      "startsIn": {
+        "hoursMinutes": "em {hours} h {minutes} min",
+        "hours": "em {hours} h",
+        "minutes": "em {minutes} min"
+      },
+      "addToCalendar": "Adicionar ao calendário",
+      "open": "Abrir",
+      "stats": {
+        "active": "Ativas",
+        "offers": "Ofertas",
+        "success": "Sucesso",
+        "seeInsights": "Ver insights",
+        "loading": "Carregando seus números"
+      },
+      "attention": {
+        "title": "Precisa da sua atenção",
+        "quiet": "Sem atualização há {days, plural, =0 {# dias} one {# dia} other {# dias}}",
+        "logUpdate": "Atualizar",
+        "closeIt": "Encerrar",
+        "caughtUp": "Tudo em dia. Toda candidatura ativa tem uma atualização recente."
+      },
+      "upcoming": {
+        "title": "A seguir",
+        "none": "Nenhuma entrevista agendada.",
+        "noMore": "Nada mais agendado."
+      }
+    },
+    "pipeline": {
+      "search": "Buscar candidaturas",
+      "summary": "{cycle} · {count, plural, =0 {# candidaturas} one {# candidatura} other {# candidaturas}}",
+      "filterLabel": "Filtrar por etapa",
+      "all": "Todas",
+      "stage": {
+        "technical": "Técnica",
+        "screening": "Triagem",
+        "applied": "Enviada",
+        "offer": "Oferta",
+        "closed": "Encerrada"
+      },
+      "ago": {
+        "day": "{count} d",
+        "week": "{count} sem",
+        "month": "{count} m"
+      },
+      "agoLong": {
+        "day": "há {count, plural, =0 {# dias} one {# dia} other {# dias}}",
+        "week": "há {count, plural, =0 {# semanas} one {# semana} other {# semanas}}",
+        "month": "há {count, plural, =0 {# meses} one {# mês} other {# meses}}"
+      },
+      "stale": "Parada",
+      "showMore": "Mostrar mais {count}"
+    },
+    "quickAdd": {
+      "title": "Adicionar candidatura",
+      "lead": "Só o essencial — você pode adicionar o resto depois.",
+      "company": "Empresa",
+      "companyPlaceholder": "ex.: Northwind Labs",
+      "role": "Cargo",
+      "rolePlaceholder": "ex.: Engenheiro de backend",
+      "where": "Onde você se candidatou?",
+      "other": "Outra",
+      "appliedOn": "Data da candidatura",
+      "today": "Hoje",
+      "yesterday": "Ontem",
+      "pickDate": "Escolher data",
+      "moreDetails": "Mais detalhes",
+      "moreDetailsHint": "Link, modelo de trabalho, salário",
+      "link": "Link da vaga",
+      "linkPlaceholder": "https://",
+      "workMode": "Modelo de trabalho",
+      "salaryFrom": "Salário de",
+      "salaryTo": "até",
+      "salaryToName": "Salário até",
+      "salaryFromPlaceholder": "60.000",
+      "salaryToPlaceholder": "75.000",
+      "startWithCv": "Começar com um CV",
+      "submit": "Adicionar ao funil",
+      "salaryInvalid": "Informe o salário como número, ex.: 60.000",
+      "salaryNeedsProfile": "Defina a moeda e o período do salário no seu perfil antes, ou deixe o salário em branco"
+    },
+    "application": {
+      "more": "Mais ações",
+      "loading": "Carregando candidatura",
+      "applied": "Enviada em {date} via {platform}",
+      "appliedOn": "Enviada em {date}",
+      "closed": "{outcome, select, denied {Encerrada · Recusada} offer {Encerrada · Oferta} other {Encerrada}}",
+      "progress": "Progresso das etapas",
+      "nextStep": "Próxima etapa · {days, plural, =0 {hoje} =1 {amanhã} other {em # dias}}",
+      "nextWhen": "{date} · {time}",
+      "details": "Detalhes",
+      "detail": {
+        "source": "Origem",
+        "workMode": "Modelo de trabalho",
+        "country": "País",
+        "experience": "Experiência",
+        "salaryRange": "Faixa salarial",
+        "expected": "Pretensão"
+      },
+      "history": "Histórico",
+      "historyWhen": "{date} · {status, select, scheduled {agendada} passed {aprovada} other {concluída}}"
+    },
+    "agenda": {
+      "previousWeek": "Semana anterior",
+      "nextWeek": "Próxima semana",
+      "weekOf": "Semana de {date}",
+      "day": "{weekday}, {day} de {month}{today, select, yes {, hoje} other {}}{events, select, yes {, com eventos} other {}}",
+      "dayTitleToday": "Hoje · {date}",
+      "done": "Concluída",
+      "duration": {
+        "minutes": "{minutes} min",
+        "hours": "{hours} h",
+        "hoursMinutes": "{hours} h {minutes} min"
+      },
+      "companyDuration": "{company} · {duration}",
+      "timeRange": "das {start} às {end}",
+      "alerts": "Alertas sonoros de {role} em {company}, 30, 15 e 5 minutos antes",
+      "emptyDay": "Nada agendado neste dia.",
+      "later": "Depois"
+    },
+    "insights": {
+      "chooseCycle": "Escolha um ciclo",
+      "successRate": "Taxa de sucesso",
+      "applications": "Candidaturas",
+      "funnel": "Funil de etapas",
+      "funnelSub": "Até onde suas candidaturas chegam",
+      "perWeek": "Candidaturas por semana",
+      "weeks": "{count, plural, =0 {# semanas} one {# semana} other {# semanas}}",
+      "weeklyChart": "{trend, select, rising {Candidaturas por semana subindo de {first} para {last}} falling {Candidaturas por semana caindo de {first} para {last}} other {Candidaturas por semana estáveis em {last}}}: {values}",
+      "stepDays": "Média de dias por etapa",
+      "step": {
+        "appliedToScreening": "Enviada → Triagem",
+        "screeningToTechnical": "Triagem → Técnica",
+        "technicalToOffer": "Técnica → Oferta"
+      },
+      "days": "{days, plural, =0 {# dias} one {# dia} other {# dias}}",
+      "noData": "Sem dados",
+      "mode": "Ativas x passivas",
+      "modeSub": "Você se candidatou x um recrutador entrou em contato"
+    },
+    "stageTitle": {
+      "interview": {
+        "unknown": "Entrevista",
+        "initial_screening": "Triagem inicial",
+        "technical": "Entrevista técnica",
+        "cultural": "Entrevista cultural",
+        "hiring_manager": "Entrevista com o gestor",
+        "take_home": "Desafio para casa",
+        "final": "Entrevista final"
+      },
+      "offer": "Oferta",
+      "denied": "Recusada"
+    },
+    "profile": {
+      "sections": "Seções do perfil",
+      "roleAt": "{role} em {company}",
+      "badgeEarned": "Conquistado: {description}",
+      "badgeNotEarned": "Ainda não conquistado: {description}",
+      "loadingBadges": "Carregando selos",
+      "loading": "Carregando seu perfil",
+      "deleteHint": "Ao excluir sua conta, todos os seus dados — candidaturas, etapas, relatórios e perfil — serão removidos permanentemente."
+    },
+    "devices": {
+      "revokeLabel": "Revogar o acesso de {name}"
+    },
+    "cycles": {
+      "active": "Ativo",
+      "applications": "{count, plural, =0 {# candidaturas} one {# candidatura} other {# candidaturas}}",
+      "offers": "{count, plural, =0 {# ofertas} one {# oferta} other {# ofertas}}",
+      "since": "desde {date}",
+      "archived": "Arquivados",
+      "deleteLabel": "Excluir {name}",
+      "emptyBody": "Quando você inicia um novo ciclo, suas candidaturas e relatórios atuais são arquivados aqui.",
+      "newHint": "Todas as candidaturas e relatórios atuais serão arquivados permanentemente em um ciclo com nome. Esta ação não pode ser desfeita.",
+      "nameLabel": "Nome do ciclo",
+      "loading": "Carregando ciclos"
+    },
+    "reports": {
+      "progress": "Progresso do desafio",
+      "tip": "<strong>Dica</strong> · Os relatórios vencem a cada <strong>14 dias</strong> durante o desafio de 120 dias.",
+      "phaseDue": "Fase {phase} · vence em {date}",
+      "dayPhase": "Dia {day} · Fase {phase}",
+      "loading": "Carregando relatórios"
+    },
+    "reportDay": {
+      "loading": "Carregando relatório"
+    },
+    "admin": {
+      "lastMonths": "{count, plural, =0 {Últimos # meses} one {Último mês} other {Últimos # meses}}",
+      "growthChart": "Novos usuários por mês, de {first} em {firstMonth} a {last} em {lastMonth}",
+      "noData": "Sem dados ainda",
+      "loading": "Carregando o painel",
+      "edit": "Editar"
+    },
+    "adminUsers": {
+      "searchLabel": "Buscar usuários",
+      "sortBy": "Ordenar por",
+      "sortGroup": "Ordenar usuários por",
+      "sortChip": "Ordenar por {label}{dir, select, asc {, crescente} desc {, decrescente} other {}}",
+      "arrow": "{dir, select, asc {↑} other {↓}}",
+      "counts": "Candidaturas {apps} · Ofertas {offers} · Recusas {denials}",
+      "loading": "Carregando usuários",
+      "noMatch": "Nenhum usuário corresponde à sua busca.",
+      "empty": "Ainda não há usuários.",
+      "detailLoading": "Carregando os detalhes do usuário"
+    },
+    "catalog": {
+      "meta": "Adicionada por <who>{addedBy}</who> · <mono>{apps}</mono> {count, plural, =0 {candidaturas} one {candidatura} other {candidaturas}} · Criada em {date}",
+      "company": {
+        "loading": "Carregando empresas"
+      },
+      "platform": {
+        "loading": "Carregando plataformas"
+      }
+    },
+    "jobs": {
+      "toolbar": "Ordenação e filtros",
+      "showMore": "Mostrar mais",
+      "dismissedNote": "{count, plural, =0 {# dispensadas} one {# dispensada} other {# dispensadas}} · Veja as dispensadas em Mais filtros",
+      "done": "Pronto"
+    },
+    "jobDetail": {
+      "loadingFit": "Carregando sua aderência",
+      "cvTab": "{name} · {score}%",
+      "cvTabNoFit": "{name} · Sem aderência",
+      "band": {
+        "strong": "Aderência forte",
+        "partial": "Aderência parcial",
+        "low": "Aderência baixa"
+      }
+    },
+    "startApplication": {
+      "cvHint": "Aderência {score}% · atualizado em {date}",
+      "keywordsHint": "Coloca primeiro as habilidades e os tópicos que correspondem às palavras-chave desta vaga. Nenhum texto é adicionado ou removido."
+    },
+    "draft": {
+      "lead": "Preencha a candidatura e depois adapte uma cópia de um dos seus CVs principais. Ela é salva como rascunho enquanto você digita.",
+      "experience": "Experiência",
+      "moreDetailsHint": "Data, origem, link, salário",
+      "tailorHint": "Reordena habilidades e tópicos pela aderência à descrição da vaga.",
+      "loadingCopy": "Carregando a cópia do CV",
+      "loadingMasterCvs": "Carregando seus CVs principais",
+      "sectionsLabel": "Seções da cópia do CV",
+      "reordered": "Reordenada",
+      "editCopy": "Editar a cópia do CV",
+      "editTitle": "Editar a cópia do CV",
+      "editHint": "As alterações são salvas neste rascunho enquanto você digita.",
+      "done": "Pronto",
+      "meta": {
+        "summary": "{count, plural, =0 {# caracteres} one {# caractere} other {# caracteres}}",
+        "skills": "{count, plural, =0 {# grupos} one {# grupo} other {# grupos}}",
+        "education": "{count, plural, =0 {# itens} one {# item} other {# itens}}",
+        "certifications": "{count, plural, =0 {# certificações} one {# certificação} other {# certificações}}"
+      }
+    },
+    "cvs": {
+      "deleting": "Excluindo..."
+    },
+    "cvEditor": {
+      "pdf": "PDF",
+      "invalid": "Precisa de ajuste",
+      "meta": {
+        "empty": "Nenhum ainda",
+        "links": "{count, plural, =0 {Nenhum ainda} one {# link} other {# links}}",
+        "summary": "{count, plural, =0 {Nenhum ainda} one {# caractere} other {# caracteres}}",
+        "skills": "{groups, plural, =0 {Nenhum ainda} one {# grupo · {keywords, plural, =0 {# palavras-chave} one {# palavra-chave} other {# palavras-chave}}} other {# grupos · {keywords, plural, =0 {# palavras-chave} one {# palavra-chave} other {# palavras-chave}}}}",
+        "experience": "{count, plural, =0 {Nenhum ainda} one {# cargo} other {# cargos}}",
+        "projects": "{count, plural, =0 {Nenhum ainda} one {# projeto} other {# projetos}}",
+        "education": "{count, plural, =0 {Nenhuma ainda} one {# formação} other {# formações}}",
+        "certifications": "{count, plural, =0 {Nenhuma ainda} one {# certificação} other {# certificações}}",
+        "languages": "{count, plural, =0 {Nenhum ainda} one {# idioma} other {# idiomas}}"
+      }
+    },
+    "applicationCv": {
+      "changes": "Alterações",
+      "pdfOf": "Baixar PDF de {name}",
+      "markdownOf": "Baixar Markdown de {name}",
+      "showMore": "Mostrar mais",
+      "showLess": "Mostrar menos"
     }
   }
 }

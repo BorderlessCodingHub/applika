@@ -1,4 +1,4 @@
-"""Unit tests for the CV Markdown renderer (KODI-017, T090).
+"""Unit tests for the CV Markdown renderer (T090).
 
 Real work, no database and no HTTP: :class:`CVMarkdownRenderer` runs RenderCV
 2.8's own Markdown templater against the SAME mapped document the PDF path

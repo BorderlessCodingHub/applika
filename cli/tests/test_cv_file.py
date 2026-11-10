@@ -1,4 +1,4 @@
-"""``--file`` loading, local validation and download naming (KODI-018)."""
+"""``--file`` loading, local validation and download naming."""
 
 from __future__ import annotations
 

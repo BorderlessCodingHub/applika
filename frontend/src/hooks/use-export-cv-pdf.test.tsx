@@ -10,7 +10,7 @@ import { BaseCvService } from "@/services/implementations/base-cv-service";
 import { TailoredCvService } from "@/services/implementations/tailored-cv-service";
 
 /**
- * The wire contract of the PDF export (KODI-004 / ADR 0011).
+ * The wire contract of the PDF export (ADR 0011).
  *
  * Asserted against the MOCKED AXIOS INSTANCE rather than against the service
  * class, so what is pinned is what actually leaves the browser: the verb, the

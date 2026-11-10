@@ -192,7 +192,7 @@ async def test_delete_own_account_cascades_drafts(
 ):
     """A draft is a plain ``applications`` row, so deleting the account
     cascades it away (and its CV copy) the same as an ordinary
-    application (KODI-032, T054)."""
+    application (T054)."""
     draft_resp = await async_client.post(
         '/applications/drafts',
         json={
@@ -221,7 +221,7 @@ async def test_delete_own_account_cascades_drafts(
 async def test_delete_own_account_removes_job_board_rows_but_not_jobs(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-047: the user's fits, dismissals, saved searches and drafts from
+    """The user's fits, dismissals, saved searches and drafts from
     jobs go with the account (FK CASCADE); the shared jobs and sources stay.
     """
     from tests.integration.jobs_seed import seed_base_cv, seed_sources
@@ -272,7 +272,7 @@ async def test_delete_account_ends_every_session_at_once(
     redis_client,
     async_engine,
 ):
-    """KODI-057 (R-008, AC8): every session of the account ends with it -
+    """R-008, AC8: every session of the account ends with it -
     both Redis keys of each open session are gone (so its tokens are
     refused, see test_session_lifecycle), the rows go by CASCADE. Another
     user's session is untouched."""

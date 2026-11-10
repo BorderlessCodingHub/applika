@@ -1,5 +1,5 @@
 """Unit tests for the draft applications use cases and their wire schema
-(KODI-032, ADR-0014).
+(ADR-0014).
 
 Mirrors ``tests/unit/test_create_application.py``'s style: mocked repos, no
 database. ``_draft`` is a ``SimpleNamespace`` mimicking ``ApplicationModel``
@@ -230,7 +230,7 @@ async def test_update_draft_without_application_date_keeps_stored_value():
 
 async def test_update_draft_explicit_none_keeps_stored_value():
     """Explicit ``null`` on PUT is treated exactly like an absent key -
-    never clears the stored date (API contract, KODI-036)."""
+    never clears the stored date (API contract)."""
     app_repo = AsyncMock()
     platform_repo = AsyncMock()
     company_repo = AsyncMock()

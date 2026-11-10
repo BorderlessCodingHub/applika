@@ -1,5 +1,5 @@
 /**
- * Beta features (PRD 0013, KODI-052 `GET /users/me/features`). A key the
+ * Beta features (PRD 0013, `GET /users/me/features`). A key the
  * caller does not get back is a feature they do not have: the API is the
  * rule, the web only hides what the server already refuses.
  */
@@ -19,7 +19,7 @@ export interface MyFeaturesResponse {
   features: MyFeature[];
 }
 
-// ── Admin (KODI-052 `/admin/features*`, KODI-054) ──────────────────────
+// ── Admin (`/admin/features*`) ─────────────────────────────────────────
 
 /** Why the calling admin has a feature; `null` when they do not (they turned it off). */
 export type AdminFeatureVia = "general" | "list" | "admin";

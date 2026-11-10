@@ -6,7 +6,7 @@ import { services } from "@/services/services";
 import type { UserSession } from "@/services/types/sessions";
 
 /**
- * The profile's Devices tab (KODI-058, ADR-0019): the caller's web and CLI
+ * The profile's Devices tab (ADR-0019): the caller's web and CLI
  * sessions, active then ended within 30 days, in the server's order.
  */
 export const SESSIONS_QUERY_KEY = ["sessions"] as const;

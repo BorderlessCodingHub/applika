@@ -1,4 +1,4 @@
-"""Admin job sources (KODI-046, T053; R-033..R-035): the three routes K7's
+"""Admin job sources (T053; R-033..R-035): the three routes K7's
 screen consumes, against the testcontainers Postgres, with the ``JobQueue``
 faked (``tests/conftest.py``) except where a run really ingests."""
 

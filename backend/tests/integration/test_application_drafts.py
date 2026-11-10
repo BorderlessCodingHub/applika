@@ -1,5 +1,5 @@
 """Integration tests for ``/applications/drafts`` - the "new application
-with CV" flow (KODI-032, ADR-0014, backend half of KODI-033's UI).
+with CV" flow (ADR-0014, backend half of its UI).
 
 Covers, by acceptance criterion:
 
@@ -20,7 +20,7 @@ Covers, by acceptance criterion:
   invisible company/platform is 404 and writes nothing.
 * #6 backend half - two PUTs, last one wins.
 
-KODI-036 (AC1 server half): a POST without ``application_date`` defaults to
+R-003 (AC1 server half): a POST without ``application_date`` defaults to
 the server's own day; a given date is stored and returned; a PUT that omits
 the key or sends it explicit ``null`` keeps the stored value, never clears;
 a date beyond ``UTC today + 1`` is a 422 on create and update, and nothing
@@ -127,7 +127,7 @@ async def test_create_draft_has_cv_false(async_client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# application_date (KODI-036, R-003, AC1 server half)
+# application_date (R-003, AC1 server half)
 # ---------------------------------------------------------------------------
 
 
@@ -668,7 +668,7 @@ async def test_foreign_draft_is_404_on_every_route(async_client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# KODI-047: job_id on the draft shape
+# job_id on the draft shape
 # ---------------------------------------------------------------------------
 
 
@@ -680,7 +680,7 @@ async def test_ordinary_draft_has_null_job_id(async_client: AsyncClient):
     assert fetched.json()['job_id'] is None
 
 
-@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
+@pytest.mark.usefixtures('jobs_beta')  # needs "jobs"
 async def test_put_keeps_a_from_job_drafts_job_id_and_cannot_set_it(
     async_client: AsyncClient, db_session: AsyncSession
 ):

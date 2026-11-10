@@ -60,7 +60,7 @@ S4 shell + pages:
 - Move into shell: `cycle-selector.tsx`, `agenda-dropdown.tsx`, `ThemeToggle`, `FeedbackDialog`, `CliPromoBanner`, profile/logout menu.
 - Replace `src/components/layout/app-layout.tsx`, `app-header.tsx` (remove after shell wired); `src/app/(protected)/layout.tsx` uses `AppShell`.
 - Restyle `src/components/landing/*` (10 files), `src/app/login/page.tsx`, `src/app/(public)/cookie-policy/page.tsx`, `src/components/cookie-consent.tsx`, `src/components/auth-buttons.tsx`.
-- Update `frontend/CLAUDE.md` (UI Components, Key Files, commands).
+- Update `frontend/AGENTS.md` (UI Components, Key Files, commands).
 i18n: none (no i18n in applika). Design-system doc: none; source of truth = `src/app/globals.css` tokens + `src/components/layout/*` files named above.
 
 ## Contract
@@ -80,7 +80,7 @@ CI: `.github/workflows/frontend-ci.yaml` jobs `lint` (`pnpm lint`), `format` (`p
 - `.claude/rules/branches-and-commits.md`: slice branch from `develop`; conventional commits `feat(frontend): …`; PR to `develop`; agent never touches `main`.<DEL>
 
 - `.claude/rules/prod-release-runbook.md`: frontend image deploys on `main` push; no migration here.
-- `frontend/CLAUDE.md`: forms keep `<DatePickerInput>`; RHF + Zod; services container.
+- `frontend/AGENTS.md`: forms keep `<DatePickerInput>`; RHF + Zod; services container.
 
 ## Risks
 - React 19 peer breaks: `next-themes` 0.3, `recharts` 2.15 (needs `react-is` 19), `cmdk`, `react-day-picker`, `framer-motion`. S2 PR resolves peers before any restyle.

@@ -34,7 +34,7 @@ export const INTERVIEW_TYPES = [
 export type InterviewType = (typeof INTERVIEW_TYPES)[number];
 
 /**
- * Hardcoded 10-value reason, carried only by `denied` events (KODI-014). Order
+ * Hardcoded 10-value reason, carried only by `denied` events. Order
  * is the API's and the CLI's. `unknown` is the default.
  */
 export const DENIED_REASONS = [

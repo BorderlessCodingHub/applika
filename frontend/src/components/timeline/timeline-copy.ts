@@ -53,7 +53,7 @@ export const TIMEZONE_COPY = liveCopy("timeline.timezone", [
   "otherGroup",
 ]);
 
-/** The timeline panel's header words (KODI-015 reference image). */
+/** The timeline panel's header words (PRD 0008 reference image). */
 export const TIMELINE_PANEL_COPY = liveCopy("timeline.panel", [
   "title",
   "description",

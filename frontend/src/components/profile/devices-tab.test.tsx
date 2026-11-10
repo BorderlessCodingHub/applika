@@ -12,7 +12,7 @@ import { services } from "@/services/services";
 import type { UserSession } from "@/services/types/sessions";
 
 /**
- * KODI-058 (AC2..AC7): the profile's Devices tab. The presentational
+ * PRD 0014 (AC2..AC7): the profile's Devices tab. The presentational
  * `DevicesTab` is driven through its spec states 1-9; the last block wires it
  * to the real `use-sessions` hooks (services mocked) to prove the current
  * row's "Sign out" lands on `/login` and a revoke refetches the list.

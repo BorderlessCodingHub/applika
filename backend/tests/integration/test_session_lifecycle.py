@@ -1,10 +1,10 @@
-"""A device session from sign-in to its end (KODI-057, ADR-0019).
+"""A device session from sign-in to its end (ADR-0019).
 
 Real Postgres (``user_sessions``) and real Redis (``redis_client``), the
 REAL ``get_current_user`` (``real_client``). Covers: the web callback opens
 a row and both keys; refresh slides both keys' TTL, ``expires_at`` and the
 ``__refresh`` Max-Age without rotating; logout; a revoked session is refused
-on its next request; a JWT without ``sid`` and a pre-KODI-057 refresh key
+on its next request; a JWT without ``sid`` and a legacy refresh key
 are refused; signing in again replaces the browser's session; a refresh
 reads the Borderless membership and never fails on it; an unbound user
 signs in again; a lost key reads as expired; the live last use is copied
@@ -330,7 +330,7 @@ async def test_refresh_without_a_cookie_is_401(real_client: AsyncClient):
 
 
 # --------------------------------------------------------------------------
-# AC22 / R-023: a pre-KODI-057 refresh key or JWT is refused
+# AC22 / R-023: a legacy refresh key or JWT is refused
 # --------------------------------------------------------------------------
 
 

@@ -10,7 +10,7 @@ import { BaseCvService } from "@/services/implementations/base-cv-service";
 import { TailoredCvService } from "@/services/implementations/tailored-cv-service";
 
 /**
- * The wire contract of the Markdown export (KODI-017 part 3), the Markdown
+ * The wire contract of the Markdown export, the Markdown
  * twin of `use-export-cv-pdf.test.tsx`: a `GET` (never `POST` — nothing is
  * rendered on demand from a body, it is a plain read of the stored CV) with
  * `responseType: "blob"`, the server's filename winning over the mirrored

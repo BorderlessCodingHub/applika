@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { formatSalary } from "@/components/applications/application-format";
 
 /**
- * AC22 (KODI-013 addendum) — owner: "ISO code everywhere (Recommended)".
+ * AC22 (PRD 0008 addendum) — owner: "ISO code everywhere (Recommended)".
  * Application rows show the ISO currency code (e.g. "SEK 50,000"), never a
  * symbol, exactly like the timeline cards (`timeline-format.ts`'s
  * `formatOfferSalary` already delegates to this same function). Pinned across

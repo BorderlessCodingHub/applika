@@ -45,7 +45,7 @@ K1 Release A migration → K2 backend → K3 web → K5 closing (Release B) → 
 7. **E2E addresses.** The e2e web is `127.0.0.1:8180` (`docker-compose.e2e.yml`); the new settings default to `:8080` (the dev stack). K2 sets `DEVICE_VERIFICATION_URI` and `CLI_MANUAL_REDIRECT_URI` in `x-api-environment`, so `verification_uri_complete` opens the e2e web.
 8. **Web pins and tests the plan omits.** `e2e/smoke.spec.ts` l.216 pins `toHaveLength(20)`: K3 adds `/device` (user) and `/cli/code` (anon) → 22. `e2e/auth-guard.spec.ts` `PROTECTED_PATHS` gains `/device`. No test covers `(protected)/layout.tsx`: K3 adds `layout.test.tsx` for the return-to. `contexts/auth-context.test.tsx` and `hooks/use-user.test.tsx` exist: K3 adds the 503 cases.
 9. **Last used, after the end.** The plan never writes `user_sessions.last_used_at` / `last_ip`; the list reads them live from Redis. An ended or expired device (key gone) would then show its sign-in values. K2: every refresh and every end copies the live fields onto the row. Also: DELETE and revoke-others end only live sessions. An open row past `expires_at`, or with its key gone, stays "expired" (R-014), and DELETE on it is the no-op 204.
-10. **CLI README.** `cli/README.md` l.52-56 describes the old login. The plan names `cli/CLAUDE.md` and `SKILL.md` only. K4 updates the README too.
+10. **CLI README.** `cli/README.md` l.52-56 describes the old login. The plan names `cli/AGENTS.md` and `SKILL.md` only. K4 updates the README too.
 11. **Routes 1.1.0 calls.** `.claude/rules/cli-compatibility.md` lists the routes 0.1.4 calls. Once C ships, 1.1.0 also calls `/auth/cli/authorize`, `/auth/token`, `/auth/revoke` and `/auth/device/code`. K4 adds one line naming them (workspace root, outside git). **Owner to confirm.**
 12. **Names the plan omits.** `app/application/dto/user_session.py` (new; ADR-0001: use cases return DTOs); `tests/sessions_seed.py` (new, correction 3); `e2e/support/auth.ts` `cliBearerHeader()`.
 13. **Replaced, web branch only.** "ends a valid same-user `__refresh` session as `replaced`" holds in the callback's web branch only. The CLI branches (legacy handoff, PKCE) never end the browser's own session.
@@ -141,7 +141,7 @@ Touch:
 - backend/tests/sessions_seed.py (new)
 - backend/tests/unit/test_pkce.py, test_user_agent.py, test_user_codes.py, test_session_status.py (new); test_get_current_user.py, test_rate_limit.py, test_oauth_cli.py, test_seed_e2e.py
 - backend/tests/integration/test_sessions_api.py, test_session_lifecycle.py, test_cli_pkce.py, test_device_flow.py (new); test_oauth_cli.py, test_delete_account.py, test_rate_limit.py, test_feature_gating.py, test_account_link_discord.py
-- backend/CLAUDE.md, backend/CHANGELOG.md, cli/CHANGELOG.md
+- backend/AGENTS.md, backend/CHANGELOG.md, cli/CHANGELOG.md
 Pattern:
 - backend/app/presentation/api/account_link.py (router)
 - backend/app/domain/repositories/discord_connection_repository.py (repository)
@@ -233,7 +233,7 @@ Steps:
   - tests/integration/test_oauth_cli.py: legacy shapes unchanged, `cli_legacy` row, cookie refresh works; test_delete_account.py: keys gone; test_rate_limit.py (l.143-144): Bearer counts per user;
   - real-cookie tests open a real session through tests/sessions_seed.py (new): test_feature_gating.py l.456, test_account_link_discord.py `_cookie_for` l.143-145, test_delete_account.py l.145 (Plan corrections 3).
 - T027 [US1] Docs and changelogs:
-  - backend/CLAUDE.md: Authentication (one session per sign-in, uuid7 refresh value, `sid`, Bearer, fail closed, sliding, the cutover), OAuth table + the new routes, Users table + `/users/me/sessions*`, Exception Handling (`SessionServiceUnavailable` 503 + `Retry-After`), Rate limiting subject, Environment Variables, Domain `UserSession`, Seed Script Rule;
+  - backend/AGENTS.md: Authentication (one session per sign-in, uuid7 refresh value, `sid`, Bearer, fail closed, sliding, the cutover), OAuth table + the new routes, Users table + `/users/me/sessions*`, Exception Handling (`SessionServiceUnavailable` 503 + `Retry-After`), Rate limiting subject, Environment Variables, Domain `UserSession`, Seed Script Rule;
   - backend/CHANGELOG.md `## [Unreleased]` Added / Changed / Deprecated, each line `- …`;
   - cli/CHANGELOG.md `## [Unreleased]` (changelogs rule 3): every user signs in again at the release; the access token carries `sid`; sliding 7-day expiry and `__refresh` re-set on `GET /auth/refresh`; new 401 `Session expired`; new 503 `Session service unavailable` + `Retry-After: 5` on every authenticated route (0.1.4, 0.2.0, 1.0.0 and 1.0.1 print it and keep the session; a refresh 503 still clears it); `/auth/cli/*` deprecated, shapes unchanged; the new routes.
 - T028 [US1] Checks, gate, close:
@@ -291,7 +291,7 @@ Touch:
 - frontend/src/app/(protected)/layout.tsx, layout.test.tsx (new)
 - frontend/src/app/cli/code/page.tsx (new), cli-code-page.tsx (new), cli-code-page.test.tsx (new)
 - frontend/e2e/devices.spec.ts (new), e2e/smoke.spec.ts, e2e/auth-guard.spec.ts, e2e/support/auth.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/components/profile/connected-accounts.tsx + hooks/use-account-links.ts (card, badge, AlertDialog confirm)
 - frontend/src/app/(protected)/profile/profile-page.tsx (lazy `useState` from search params, one-shot `useRef`)
@@ -299,7 +299,7 @@ Pattern:
 - frontend/src/app/(protected)/cvs/editor/page.tsx (Suspense shell for `?query=`); frontend/src/app/login/ (a route outside the groups)
 - frontend/src/lib/rate-limit.ts, contexts/auth-context.tsx (429 retry, never a sign-out)
 - frontend/e2e/profile-discord.spec.ts, e2e/support/auth.ts (`loginAs`, `apiUrl`)
-- frontend/CLAUDE.md "### UI Components", "### Profile — connected accounts", "### Auth & Token Refresh", "### Routing"; ADR-0006 tokens; ui-designer
+- frontend/AGENTS.md "### UI Components", "### Profile — connected accounts", "### Auth & Token Refresh", "### Routing"; ADR-0006 tokens; ui-designer
 Contract (from K2): `GET /users/me/sessions`; `DELETE /users/me/sessions/{id}` → 204 | 404 `"Session not found"`; `POST /users/me/sessions/revoke-others` → `{revoked}`; `GET /auth/device/verify?user_code=` → `{device_name, client_label, ip, requested_at, expires_at}` | 404 `"Code not found or expired"`; `POST /auth/device/approve|deny` `{user_code}` → 204 | 404 | 409 `"Code already used"`; any authenticated route 503 `{detail: "Session service unavailable"}` + `Retry-After: 5`; `/cli/code?code=&state=` is reached by the API's 307.
 Steps:
 - T029 [US1] Build on integration/0014-cli-device-sign-in, after the K2 tip.
@@ -341,7 +341,7 @@ Steps:
     - (3) signed out, `/device?code=<code>` → `/login`; `loginAs` → `/dashboard` → lands on `/device` with the code filled in;
   - e2e/support/auth.ts: `cliBearerHeader()`;
   - e2e/smoke.spec.ts: `/device` (user, h1) and `/cli/code` (anon) → `toHaveLength(22)`; e2e/auth-guard.spec.ts `PROTECTED_PATHS` + `/device` (Plan corrections 8).
-- T040 [US1] frontend/CLAUDE.md: "### Profile — Devices" (tabs, rows, confirms, `/login` on the current row, query key); Routing (`/device`, `/cli/code`, the return-to); "### Auth & Token Refresh" (a 503 is temporary, `isTemporary`); E2E (devices.spec.ts, the seeded CLI session).
+- T040 [US1] frontend/AGENTS.md: "### Profile — Devices" (tabs, rows, confirms, `/login` on the current row, query key); Routing (`/device`, `/cli/code`, the return-to); "### Auth & Token Refresh" (a 503 is temporary, `isTemporary`); E2E (devices.spec.ts, the seeded CLI session).
 - T041 [US1] Gate, close:
   - `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build` in frontend;
   - full `scripts/e2e.sh` green; no applika-e2e container, network or volume left;
@@ -372,7 +372,7 @@ Touch:
 - cli/src/applika/commands/auth.py
 - cli/tests/test_pkce.py (new), test_device_flow.py (new), test_api.py, test_commands.py
 - cli/pyproject.toml, cli/uv.lock
-- cli/CHANGELOG.md, cli/CLAUDE.md, cli/README.md, cli/src/applika/skills/applika-cli/SKILL.md
+- cli/CHANGELOG.md, cli/AGENTS.md, cli/README.md, cli/src/applika/skills/applika-cli/SKILL.md
 - .claude/rules/cli-compatibility.md (workspace root, outside git; one line)
 Pattern:
 - cli/src/applika/lib/loopback.py (reused for the callback)
@@ -405,7 +405,7 @@ Steps:
 - T048 [US3] Version and docs:
   - cli/pyproject.toml `version = "1.1.0"`; `uv lock`; `uv sync && uv run applika --version` → `1.1.0`;
   - cli/CHANGELOG.md: under `## [Unreleased]` add `### Added` `- …` (login by PKCE with its own session, `--manual`, `--device`, `--device-name`, Bearer, logout revokes on the server, 503 keeps the session); rename that section `## [1.1.0] - <date of this commit>` (it takes K2's entries with it); a new empty `## [Unreleased]` above; the heading matches `pyproject.toml`;
-  - cli/CLAUDE.md (`auth.py` flags, `lib/pkce.py`, `lib/device_flow.py`, Bearer); cli/README.md l.52-56 login (Plan corrections 10); cli/src/applika/skills/applika-cli/SKILL.md login section;
+  - cli/AGENTS.md (`auth.py` flags, `lib/pkce.py`, `lib/device_flow.py`, Bearer); cli/README.md l.52-56 login (Plan corrections 10); cli/src/applika/skills/applika-cli/SKILL.md login section;
   - .claude/rules/cli-compatibility.md: one line naming the routes 1.1.0 calls (Plan corrections 11).
 - T049 [US3] Checks, gate, close:
   - `git diff integration/0014-cli-device-sign-in...<K4 branch> --name-only` → only `cli/`;
@@ -424,7 +424,7 @@ AC:
 - Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). New entries go under `## [Unreleased]` with `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`. The CLI's version heading matches `cli/pyproject.toml` when it is released. (.claude/rules/changelogs.md 4)
 
 ## K5 — Closing 0014: full gate, E2E, ADRs, walk, Release B   side: both   covers: — (closing; T056 guards the release split)   deps: K3, K4
-Goal: Prove 0014 whole: full gate in CLAUDE.md order, target gates, E2E, ADRs, a by-hand walk on a real stack, and tag Release B. No new feature work.
+Goal: Prove 0014 whole: full gate in AGENTS.md order, target gates, E2E, ADRs, a by-hand walk on a real stack, and tag Release B. No new feature work.
 Owner's words: "i would like to implement the same authentication flow used in claude cli and implement in applika lci, today the cli only reuse the same token and refresh token used by frontend, i also want to create a lost of devices connected and a section to revoke the access, this must be displayed in a new tab inside user profile, losting the device name, ip, when was granted access, last time accessed and more." "i also want to instead of returning the refresh token in jwt, save it in the redis instance used by the rate limiter, the access token cookie value now will become an random uuid7 value, the same one used as key in the redis, if the redis key expire, this mean the session also expired, i also want to list the devices connected by the frontend app in the profile"
 Clarified: success signals: a revoked device gets 401 on its next request, web and CLI; new CLI sign-ins by browser and by device code appear with their method and device name; installed CLI 0.1.4 to 1.0.1 sign in again after the release and work; device-code polling causes no 429 on `/auth/*` at default limits; every active device has a live session and every live session a device row; a Redis outage signs nobody out of the web app or CLI 1.1.0 and lets no revoked device through.
 Covers: — (closing)
@@ -436,7 +436,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0013-beta-features.tasks.md K5
 Contract: none new.
 Steps:
-- T050 On integration/0014-cli-device-sign-in. Gate in CLAUDE.md order:
+- T050 On integration/0014-cli-device-sign-in. Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -479,7 +479,7 @@ Steps:
   - the owner steps of `### Releases`: B after A's `alembic upgrade head` is confirmed, the two env vars, the announcement, `FORWARDED_ALLOW_IPS`; C only after B is live; rollback C, B, then A;
   - the agent never touches prod.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics and changed files clean, coverage ≥ 90%, prettier, tsc), and the CLI gate on the Release C branch.
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics and changed files clean, coverage ≥ 90%, prettier, tsc), and the CLI gate on the Release C branch.
 - Every ADR the feature drafted reads Accepted (ADR-0019, Accepted 2026-10-15; bound 0002, 0004, 0009, 0015, 0018 Accepted; 0002 and 0015 point at 0019).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.
 - The E2E the feature earned (devices.spec.ts, the whole suite green via scripts/e2e.sh) runs inside the gate and is green; Redis outage, PKCE, device-code states, installed CLIs, CLI 1.1.0 and the migration round trip are carried by the cheaper layers named in T052.

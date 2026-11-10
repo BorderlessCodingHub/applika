@@ -1,4 +1,4 @@
-"""Device-flow user codes (KODI-057, R-016)."""
+"""Device-flow user codes (R-016)."""
 
 import pytest
 

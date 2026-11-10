@@ -14,7 +14,7 @@ export function useUserProfile(enabled = true) {
     queryKey: USER_QUERY_KEY,
     queryFn: () => services.users.getMe(),
     enabled,
-    // Same 429/503 exception as the auth refresh query (T040, KODI-058): a
+    // Same 429/503 exception as the auth refresh query (T040): a
     // `/users/me` refetch refused with 429 or 503 must not flip
     // `isUserError`, or AuthContext would sign a still-valid session out
     // (R-024, ADR-0019).

@@ -1,4 +1,4 @@
-"""``applika cvs …`` - the master CV commands (KODI-018).
+"""``applika cvs …`` - the master CV commands.
 
 Routes: ``GET/POST /base-cvs``, ``GET/PATCH/DELETE /base-cvs/{id}``,
 ``POST /base-cvs/{id}/pdf``, ``GET /base-cvs/{id}/markdown``.

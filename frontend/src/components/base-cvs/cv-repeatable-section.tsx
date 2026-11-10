@@ -153,6 +153,7 @@ export function CvRepeatableSection<T extends { id: string }>({
   defaultOpen,
   open,
   onOpenChange,
+  sectionId,
 }: CvRepeatableSectionProps<T>) {
   const t = useTranslations("cvs.fields");
   const atMax = max != null && items.length >= max;
@@ -229,6 +230,7 @@ export function CvRepeatableSection<T extends { id: string }>({
       defaultOpen={defaultOpen}
       open={open}
       onOpenChange={onOpenChange}
+      sectionId={sectionId}
     >
       <>
         {items.length === 0 ? (
@@ -294,7 +296,11 @@ export function CvRepeatableSection<T extends { id: string }>({
                     </span>
                   )}
                   {collapsibleItems && hasBadge ? badge : null}
-                  <div className="flex shrink-0 items-center gap-1">
+                  {/* `cv-item-actions`: the phone CV rows give these 44px boxes (phone.css). */}
+                  <div
+                    data-slot="cv-item-actions"
+                    className="flex shrink-0 items-center gap-1"
+                  >
                     {reorderable ? (
                       <>
                         <Button
@@ -401,7 +407,7 @@ export function CvRepeatableSection<T extends { id: string }>({
 
         {/*
           The add control, INSIDE the disclosure and directly below the last
-          row. The owner, KODI-009: "remove the button to insert a new
+          row. The owner: "remove the button to insert a new
           link/category/etc from the category header and put inside the
           colapsable section, preferable bellow from the last item added".
 
@@ -410,7 +416,7 @@ export function CvRepeatableSection<T extends { id: string }>({
           left in the header), and an EMPTY section still offers one, below the
           hint. It also lands where the same gesture already lives one level
           down — `CvStringListField` has put its own add button under its list
-          since KODI-002.
+          since PRD 0007.
         */}
         <div className="mt-3">
           <Button

@@ -1,4 +1,4 @@
-"""DTOs of the device sessions (KODI-057, ADR-0019): what the session and
+"""DTOs of the device sessions (ADR-0019): what the session and
 CLI sign-in use cases return to the routers. The refresh value never appears
 in a ``repr`` and never in the device list."""
 

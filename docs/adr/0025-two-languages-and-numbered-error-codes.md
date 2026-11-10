@@ -86,7 +86,7 @@ amends an Accepted ADR. It makes an exception to ADR-0018.
   shows `detail`, as it does today, because the web never branched on those values.
 - Text in a server component renders at build time in English and never switches, so screen text lives under the
   client provider. Page metadata stays English.
-- `backend/CHANGELOG.md` and `cli/CHANGELOG.md` record the new `code`. `backend/CLAUDE.md` and `frontend/CLAUDE.md`
+- `backend/CHANGELOG.md` and `cli/CHANGELOG.md` record the new `code`. `backend/AGENTS.md` and `frontend/AGENTS.md`
   describe the contract and the i18n pattern.
 - **To write only after the owner accepts this ADR, not before.** The dated amendment notes:
   - ADR-0024: "Amended by ADR-0025" on §6 and on the As-built §1 codes.
@@ -114,7 +114,7 @@ amends an Accepted ADR. It makes an exception to ADR-0018.
   of what you did"); the owner reviews them in the build's final report:
   - The shared date-picker button (`frontend/src/components/ui/date-picker.tsx`) keeps its language-free `pattern`
     (e.g. `2026-10-01` on the report form's start date); only its calendar popup follows the language ("outubro
-    2026"). That is the picker's documented contract (`frontend/CLAUDE.md` "Dates") and its test pins it; the
+    2026"). That is the picker's documented contract (`frontend/AGENTS.md` "Dates") and its test pins it; the
     read-only report view shows `01/10/2026`. A `dd/MM/yyyy` button in Portuguese would change every picker in the app
     and is left to a later owner decision.
   - The three `toLocaleString("en-US", { timeZone })` calls in `frontend/src/contexts/agenda-notifications-context.tsx`

@@ -30,7 +30,12 @@ import {
   useUpdateReportWebhook,
 } from "@/hooks/use-admin";
 import { word } from "@/i18n/translator";
+import { getApiError } from "@/lib/api-client";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { PhoneReportWebhookSheet } from "@/components/phone/phone-report-webhook-sheet";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { AdminReportWebhooksScreenView } from "@/components/phone/screens/admin-report-webhooks-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import type {
   CreateReportWebhook,
   UpdateReportWebhook,
@@ -131,15 +136,19 @@ function serverErrorFrom(err: AxiosError): string {
 
 export function ReportWebhooksPage() {
   const t = useTranslations("admin.webhooks.page");
+  const isPhone = useIsPhone();
   const {
     data: webhooks,
     isLoading,
     isError,
     refetch,
+    error,
+    isFetching,
   } = useAdminReportWebhooks();
   const createMutation = useCreateReportWebhook();
   const updateMutation = useUpdateReportWebhook();
-  const deleteMutation = useDeleteReportWebhook();
+  // Below md the delete sheet shows a refusal in place: no toast on top of it.
+  const deleteMutation = useDeleteReportWebhook({ toastError: !isPhone });
 
   const [addOpen, setAddOpen] = useState(false);
   const [addServerError, setAddServerError] = useState<string | null>(null);
@@ -227,6 +236,74 @@ export function ReportWebhooksPage() {
     });
   };
 
+  // Below md the sheet waits for the answer: the refusal's words, or nothing.
+  const handlePhoneDelete = async (
+    row: ReportWebhookRow,
+  ): Promise<string | void> => {
+    setDeletingId(row.id);
+    try {
+      await deleteMutation.mutateAsync(row.id);
+    } catch (err) {
+      return getApiError(err as AxiosError);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Below md v3/AdminWebhook's sheet, with the dialog's props: the same
+  // form, schema, submit and refusal.
+  const FormSheet = isPhone ? PhoneReportWebhookSheet : ReportWebhookFormDialog;
+
+  const dialogs = (
+    <>
+      <FormSheet
+        mode="add"
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        form={addForm}
+        onSubmit={handleCreate}
+        isPending={createMutation.isPending}
+        serverError={addServerError}
+      />
+
+      <FormSheet
+        mode="edit"
+        open={!!editTarget}
+        onOpenChange={(open) => !open && setEditTarget(null)}
+        form={editForm}
+        onSubmit={handleUpdate}
+        isPending={updateMutation.isPending}
+        serverError={editServerError}
+        currentUrlMasked={
+          editTarget?.webhook_url_masked ?? lastEditMasked.current
+        }
+      />
+    </>
+  );
+
+  // Below md v3/AdminWebhook (PRD 0022): the same query, handlers and
+  // delete, the list drawn as cards, add and edit in the board's sheet.
+  if (isPhone) {
+    return (
+      <>
+        <AdminReportWebhooksScreenView
+          webhooks={fromQuery({
+            data: webhooks,
+            isError,
+            error,
+            isFetching,
+            refetch,
+          })}
+          onAdd={() => setAddOpen(true)}
+          onEdit={(row) => setEditTarget(row)}
+          onDelete={handlePhoneDelete}
+          deletingId={deletingId}
+        />
+        {dialogs}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <motion.div
@@ -253,28 +330,7 @@ export function ReportWebhooksPage() {
         deletingId={deletingId}
       />
 
-      <ReportWebhookFormDialog
-        mode="add"
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        form={addForm}
-        onSubmit={handleCreate}
-        isPending={createMutation.isPending}
-        serverError={addServerError}
-      />
-
-      <ReportWebhookFormDialog
-        mode="edit"
-        open={!!editTarget}
-        onOpenChange={(open) => !open && setEditTarget(null)}
-        form={editForm}
-        onSubmit={handleUpdate}
-        isPending={updateMutation.isPending}
-        serverError={editServerError}
-        currentUrlMasked={
-          editTarget?.webhook_url_masked ?? lastEditMasked.current
-        }
-      />
+      {dialogs}
     </div>
   );
 }

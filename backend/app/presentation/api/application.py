@@ -240,7 +240,7 @@ def _schema_ref_to_components(node: Any) -> None:
 
 def _finalize_body_schema() -> dict[str, Any]:
     """Both finalize body shapes (R-032): the deprecated 0.1.4 body and the
-    new optional outcome body, as an OpenAPI ``oneOf``. KODI-012 reads
+    new optional outcome body, as an OpenAPI ``oneOf``. The web reads
     this to build the finalize form."""
     legacy_schema = FinalizeApplication.model_json_schema()
     outcome_schema = FinalizeWithOutcome.model_json_schema()

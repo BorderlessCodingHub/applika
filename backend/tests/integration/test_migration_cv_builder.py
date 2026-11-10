@@ -75,7 +75,7 @@ _CV_SECTIONS = (
 )
 
 # The stored skills shape, seeded and asserted verbatim at every step of the
-# round trip. ``skills`` is a list of *categories* since KODI-006 amended this
+# round trip. ``skills`` is a list of *categories* since the CV fidelity change amended this
 # revision in place; JSONB carries it without a DDL change, and the round trip
 # is the only thing that proves the payload survives a downgrade and a second
 # upgrade intact.
@@ -544,7 +544,7 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
 def test_education_is_created_by_this_revision_on_both_cv_tables(
     migration_db: str,
 ) -> None:
-    """The one DDL change KODI-006 made to this revision, pinned.
+    """The one DDL change the in-place amendment made to this revision, pinned.
 
     ``education`` is a section of the CV document like any other, so it is a
     ``NOT NULL`` JSONB array defaulting to ``[]`` on ``base_cvs`` *and* on
@@ -581,9 +581,9 @@ def test_education_is_created_by_this_revision_on_both_cv_tables(
 
 
 def test_the_revision_is_amended_not_superseded(migration_db: str) -> None:
-    """Owner's ruling: "Amend KODI-001's revision instead."
+    """Owner's ruling: "Amend [S1's] revision instead."
 
-    ``f2a9c1d4b6e8`` has never run on any database, so KODI-006 changed it in
+    ``f2a9c1d4b6e8`` has never run on any database, so the amendment changed it in
     place rather than layering a second revision with a ``skills_old`` rename
     on top of a shape no deployment has ever seen. That exception is narrow -
     it belongs to this unshipped revision and to nothing else - so what is

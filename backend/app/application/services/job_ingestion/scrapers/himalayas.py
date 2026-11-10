@@ -1,4 +1,4 @@
-"""Himalayas scraper (KODI-046), a port of Ían Muliterno's ``himalayas.py``
+"""Himalayas scraper, a port of Ían Muliterno's ``himalayas.py``
 (``job_scrapping``, commit ``e670914``).
 
 Kept from his file: the public JSON API (``/jobs/api``, ``offset``/``limit``

@@ -1,6 +1,6 @@
 """Compute the diff between an application's CV copy and its baseline.
 
-KODI-017 T091. Shared by the two export use cases
+T091. Shared by the two export use cases
 (:mod:`render_diff_markdown`, :mod:`render_diff_pdf`): both need the same
 baseline resolution and the same :class:`~app.application.services.cv_diff.CVDiffResult`,
 so it lives once here rather than twice.

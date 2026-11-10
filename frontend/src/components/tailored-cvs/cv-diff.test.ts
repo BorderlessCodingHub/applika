@@ -32,7 +32,7 @@ function values(over: Partial<CvFormValues> = {}): CvFormValues {
   } as CvFormValues;
 }
 
-describe("diffCv (KODI-017 pinned cases)", () => {
+describe("diffCv (PRD 0007 pinned cases)", () => {
   it("identical baseline and current: zero changes", () => {
     const base = snapshot();
     const result = diffCv(base, values());

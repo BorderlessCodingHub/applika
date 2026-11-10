@@ -1,5 +1,5 @@
 """Round-trip test for the ``discord_connections`` / ``discord_report_webhooks``
-revision ``ba44f9cfd3c1`` (K5, KODI-023, Release A2).
+revision ``ba44f9cfd3c1`` (K5, Release A2).
 
 ``.claude/rules/migration-tests.md`` 2: this drives the **real Alembic
 chain** against a dedicated testcontainers Postgres — upgrade to the
@@ -866,8 +866,8 @@ def test_orm_maps_neither_discord_table_any_more() -> None:
     """K5 shipped this revision code-free (non-destructive-migrations.md 7 /
     prod-release-runbook.md 4): no ORM model mapped either table.
 
-    K6 (KODI-024) added ``DiscordConnectionModel``, mapped onto
-    ``discord_connections``; K7 (KODI-025) added
+    K6 added ``DiscordConnectionModel``, mapped onto
+    ``discord_connections``; K7 added
     ``DiscordReportWebhookModel``, mapped onto ``discord_report_webhooks`` -
     ADR-0024 removed Discord linking: both tables stay in the database
     and no model maps them any more. Reads ``Base.metadata.tables``

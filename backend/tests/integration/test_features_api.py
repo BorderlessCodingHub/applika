@@ -1,5 +1,5 @@
 """``GET /users/me/features`` and ``/admin/features*`` against the
-testcontainers Postgres (KODI-052, ADR-0018, T024; PRD 0013 R-001, R-005,
+testcontainers Postgres (ADR-0018, T024; PRD 0013 R-001, R-005,
 R-006..R-011, R-013..R-017, R-027).
 
 The ``jobs`` row is inserted as revision ``641001baff09`` seeds it. One

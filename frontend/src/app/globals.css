@@ -2,6 +2,8 @@
 
 @import "tw-animate-css";
 
+@import "../styles/phone.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -260,7 +262,7 @@
     long form) has to be capped with THIS, never with `100dvh`: `100dvh`
     measures the wrong box and overshoots by exactly the header, and the
     difference then has to be guessed back off in a hand-tuned constant.
-    KODI-009 is that bug — the CV preview pane carried a `12rem` lump standing
+    PRD 0007 fixed that bug — the CV preview pane carried a `12rem` lump standing
     in for the header, a phantom sticky offset and its own chrome.
 
     Valid at `md` and up, where the header is a single fixed-height row. Below
@@ -283,7 +285,7 @@
     visible copy rides along with `ExportCvButton` in that very footer; on
     `/cvs/new` there is no export button (nothing is typeset until the CV has
     been saved once), so the caption is the ONLY copy and it was invisible at
-    `md` and up. KODI-009 fixed that here.
+    `md` and up. PRD 0007 fixed that here.
 
     The two subtractions do NOT double-count. `--cookie-notice-height` is
     chrome pinned to the VIEWPORT, outside `main`, already reserved by `body`'s
@@ -349,6 +351,7 @@
 
     --destructive: oklch(0.548 0.195 26.6);
     --destructive-foreground: oklch(1 0 0);
+    --destructive-text: oklch(0.548 0.195 26.6);
 
     --success: oklch(0.64 0.122 165.6);
     --warning: oklch(0.766 0.163 71.1);
@@ -406,6 +409,7 @@
 
     --destructive: oklch(0.514 0.163 25);
     --destructive-foreground: oklch(1 0 0);
+    --destructive-text: oklch(0.74 0.14 25);
 
     --success: oklch(0.668 0.115 175.7);
     --warning: oklch(0.766 0.163 71.1);
@@ -483,6 +487,13 @@
     /* Documents that flow: the last line stops above the bar. */
     padding-bottom: var(--cookie-notice-height, 0px);
     scroll-padding-bottom: var(--cookie-notice-height, 0px);
+    /*
+      `viewportFit: "cover"` (layout.tsx) lets the phone chrome reach under
+      the home indicator. A notched phone held sideways is md and up: these
+      keep the desktop out of the sensor housing, as before. 0 elsewhere.
+    */
+    padding-inline: env(safe-area-inset-left, 0px)
+      env(safe-area-inset-right, 0px);
   }
 
   ::selection {

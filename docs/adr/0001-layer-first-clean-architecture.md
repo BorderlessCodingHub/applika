@@ -24,7 +24,7 @@ This records what the code does today.
 - Every request gets a request id through `app/config/middleware.py`, returned as `X-Request-ID`.
 
 Proof: `backend/app/`, `backend/app/application/use_cases/applications/create_application.py`,
-`backend/app/domain/repositories/application_repository.py`, `backend/CLAUDE.md`.
+`backend/app/domain/repositories/application_repository.py`, `backend/AGENTS.md`.
 
 ## Consequences
 

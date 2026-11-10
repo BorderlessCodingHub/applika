@@ -1,6 +1,6 @@
 from typing import Any
 
-# English labels for DeniedReason wire values (R-033..R-036, KODI-014).
+# English labels for DeniedReason wire values (R-033..R-036).
 # Keyed on the raw string from the API response, not the enum, so an
 # unrecognised value (e.g. a newer API) still prints as-is.
 _DENIED_REASON_LABELS: dict[str, str] = {

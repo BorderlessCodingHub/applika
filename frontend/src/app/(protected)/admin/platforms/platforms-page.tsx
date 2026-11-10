@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import type { AxiosError } from "axios";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,6 +33,10 @@ import {
 import { APPROVE_COPY } from "@/components/admin/approve-catalog-button";
 import { word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
+import { getApiError } from "@/lib/api-client";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { CatalogScreenView } from "@/components/phone/screens/admin-catalog-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useTranslations } from "next-intl";
 import type { AdminPlatformRow } from "@/services/types/admin";
 
@@ -58,7 +63,7 @@ const platformSchema = z.object({
 type PlatformFormValues = z.infer<typeof platformSchema>;
 
 /**
- * Admin platforms page (PRD 0010, KODI-035). Replaces `SupportsPage` — the
+ * Admin platforms page (PRD 0010). Replaces `SupportsPage` — the
  * step/feedback definition catalogs are gone (PRD 0008/ADR 0012, R-021), so a
  * former tab bar with a single tab is now this page directly, on the same
  * `CatalogTable` the companies page uses.
@@ -72,16 +77,19 @@ export function PlatformsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminPlatformRow | null>(null);
 
-  const { data, isLoading, isFetching, isError, refetch } = useAdminPlatforms({
-    search: search || undefined,
-    visibility: visibilityParam(visibility),
-    page,
-    per_page: PAGE_SIZE,
-  });
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useAdminPlatforms({
+      search: search || undefined,
+      visibility: visibilityParam(visibility),
+      page,
+      per_page: PAGE_SIZE,
+    });
 
-  const createMutation = useCreateAdminPlatform();
-  const updateMutation = useUpdateAdminPlatform();
-  const deleteMutation = useDeleteAdminPlatform();
+  const isPhone = useIsPhone();
+  // Below md the sheets show a refusal in place: no toast on top of it.
+  const createMutation = useCreateAdminPlatform({ toastError: !isPhone });
+  const updateMutation = useUpdateAdminPlatform({ toastError: !isPhone });
+  const deleteMutation = useDeleteAdminPlatform({ toastError: !isPhone });
   const publishMutation = usePublishPlatform();
 
   const platforms = data?.items ?? [];
@@ -101,6 +109,86 @@ export function PlatformsPage() {
     setEditTarget(platform);
     editForm.reset({ name: platform.name, url: platform.url ?? "" });
   };
+
+  // Below md v3/AdminPlatforms (PRD 0022): the same query, forms, schema and
+  // mutations; Add, Edit, Approve and Delete open sheets that show the
+  // server's refusal inside them.
+  if (isPhone) {
+    return (
+      <CatalogScreenView
+        kind="platform"
+        rows={fromQuery({ data, isError, error, isFetching, refetch })}
+        refreshing={isFetching && !!data}
+        search={search}
+        onSearchChange={(next) => {
+          setSearch(next);
+          setPage(1);
+        }}
+        visibility={visibility}
+        onVisibilityChange={(next) => {
+          setVisibility(next);
+          setPage(1);
+        }}
+        page={page}
+        onPageChange={setPage}
+        onAdd={() => {
+          createMutation.reset();
+          setCreateOpen(true);
+        }}
+        onEdit={(row) => {
+          updateMutation.reset();
+          openEdit(row);
+        }}
+        onDelete={(row) => deleteMutation.mutateAsync(row.id)}
+        onApprove={async (row) => {
+          try {
+            await publishMutation.mutateAsync(row.id);
+          } catch (error) {
+            return safeErrorMessage(error, APPROVE_COPY.failed);
+          }
+        }}
+        add={{
+          open: createOpen,
+          onOpenChange: setCreateOpen,
+          form: createForm,
+          onSubmit: (v) =>
+            createMutation.mutate(v, {
+              onSuccess: () => {
+                setCreateOpen(false);
+                createForm.reset();
+              },
+            }),
+          pending: createMutation.isPending,
+          error: createMutation.error
+            ? getApiError(createMutation.error as AxiosError)
+            : null,
+        }}
+        edit={{
+          open: !!editTarget,
+          onOpenChange: (open) => {
+            if (!open) setEditTarget(null);
+          },
+          form: editForm,
+          onSubmit: (v) => {
+            if (!editTarget) return;
+            updateMutation.mutate(
+              { id: editTarget.id, data: v },
+              {
+                onSuccess: () => {
+                  setEditTarget(null);
+                  editForm.reset();
+                },
+              },
+            );
+          },
+          pending: updateMutation.isPending,
+          error: updateMutation.error
+            ? getApiError(updateMutation.error as AxiosError)
+            : null,
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">

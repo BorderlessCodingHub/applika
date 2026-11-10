@@ -1,5 +1,5 @@
-"""Unit tests for the job board read and dismissal use cases (KODI-047,
-T063/T064/T070) and the ``JobFilters`` wire schema. Mocked repositories, no
+"""Unit tests for the job board read and dismissal use cases
+(T063/T064/T070) and the ``JobFilters`` wire schema. Mocked repositories, no
 database; the SQL itself is covered by ``tests/integration/test_jobs_api.py``.
 """
 

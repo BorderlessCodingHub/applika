@@ -16,6 +16,7 @@ import {
   useFullWidthRequests,
 } from "@/components/layout/content-width";
 import { PRIMARY_NAV, type NavItem } from "@/components/layout/nav";
+import { PhoneShell } from "@/components/layout/phone-shell";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -24,6 +25,7 @@ import {
   SheetDescription,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import type { User } from "@/services/types/users";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +72,21 @@ export function AppShell({
     md.addEventListener("change", close);
     return () => md.removeEventListener("change", close);
   }, [mobileNavOpen]);
+
+  // Below md, the phone shell (ADR-0027): chosen by the width alone.
+  const isPhone = useIsPhone();
+  if (isPhone) {
+    return (
+      <PhoneShell
+        activePath={activePath}
+        navItems={navItems}
+        user={user}
+        className={className}
+      >
+        {children}
+      </PhoneShell>
+    );
+  }
 
   const sidebarProps = {
     items: navItems,

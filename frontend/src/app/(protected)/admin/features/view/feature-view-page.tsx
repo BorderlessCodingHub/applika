@@ -16,6 +16,7 @@ import {
 } from "@/components/admin/feature-copy";
 import { FeatureOwnAccess } from "@/components/admin/feature-own-access";
 import { FeatureStageAction } from "@/components/admin/feature-stage-action";
+import { AdminFeatureViewScreenView } from "@/components/phone/screens/admin-feature-view-screen";
 import {
   useAddFeatureUser,
   useAdminFeatureUsers,
@@ -25,6 +26,7 @@ import {
   useSetFeatureOptOut,
   useSetFeatureStage,
 } from "@/hooks/use-admin";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { serverErrorMessage } from "@/lib/api-error-message";
 import type { FeatureStage } from "@/services/types/features";
 
@@ -69,7 +71,7 @@ function useDebouncedSearch(value: string, delay: number): string {
 }
 
 /**
- * `/admin/features/view?key=` (KODI-054, AC2-AC11): the feature's header and
+ * `/admin/features/view?key=` (AC2-AC11): the feature's header and
  * stage action, the admin's own access, and its beta list with the add-user
  * dialog. Every piece is a ui-designer component (`components/admin/feature-*`);
  * this component owns the queries, the mutations and the search/page state.
@@ -124,6 +126,83 @@ export function FeatureViewPage() {
     users.isError &&
     isAxiosError(users.error) &&
     users.error.response?.status === 404;
+  const isPhone = useIsPhone();
+
+  // Below md v3/AdminFeatureView (PRD 0022): the same queries, mutations and
+  // search/page state, the not-found rule included; the board draws the
+  // desktop components' props as cards and sheets.
+  if (isPhone) {
+    const notFound =
+      !featureKey || usersNotFound || (features.data !== undefined && !feature);
+    // The closures run only once the feature is found.
+    const key = featureKey ?? "";
+    const headerError = features.isError && !features.data;
+    return (
+      <AdminFeatureViewScreenView
+        featureKey={featureKey}
+        notFound={
+          notFound
+            ? { message: usersNotFound ? serverDetail(users.error) : null }
+            : null
+        }
+        header={{
+          feature,
+          isLoading: features.isLoading,
+          isError: headerError,
+          onRetry: () => void features.refetch(),
+          isRetrying: headerError && features.isFetching,
+        }}
+        onStageConfirm={(next: FeatureStage) =>
+          detailOrThrow(() => setStage.mutateAsync({ key, stage: next }))
+        }
+        ownAccess={{
+          onUseChange: (use) => {
+            if (setOptOut.isPending) return;
+            setOptOut.mutate({ key, use });
+          },
+          pending: setOptOut.isPending,
+          pendingValue: setOptOut.isPending
+            ? setOptOut.variables?.use
+            : undefined,
+        }}
+        betaList={{
+          result: users.data,
+          isLoading: users.isLoading,
+          isError: users.isError,
+          errorMessage: serverDetail(users.error),
+          onRetry: () => void users.refetch(),
+          isRetrying: users.isError && users.isFetching,
+          isRefreshing: users.isFetching && !users.isLoading && !users.isError,
+          search,
+          onSearchChange: (value) => {
+            setSearch(value);
+            setPage(1);
+          },
+          onPageChange: setPage,
+          onRemove: (user) =>
+            detailOrThrow(() =>
+              removeUser.mutateAsync({ key, userId: user.user_id }),
+            ),
+        }}
+        addUser={{
+          search: addSearch,
+          onSearchChange: setAddSearch,
+          users: candidateSearch ? candidates.data?.items : undefined,
+          total: candidateSearch ? candidates.data?.total : undefined,
+          isLoading: candidates.isLoading,
+          isError: candidates.isError,
+          onRetry: () => void candidates.refetch(),
+          isRetrying: candidates.isError && candidates.isFetching,
+          isRefreshing:
+            (candidates.isFetching && !candidates.isLoading) ||
+            (addSearch.trim() !== candidateSearch && !!candidates.data),
+          listedUserIds,
+          onAdd: (user) =>
+            detailOrThrow(() => addUser.mutateAsync({ key, userId: user.id })),
+        }}
+      />
+    );
+  }
 
   if (
     !featureKey ||

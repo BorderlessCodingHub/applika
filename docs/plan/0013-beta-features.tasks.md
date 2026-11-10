@@ -33,12 +33,12 @@ K1 Release A migration → K2 backend: access rule, jobs gate, /users/me/feature
 2. **E2E username.** Plan: "enrol `e2e`". The seeded user is `e2e-user` (`backend/app/scripts/seed_e2e.py` l.82); others `e2e-admin`, `e2e-discord`. K2 enrols `e2e-user`.
 3. **Two more tests call gated routes.** Plan lists 4 files for `jobs_beta`. Also `tests/integration/test_delete_account.py` l.294-301 (dismissal, `/job-searches`, `from-job`) and `tests/integration/test_application_drafts.py` l.687 (`from-job`). K2 adds them.
 4. **Head and pin.** Head `b28d5134631f` (`b28d5134631f_job_board.py` l.71-72), sole head. `test_only_one_head` pins it in `tests/integration/test_timeline_contract_migration.py` l.831. K1 moves the pin (the tag's copy of the file).
-5. **"Bad body still 404".** FastAPI decodes JSON before any dependency runs: a body that is not JSON answers 422 `json_invalid` on a gated route, while an unknown route answers 404. Same for an undefined method (405, Starlette). Field validation runs after dependencies, so a well-formed body with wrong fields IS 404. K2 tests that case and records the other two in backend `CLAUDE.md`. **Owner approved 2026-10-14.**
+5. **"Bad body still 404".** FastAPI decodes JSON before any dependency runs: a body that is not JSON answers 422 `json_invalid` on a gated route, while an unknown route answers 404. Same for an undefined method (405, Starlette). Field validation runs after dependencies, so a well-formed body with wrong fields IS 404. K2 tests that case and records the other two in backend `AGENTS.md`. **Owner approved 2026-10-14.**
 6. **Names the plan omits.** `app/application/dto/feature.py` (new, ADR-0001: use cases return DTOs); `tests/unit/test_feature_access.py` (new; the plan's "Unit: truth table"), on a pure `access_via(...)` in `app/core/features.py` the repository query mirrors; `hooks/use-features.test.tsx`, `components/features/feature-gate.test.tsx` (new); admin calls in `admin-service.ts` + `use-admin.ts` (no `i-admin-service.ts`, 0010/0012 precedent).
 7. **Not-found inside the shell.** `app/not-found.tsx` is full-viewport (`min-h-viewport`, `bg-muted`). The gate renders the same words inside the shell: K3 moves the words into one shared component used by both.
 8. **E2E determinism.** Plan seed: enrol user, delete admin opt-outs. K2 also puts `jobs` back to `beta` (`released_at` NULL) and takes `e2e-discord` off the list on every seed run, so a crashed `beta-features.spec.ts` cannot leak into the next run (`afterAll` covers a clean run). Precedent: the seed already undoes the Discord disconnect each run. **Owner approved 2026-10-14.**
 9. **R-017 vs the disabled switch.** Plan disables "Use this feature myself" while the admin is listed. The switch still shows the stored choice; the API (K2) stores an opt-out in either case. An admin who turned it off and then got listed sees it off, with the listed reason. R-017 holds through the API and the words. **Owner approved 2026-10-14.**
-10. **Workspace rule outside git.** `.claude/rules/beta-features.md` and the workspace `CLAUDE.md` sit at the workspace root, which is not a repo. K3 writes them in place; K3's applika commit carries the two `CLAUDE.md` pointer lines.
+10. **Workspace rule outside git.** `.claude/rules/beta-features.md` and the workspace `AGENTS.md` sit at the workspace root, which is not a repo. K3 writes them in place; K3's applika commit carries the two `AGENTS.md` pointer lines.
 11. **Release A merge into develop.** `backend/CHANGELOG.md` gets lines on both sides under `## [Unreleased]`; `test_timeline_contract_migration.py` may differ. Keep both sides.
 12. **ty baseline.** Rule: 171, ratchets down only. K1 compares against `0012-release-a`, K2..K5 against `develop`. Every new or changed file clean.
 13. **Smoke count.** `e2e/smoke.spec.ts` pins `toHaveLength(19)`; K4 adds `/admin/features` → 20. `e2e/shell-responsive.spec.ts` logs in as `user` (`e2e-user`, enrolled): 8 entries, unchanged.
@@ -124,7 +124,7 @@ Touch:
 - backend/tests/integration/test_jobs_api.py, test_jobs_draft.py, test_job_searches.py, test_tailored_cv_api.py, test_delete_account.py, test_application_drafts.py
 - backend/app/scripts/seed_e2e.py
 - backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md, backend/CHANGELOG.md, cli/CHANGELOG.md
+- backend/AGENTS.md, backend/CHANGELOG.md, cli/CHANGELOG.md
 Pattern:
 - backend/app/domain/repositories/job_source_repository.py (repository shape)
 - backend/app/presentation/dependencies.py `get_admin_user` / `AdminUserDp` (a dependency built on `CurrentUserDp`)
@@ -201,7 +201,7 @@ Steps:
 - T026 [US2] Seeds:
   - backend/app/scripts/seed_e2e.py, every run: enrol `e2e-user` in `jobs`; delete `e2e-admin`'s opt-out rows; delete `e2e-discord`'s list row; `jobs` back to `beta`, `released_at` NULL (Plan corrections 2, 8);
   - backend/scripts/seed_mock_data.py: read `GET /users/me/features`; no `jobs` → skip `seed_keyword_copy`, `seed_job_searches`, `seed_draft_from_job`, log the skip.
-- T027 [US1] backend/CLAUDE.md:
+- T027 [US1] backend/AGENTS.md:
   - new "### Beta features (ADR-0018)": the rule, `FeatureKey`, `require_feature` on router / route / value, the 404 body, no cache, unknown key hidden, worker and admin routes never gated, `jobs_beta` (no seed row under `create_all`), Plan corrections 5;
   - Users table + `GET /users/me/features`; Jobs, Job searches, drafts `from-job`, Application CVs: one gate line each;
   - new "### Admin features (`/admin/features`, ADR-0018)" table: counts, idempotent writes, own opt-out only, `released_at`;
@@ -260,13 +260,13 @@ Touch:
 - frontend/src/app/(protected)/applications/cv/application-cv-page.tsx, application-cv-page.test.tsx
 - frontend/src/app/(protected)/applications/new-with-cv/new-with-cv-page.tsx, new-with-cv-page.test.tsx
 - frontend/src/components/application-drafts/draft-cv-step.tsx
-- frontend/CLAUDE.md, backend/CLAUDE.md (rule pointer line)
-- .claude/rules/beta-features.md (new; workspace root, outside applika's git); CLAUDE.md (workspace root, `## Rules`)
+- frontend/AGENTS.md, backend/AGENTS.md (rule pointer line)
+- .claude/rules/beta-features.md (new; workspace root, outside applika's git); AGENTS.md (workspace root, `## Rules`)
 Pattern:
 - frontend/src/components/layout/nav.ts `navItemsFor` (the admin filter)
 - frontend/src/hooks/use-application-cv-fit.ts (`enabled` gate)
 - frontend/src/app/not-found.tsx (the words)
-- frontend/CLAUDE.md "### App shell", "### Routing", "### Service Layer & DI", "### State Management", "### UI Components"; ADR-0006 tokens; ui-designer
+- frontend/AGENTS.md "### App shell", "### Routing", "### Service Layer & DI", "### State Management", "### UI Components"; ADR-0006 tokens; ui-designer
 - .claude/rules/migration-tests.md, .claude/rules/non-destructive-migrations.md (rule shape: Applies, numbered list, Why, Verify); docs/adr/0018-beta-features-registry-and-allowlist.md `## Consequences`
 Contract (from K2): `GET /users/me/features` → `{features: [{key: "jobs", stage: "beta"|"general"}]}`; gated routes 404 `{"detail": "Not Found"}`; `tailoring: "keywords"` → 422 'Unknown tailoring option'.
 Steps:
@@ -294,7 +294,7 @@ Steps:
   - feature-gate.test.tsx (new): children / not-found words / spinner;
   - jobs-page.test.tsx, job-view-page.test.tsx: not-found without the feature, no job service call; Beta by the h1 in beta;
   - application-cv-page.test.tsx, new-with-cv-page.test.tsx: no switch, no fit panel, no fit call without `jobs`; both with it (existing cases run with `jobs`).
-- T038 [US1] frontend/CLAUDE.md: new "### Beta features" (hooks, gate, badge, `navItemsFor(isAdmin, features)`, 8 entries with `jobs` / 7 without, the API is the rule); the "eight entries" lines under Routing and App shell → eight with `jobs`.
+- T038 [US1] frontend/AGENTS.md: new "### Beta features" (hooks, gate, badge, `navItemsFor(isAdmin, features)`, 8 entries with `jobs` / 7 without, the API is the rule); the "eight entries" lines under Routing and App shell → eight with `jobs`.
 - T039 [US7] Write .claude/rules/beta-features.md (new; Plan corrections 10), shape of its siblings:
   - Applies to every plan and slice that adds a capability users who are not admins can see;
   - 1 a `FeatureKey` member in backend/app/core/features.py;
@@ -305,7 +305,7 @@ Steps:
   - 6 removing a gate from code is a later change the owner orders explicitly (ADR-0018);
   - 7 not gated: changes to existing screens, bug fixes, admin-only screens, the worker;
   - Why: the owner's words, ADR-0018. Verify: each `FeatureKey` value has a seed in backend/migrations/versions/; `require_feature` sits on its routes.
-- T040 [US7] Workspace CLAUDE.md `## Rules`: `- .claude/rules/beta-features.md`. The "Beta features" sections of backend/CLAUDE.md and frontend/CLAUDE.md point at the rule; commit `docs(features): point to the beta-features rule`.
+- T040 [US7] Workspace AGENTS.md `## Rules`: `- .claude/rules/beta-features.md`. The "Beta features" sections of backend/AGENTS.md and frontend/AGENTS.md point at the rule; commit `docs(features): point to the beta-features rule`.
 - T041 [US1] Gate, close:
   - `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build` in frontend;
   - `scripts/e2e.sh e2e/shell-responsive.spec.ts e2e/smoke.spec.ts e2e/jobs.spec.ts` green (`e2e-user` enrolled by K2's seed); `docker ps -a --format '{{.Names}}' | grep -i applika-e2e` empty;
@@ -337,7 +337,7 @@ Touch:
 - frontend/src/components/admin/feature-*.tsx (new, ui-designer: table, beta list, add dialog, stage dialog, own access)
 - frontend/src/components/admin/admin-nav.tsx
 - frontend/e2e/beta-features.spec.ts (new), frontend/e2e/admin-gating.spec.ts, frontend/e2e/smoke.spec.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/app/(protected)/admin/jobs/jobs-page.tsx, admin/discord-webhooks/discord-webhooks-page.tsx (admin shell, list states, `admin-service.ts` + `use-admin.ts` shape, switch pending)
 - frontend/src/app/(protected)/admin/users/users-page.tsx (search + paging over `GET /admin/users`)
@@ -378,7 +378,7 @@ Steps:
   - admin: Jobs + Beta by default (8 + Admin) → `/admin/features/view?key=jobs` → turn off → reload: 7 entries, `/jobs` "page not found", `/admin/jobs` opens (R-024) → turn on → reload: Jobs back;
   - `e2e-discord`: 7 entries, `GET /jobs` 404 → admin adds them by username (timed, < 1 minute) → reload: Jobs + Beta → admin removes → reload: hidden, `GET /jobs` 404 → admin releases (confirm) → Jobs, no Beta → back to beta (confirm) → hidden, list unchanged;
   - `afterAll`: stage beta, `e2e-discord` off the list, admin opt-out deleted (K2's seed resets too).
-- T051 [US3] frontend/CLAUDE.md: new "### Admin — Features" (routes, query keys, the add dialog over the users search, stage dialogs, own access, invalidations); "### E2E": beta-features.spec.ts and the seed resets.
+- T051 [US3] frontend/AGENTS.md: new "### Admin — Features" (routes, query keys, the add dialog over the users search, stage dialogs, own access, invalidations); "### E2E": beta-features.spec.ts and the seed resets.
 - T052 [US3] Gate, close:
   - `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build` in frontend;
   - full `scripts/e2e.sh` (every spec) green; no applika-e2e container, network or volume left;
@@ -409,7 +409,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0012-job-board-fit-and-keyword-tailoring.tasks.md K8
 Contract: none new.
 Steps:
-- T053 Gate in CLAUDE.md order:
+- T053 Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -434,7 +434,7 @@ Steps:
   - `grep -rn "_old" backend/app/` → none; `op.drop_` only in `downgrade()` of `<rev>`; `uv run pytest tests/integration -k migration`;
   - the changelogs verify command; both changelogs carry the K2 `keywords` entry;
   - the commit-format verify on `develop..integration/0013-beta-features` → no output;
-  - `.claude/rules/beta-features.md` exists and is listed in workspace CLAUDE.md `## Rules`.
+  - `.claude/rules/beta-features.md` exists and is listed in workspace AGENTS.md `## Rules`.
 - T058 Release B guard (R-029):
   - `git merge-base --is-ancestor 0013-release-a integration/0013-beta-features` → yes;
   - `git merge-base --is-ancestor 0012-release-b integration/0013-beta-features` → yes: 0012 B and 0013 B travel together;
@@ -451,7 +451,7 @@ Steps:
   - the owner steps of `### Releases` (B): merge only after A's `alembic upgrade head` is confirmed; 0012 B prerequisites; after deploy only admins see Jobs; enrol users at `/admin/features`; rollback B, then A;
   - the agent never touches prod.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics and changed files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics and changed files clean, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0018, Accepted 2026-10-14; bound 0003, 0004, 0005, 0014, 0016, 0017 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.
 - The E2E the feature earned (beta-features.spec.ts, the whole suite green via scripts/e2e.sh) runs inside the gate and is green; the access truth table, the unknown-route 404 body, the keyword 422, concurrent adds, cascades, the migration round trip and the CLI path are carried by the cheaper layers named in T055.
@@ -506,6 +506,6 @@ Uncovered: none. Orphan: K5 (closing, by design).
 None. `## In the owner's words` is one sentence. Checked clause by clause:
 - "with the jobs featurw implemented i would like to block this feature under beta features": K1 (`jobs` seeded in beta, empty list), K2 (API 404 / 422), K3 (nav, pages, CV controls hidden).
 - "and release only to selected beta users": K2 (beta list API), K4 (add by username search, remove; E2E: a listed user sees Jobs).
-- "all mew features in the feature will follow the same pattern": K3 (workspace rule + CLAUDE.md line), on the K2 `FeatureKey` / `require_feature` and K3 `useHasFeature` / `FeatureGate` seams.
+- "all mew features in the feature will follow the same pattern": K3 (workspace rule + AGENTS.md line), on the K2 `FeatureKey` / `require_feature` and K3 `useHasFeature` / `FeatureGate` seams.
 - "start as beta and then release to everyone": K1 (seed in beta), K2 + K4 (release, move back, list kept).
 - Clarification 2026-10-14, "features is granted to admins automatically, but it can also be disabled by them in the admin panel": K2 (admin default, opt-out in the rule and the API), K4 ("Your access" switch, reasons).

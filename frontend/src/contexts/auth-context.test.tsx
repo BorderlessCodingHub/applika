@@ -13,7 +13,7 @@ import { services } from "@/services/services";
 import type { User } from "@/services/types/users";
 
 /**
- * T043 (KODI-041): a 429 on the auth refresh (or the /users/me refetch
+ * T043: a 429 on the auth refresh (or the /users/me refetch
  * behind it) is temporary — the session must stay signed in and the query
  * must retry after the server's own `Retry-After`, never flip to
  * `isAuthError`/`isUserError`. A real 401 keeps today's behaviour.
@@ -334,11 +334,11 @@ describe("AuthProvider — 429 handling (T040/T041)", () => {
 });
 
 /**
- * KODI-058 (ADR-0019 "fail closed", AC1 web half): when the API cannot reach
+ * PRD 0014 (ADR-0019 "fail closed", AC1 web half): when the API cannot reach
  * Redis it refuses with 503 + `Retry-After: 5`. That is the session store
  * being down, not the session ending: the web stays signed in and retries.
  */
-describe("AuthProvider — 503 handling (KODI-058)", () => {
+describe("AuthProvider — 503 handling", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });

@@ -1,0 +1,7436 @@
+@layer components {
+  :root {
+    --ph-glow: none;
+  }
+
+  .dark {
+    --ph-glow: var(--shadow-glow);
+  }
+
+  /* The V2 boards' shared classes, prefixed `ph-`; bodies as drawn. */
+
+  .ph-app {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .ph-app input,
+  .ph-app textarea,
+  .ph-app button {
+    font-family: inherit;
+  }
+
+  .ph-app ::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+
+  .ph-app :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .ph-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "zero" 1;
+  }
+
+  .ph-scroll {
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .ph-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ph-hs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .ph-hs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ph-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .ph-app :where(a) {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  .ph-app :where(a:hover) {
+    color: var(--accent-foreground);
+  }
+
+  .ph-top {
+    flex: none;
+    height: 56px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* The phone shell scrolls the document (so mobile browsers collapse their toolbars): a control scrolled into view clears the sticky back bar and the fixed tab bar and FAB (WCAG 2.4.11). */
+  html:has(.ph-shell[data-back-bar]) {
+    scroll-padding-top: 56px;
+  }
+
+  html:has(.ph-shell[data-reserve="tab"]) {
+    scroll-padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+
+  html:has(.ph-shell[data-reserve="tab-and-fab"]) {
+    scroll-padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-back {
+    height: 44px;
+    padding: 0 8px 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .ph-h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .ph-h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .ph-lead {
+    margin: 6px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  .ph-card {
+    padding: 16px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-group {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .ph-group > li + li {
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-row {
+    min-height: 56px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--foreground);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .ph-row .ph-grow {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-row .ph-meta {
+    font-size: 14px;
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+
+  .ph-gh {
+    margin: 0 0 8px 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-btn {
+    height: 52px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 16px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .ph-btn.ph-pri {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: var(--ph-glow);
+  }
+
+  .ph-btn.ph-sec {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+
+  .ph-btn.ph-dan {
+    background: color-mix(in oklab, var(--destructive) 18%, transparent);
+    color: var(--destructive-text);
+  }
+
+  .ph-btn.ph-sm {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .ph-iconbtn {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-chip {
+    flex: none;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--foreground);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .ph-chip.ph-on {
+    background: var(--primary-muted);
+    color: var(--primary);
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+
+  .ph-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  .ph-pill {
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--muted);
+    color: var(--foreground);
+    white-space: nowrap;
+  }
+
+  .ph-pill.ph-ok {
+    background: color-mix(in oklab, var(--success) 18%, transparent);
+  }
+
+  .ph-pill.ph-warn {
+    background: color-mix(in oklab, var(--warning) 18%, transparent);
+  }
+
+  .ph-pill.ph-bad {
+    background: color-mix(in oklab, var(--destructive) 22%, transparent);
+  }
+
+  .ph-pill.ph-pri {
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+  }
+
+  .ph-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    flex: none;
+  }
+
+  .ph-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ph-lbl {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-input {
+    width: 100%;
+    height: 52px;
+    padding: 0 16px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--foreground);
+    font-size: 16px;
+    box-sizing: border-box;
+  }
+
+  textarea.ph-input {
+    height: auto;
+    min-height: 96px;
+    padding: 12px 16px;
+    line-height: 1.5;
+    resize: none;
+  }
+
+  .ph-hint {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+
+  .ph-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px 16px 28px;
+    display: flex;
+    gap: 8px;
+    background: color-mix(in oklab, var(--background) 92%, transparent);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-seg {
+    padding: 4px;
+    border-radius: 16px;
+    background: var(--muted);
+    display: grid;
+    gap: 4px;
+  }
+
+  .ph-seg > * {
+    height: 40px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-seg > .ph-on {
+    background: var(--surface);
+    color: var(--foreground);
+    font-weight: 600;
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-scrim {
+    position: absolute;
+    inset: 0;
+    background: oklch(0.1 0.02 270 / 0.6);
+  }
+
+  .ph-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 88%;
+    padding: 8px 20px 28px;
+    box-sizing: border-box;
+    border-radius: 28px 28px 0 0;
+    background: var(--surface);
+    box-shadow: var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ph-grab {
+    width: 40px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--border-strong);
+    align-self: center;
+    margin-bottom: 8px;
+    flex: none;
+  }
+
+  .ph-opt {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--background);
+    cursor: pointer;
+    text-align: left;
+    color: var(--foreground);
+  }
+
+  .ph-opt.ph-on {
+    border-color: var(--primary);
+    background: var(--primary-muted);
+  }
+
+  .ph-radio {
+    flex: none;
+    margin-top: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 2px solid var(--border-strong);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-opt.ph-on .ph-radio {
+    border-color: var(--primary);
+  }
+
+  .ph-opt.ph-on .ph-radio::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-switch {
+    flex: none;
+    width: 52px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--border-strong);
+    padding: 3px;
+    box-sizing: border-box;
+    display: flex;
+    cursor: pointer;
+  }
+
+  .ph-switch::after {
+    content: "";
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--foreground);
+  }
+
+  .ph-switch[aria-checked="true"] {
+    background: var(--primary);
+    justify-content: flex-end;
+  }
+
+  .ph-switch[aria-checked="true"]::after {
+    background: var(--primary-foreground);
+  }
+
+  .ph-dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ph-dl > div {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-dl dt {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dl dd {
+    margin: 4px 0 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-tabbar {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 14px;
+    height: 64px;
+    padding: 6px;
+    box-sizing: border-box;
+    border-radius: 22px;
+    background: var(--surface);
+    box-shadow: var(--shadow-elevated);
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .ph-tab {
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  .ph-tab.ph-on {
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    font-weight: 600;
+  }
+
+  .ph-fab {
+    position: absolute;
+    right: 16px;
+    bottom: 92px;
+    height: 52px;
+    padding: 0 20px 0 16px;
+    border-radius: 18px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .ph-avatar {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-avatar span {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .ph-beta {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ic {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--muted);
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-mesh {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 20% 30%,
+        oklch(0.768 0.139 174.6 / 0.1) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 80% at 80% 70%,
+        oklch(0.648 0.119 235 / 0.06) 0%,
+        transparent 70%
+      );
+  }
+
+  .ph-dots {
+    position: absolute;
+    inset: 0;
+    opacity: 0.3;
+    background-image: radial-gradient(
+      circle,
+      var(--border) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+  }
+
+  @keyframes ph-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .ph-spin {
+    animation: ph-spin 0.9s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ph-spin {
+      animation: none;
+    }
+  }
+
+  /* Board-only classes, bodies as drawn: signin/C_Mobile's, then signin/A_Desktop's (its .mesh is ph-a-mesh, its .tile ph-a-tile; its .dots is ph-dots). */
+
+  .ph-c-glow {
+    position: absolute;
+    left: 50%;
+    top: 150px;
+    width: 360px;
+    height: 360px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: radial-gradient(
+      circle,
+      oklch(0.768 0.139 174.6 / 0.18) 0%,
+      oklch(0.506 0.156 295.7 / 0.1) 45%,
+      transparent 70%
+    );
+  }
+
+  .ph-app-ic {
+    position: relative;
+    width: 104px;
+    height: 104px;
+    border-radius: 30px;
+    background: linear-gradient(
+      150deg,
+      color-mix(in oklab, var(--primary) 22%, var(--surface)),
+      var(--surface)
+    );
+    border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent);
+    box-shadow: var(--shadow-elevated), var(--ph-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+  }
+
+  .ph-c-badge {
+    position: absolute;
+    right: -14px;
+    bottom: -14px;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 0 0 4px var(--background);
+  }
+
+  /* The transparent mark sits on the tile's ground, inset like A's tile. */
+  .ph-c-badge {
+    padding: 8px;
+    box-sizing: border-box;
+    background: var(--background);
+  }
+
+  .ph-c-badge img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
+
+  .ph-a-mesh {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 20% 30%,
+        oklch(0.768 0.139 174.6 / 0.1) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 80% at 80% 70%,
+        oklch(0.506 0.156 295.7 / 0.08) 0%,
+        transparent 70%
+      );
+  }
+
+  .ph-a-tile {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .ph-a-tile img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    padding: 14px;
+    box-sizing: border-box;
+    object-fit: contain;
+  }
+
+  .ph-doc h2 {
+    margin: 28px 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .ph-doc p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: color-mix(in oklab, var(--foreground) 82%, transparent);
+  }
+
+  .ph-ck {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* v2/Today, v2/QuickAdd: their own <style> classes (QuickAdd's .field / .lbl are input-soft / lbl-strong). */
+
+  .ph-ghost {
+    height: 40px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--muted);
+    color: var(--foreground);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-input-soft {
+    height: 52px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 16px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    background: var(--muted);
+    color: var(--foreground);
+    font: inherit;
+    font-size: 16px;
+    outline: none;
+  }
+
+  .ph-input-soft:focus {
+    border-color: var(--ring);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent);
+  }
+
+  .ph-lbl-strong {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* QuickAdd's .mono sets no slashed zero. */
+  .ph-input-soft.ph-mono {
+    font-feature-settings: inherit;
+  }
+
+  /* v2/Application, v2/Insights: their own <style> classes (Insights' .card / .h2 / .sub are card-lg / h2-sm / sub). */
+
+  .ph-kv {
+    min-height: 52px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 15px;
+  }
+
+  .ph-kv + .ph-kv {
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-kv dt {
+    color: var(--muted-foreground);
+  }
+
+  .ph-kv dd {
+    margin: 0;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .ph-card-lg {
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-h2-sm {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .ph-sub {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* The boards' inline style blocks made classes, bodies as drawn. */
+
+  /* signin/A_Desktop's: the main, the card, the tile row and its link mark, the h1, the lead, the button's own sizes, its logo, the sign-up line. */
+
+  .ph-a-main {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-a-card {
+    width: 448px;
+    padding: 40px;
+    box-sizing: border-box;
+    border-radius: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .ph-a-tiles {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-a-link {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ph-a-dash {
+    width: 12px;
+    border-top: 2px dashed var(--border-strong);
+  }
+
+  .ph-a-link-ic {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-a-h1 {
+    margin: 24px 0 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-a-lead {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  .ph-btn.ph-a-cta {
+    margin-top: 28px;
+    width: 100%;
+    height: 48px;
+    border-radius: 12px;
+  }
+
+  /* Continue with Borderless, both trees: Career Forge's outline button, the mark before the words. */
+  .ph-btn.ph-bl {
+    background: var(--background);
+    color: var(--foreground);
+    border: 1px solid var(--border);
+    font-weight: 500;
+    gap: 12px;
+  }
+
+  .ph-btn.ph-bl:hover {
+    background: var(--muted);
+  }
+
+  .ph-a-logo {
+    flex: none;
+    width: 18px;
+    height: 18px;
+  }
+
+  .ph-a-logo.ph-c-logo {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* The question and the link stay on one line, in both languages: Portuguese is 396px, so the line reaches 20px into the card's 40px padding. */
+  .ph-a-foot {
+    margin: 0 -20px;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+
+  .ph-a-signup {
+    font-weight: 600;
+    color: var(--foreground);
+    text-decoration: underline;
+    text-decoration-color: var(--primary);
+    text-underline-offset: 4px;
+  }
+
+  .ph-signin-alert {
+    margin-top: 24px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in oklab, var(--destructive) 40%, transparent);
+    background: color-mix(in oklab, var(--destructive) 10%, transparent);
+    display: flex;
+    gap: 10px;
+  }
+
+  .ph-signin-alert code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--muted);
+    font-size: 13px;
+    color: var(--foreground);
+  }
+
+  .ph-signin-hint {
+    margin: 24px 0 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    display: flex;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .ph-signin-hint code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--background);
+    font-size: 13px;
+  }
+
+  .ph-landing-header {
+    height: 64px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* PhoneLandingHeader's home link: the 30px icon drawn on the gutter, in a 44px box that reaches 7px into it. */
+  .ph-landing-home {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    margin-inline-start: -7px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Its right side: the theme + language pair, then Sign in / Dashboard. */
+  .ph-landing-actions {
+    margin-inline-start: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* One row at 320: 16 + 44 - 7 + 3 + 44 + 94 + 4 + 106 ("Dashboard") + 16 = 320. */
+  @media (max-width: 22.49rem) {
+    .ph-landing-header {
+      padding-inline: 16px;
+    }
+
+    .ph-landing-actions {
+      gap: 4px;
+    }
+  }
+
+  .ph-landing-hero {
+    padding: 32px 20px 0;
+  }
+
+  .ph-landing-eyebrow {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  .ph-landing-h1 {
+    margin: 12px 0 0;
+    font-size: 42px;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+  }
+
+  .ph-landing-lead {
+    margin: 16px 0 0;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-landing-preview {
+    padding: 36px 20px 8px;
+  }
+
+  .ph-landing-preview-card {
+    padding: 18px;
+    border-radius: 22px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-landing-preview-tile {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .ph-landing-stage {
+    flex: none;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .ph-landing-event {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--background);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-landing-stats {
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ph-landing-features {
+    padding: 48px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .ph-landing-feature-tile {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-landing-steps {
+    margin: 48px 20px 0;
+    padding: 24px;
+    border-radius: 24px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-landing-quote {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.45;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .ph-landing-open {
+    margin: 48px 20px 0;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-landing-footer {
+    margin-top: 40px;
+    padding: 0 20px calc(48px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+  }
+
+  .ph-cli-code {
+    margin: 28px 0 0;
+    width: 100%;
+    padding: 22px 12px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    user-select: all;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-device-code {
+    height: 64px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-align: center;
+  }
+
+  .ph-device-note {
+    padding: 14px;
+    border-radius: 16px;
+    background: color-mix(in oklab, var(--warning) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--warning) 40%, transparent);
+    display: flex;
+    gap: 10px;
+  }
+
+  /* v2/Today */
+
+  .ph-today {
+    flex: 1;
+    min-height: 0;
+    padding: 20px 20px 170px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .ph-today-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ph-today-date {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-today-h1 {
+    margin: 4px 0 0;
+    font-size: 30px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .ph-hero {
+    padding: 20px;
+    border-radius: 24px;
+    background: linear-gradient(
+      160deg,
+      color-mix(in oklab, var(--primary) 16%, var(--surface)) 0%,
+      var(--surface) 70%
+    );
+    border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent);
+    box-shadow: var(--shadow-card);
+    color: var(--foreground);
+  }
+
+  .ph-hero-eyebrow {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .ph-hero-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-hero-when {
+    color: var(--accent-foreground);
+  }
+
+  .ph-hero-title {
+    margin: 12px 0 0;
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-hero-sub {
+    margin: 4px 0 0;
+    font-size: 15px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-hero-actions {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-hero-range {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .ph-hero-cal {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--muted);
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-hero-open {
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 14px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ph-stats {
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 20px;
+    align-items: center;
+    color: var(--foreground);
+  }
+
+  .ph-stats-num {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .ph-stats-num.ph-pri {
+    color: var(--primary);
+  }
+
+  .ph-stats-lbl {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-stats-go {
+    color: var(--muted-foreground);
+  }
+
+  .ph-sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .ph-sec-count {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-sec-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ph-attn-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-attn-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ph-tile {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .ph-attn-text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ph-attn-company {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-attn-role {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-attn-quiet {
+    margin: 12px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-attn-clock {
+    color: var(--warning);
+  }
+
+  .ph-attn-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-attn-actions > .ph-ghost {
+    flex: 1;
+  }
+
+  .ph-caught-up {
+    margin: 12px 0 0;
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-up-list {
+    margin: 4px 0 0;
+  }
+
+  .ph-up-row {
+    min-height: 64px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--foreground);
+  }
+
+  .ph-up-date {
+    flex: none;
+    width: 44px;
+    text-align: center;
+  }
+
+  .ph-up-dow {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-up-day {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .ph-up-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-up-title {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-up-sub {
+    display: block;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-up-time {
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  /* v2/Pipeline */
+
+  .ph-pipe-head {
+    flex: none;
+    padding: 20px 20px 0;
+  }
+
+  .ph-pipe-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-pipe-bar > .ph-h1 {
+    flex: 1;
+  }
+
+  .ph-pipe-sub {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-pipe-pills {
+    flex: none;
+    margin-top: 16px;
+    padding: 4px 20px 8px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-stage-pill {
+    flex: none;
+    height: 40px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    color: var(--foreground);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-stage-pill[aria-selected="true"] {
+    background: var(--primary-muted);
+    color: var(--primary);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+
+  .ph-stage-pill-count {
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+
+  .ph-pipe-main {
+    flex: 1;
+    min-height: 0;
+    padding: 8px 20px 170px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .ph-stage-h {
+    margin: 0 0 8px 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-stage-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .ph-stage-dot[data-stage="technical"] {
+    background: var(--primary);
+  }
+
+  .ph-stage-dot[data-stage="screening"] {
+    background: var(--chart-2, var(--success));
+  }
+
+  .ph-stage-dot[data-stage="applied"] {
+    background: var(--muted-foreground);
+  }
+
+  .ph-stage-dot[data-stage="offer"] {
+    background: var(--success);
+  }
+
+  .ph-stage-dot[data-stage="closed"] {
+    background: var(--border-strong);
+  }
+
+  .ph-stage-count {
+    font-weight: 500;
+  }
+
+  .ph-pipe-row {
+    min-height: 68px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--foreground);
+  }
+
+  .ph-pipe-text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ph-pipe-company {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-pipe-role {
+    display: block;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-pipe-meta {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .ph-pipe-ago {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-stale {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ph-stale-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--warning);
+  }
+
+  .ph-outcome {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-show-more {
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    background: transparent;
+    color: var(--primary);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* v2/QuickAdd */
+
+  .ph-qa-scrim {
+    position: absolute;
+    inset: 0;
+    background: oklch(0.15 0.02 270 / 0.45);
+  }
+
+  .ph-qa-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 760px;
+    border-radius: 28px 28px 0 0;
+    background: var(--surface);
+    box-shadow: var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ph-qa-grab {
+    flex: none;
+    padding-top: 8px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .ph-qa-grab > span {
+    width: 40px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--border-strong);
+  }
+
+  .ph-qa-head {
+    flex: none;
+    padding: 8px 12px 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ph-qa-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-qa-close {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-foreground);
+  }
+
+  .ph-qa-lead {
+    flex: none;
+    margin: 2px 24px 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-qa-form {
+    flex: 1;
+    min-height: 0;
+    padding: 20px 24px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-qa-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ph-qa-group-lbl {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ph-qa-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ph-choice {
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--foreground);
+  }
+
+  .ph-choice[aria-checked="true"] {
+    border: 1px solid color-mix(in oklab, var(--primary) 55%, transparent);
+    background: var(--primary-muted);
+    color: var(--primary);
+  }
+
+  .ph-qa-more {
+    min-height: 48px;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    background: transparent;
+    color: var(--foreground);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+  }
+
+  .ph-qa-more-hint {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ph-qa-more[aria-expanded="true"] .ph-qa-more-chev {
+    transform: rotate(180deg);
+  }
+
+  .ph-qa-details {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-qa-salary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ph-qa-foot {
+    flex: none;
+    padding: 12px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ph-qa-cv {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ph-qa-cta {
+    height: 56px;
+    border-radius: 16px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  /* v2/Application (its header is .ph-top + .ph-back, its section headings .ph-gh) */
+
+  .ph-ap-more {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-ap-main {
+    flex: 1;
+    min-height: 0;
+    padding: 8px 20px 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .ph-ap-tile {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .ph-ap-h1 {
+    margin: 16px 0 0;
+    font-size: 28px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .ph-ap-role {
+    margin: 6px 0 0;
+    font-size: 16px;
+  }
+
+  .ph-ap-meta {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ap-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .ph-ap-step-bar {
+    display: block;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+
+  .ph-ap-step[data-reached] .ph-ap-step-bar {
+    background: var(--primary);
+  }
+
+  .ph-ap-step-label {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ap-step[aria-current="step"] .ph-ap-step-label {
+    font-weight: 700;
+    color: inherit;
+  }
+
+  .ph-ap-next {
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--primary-muted);
+  }
+
+  .ph-ap-next-eyebrow {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-foreground);
+  }
+
+  .ph-ap-next-title {
+    margin: 6px 0 0;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .ph-ap-next-when {
+    margin: 4px 0 0;
+    font-size: 14px;
+  }
+
+  .ph-ap-cal {
+    margin-top: 14px;
+    height: 44px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--foreground);
+    box-shadow: var(--shadow-card);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-kv-list {
+    margin: 0;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+
+  .ph-ap-link {
+    margin-top: 10px;
+    min-height: 52px;
+    padding: 0 16px;
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-ap-history-h {
+    margin: 0 0 12px 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ap-history {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 4px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ph-ap-ev {
+    display: flex;
+    gap: 14px;
+  }
+
+  .ph-ap-ev-rail {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .ph-ap-ev-dot {
+    width: 12px;
+    height: 12px;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--success);
+  }
+
+  .ph-ap-ev-dot[data-status="scheduled"] {
+    background: transparent;
+    border: 2px solid var(--primary);
+    box-sizing: border-box;
+  }
+
+  .ph-ap-ev-dot[data-status="applied"] {
+    background: var(--border-strong);
+  }
+
+  .ph-ap-ev-line {
+    flex: 1;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .ph-ap-ev-body {
+    padding-bottom: 18px;
+  }
+
+  .ph-ap-ev:last-child .ph-ap-ev-body {
+    padding-bottom: 0;
+  }
+
+  .ph-ap-ev-title {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-ap-ev-when {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ap-notes {
+    margin: 0;
+    padding: 16px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .ph-ap-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px 20px 28px;
+    display: flex;
+    gap: 10px;
+    background: linear-gradient(to top, var(--background) 75%, transparent);
+  }
+
+  .ph-ap-close {
+    flex: none;
+    height: 54px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--surface);
+    color: var(--foreground);
+    box-shadow: var(--shadow-card);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-ap-log {
+    flex: 1;
+    height: 54px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* v2/Schedule (the Agenda; its avatar and week buttons are .ph-avatar / .ph-iconbtn, its Later rows Today's .ph-up-*) */
+
+  .ph-ag-top {
+    flex: none;
+    padding: 20px 20px 0;
+  }
+
+  .ph-ag-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-ag-head > .ph-h1 {
+    flex: 1;
+  }
+
+  .ph-ag-month-row {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ph-ag-month {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-ag-nav {
+    display: flex;
+    gap: 6px;
+  }
+
+  .ph-ag-week {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .ph-ag-day {
+    height: 68px;
+    border: 0;
+    border-radius: 16px;
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: transparent;
+    color: var(--foreground);
+  }
+
+  .ph-ag-day[data-today] {
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+  }
+
+  .ph-ag-day[aria-selected="true"] {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .ph-ag-dow {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.75;
+  }
+
+  .ph-ag-num {
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .ph-ag-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  .ph-ag-day[data-events] .ph-ag-dot {
+    background: var(--primary);
+  }
+
+  .ph-ag-day[aria-selected="true"][data-events] .ph-ag-dot {
+    background: var(--primary-foreground);
+  }
+
+  .ph-ag-main {
+    flex: 1;
+    min-height: 0;
+    padding: 22px 20px 110px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .ph-ag-gh {
+    margin: 0 0 10px 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-ag-ev {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .ph-ag-when-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 14px;
+  }
+
+  .ph-ag-time {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .ph-ag-end {
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ag-line {
+    margin-top: 8px;
+    flex: 1;
+    width: 2px;
+    border-radius: 2px;
+    background: linear-gradient(var(--primary), transparent);
+  }
+
+  .ph-ag-card {
+    padding: 14px 16px 12px;
+    border-radius: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-ag-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-ag-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-ag-when {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ag-h3 {
+    margin: 10px 0 0;
+    font-size: 16px;
+    line-height: 1.3;
+    font-weight: 600;
+  }
+
+  .ph-ag-sub {
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ag-notes {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+    color: color-mix(in oklab, var(--foreground) 85%, transparent);
+  }
+
+  .ph-ag-actions {
+    margin: 12px -6px 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ph-ag-icon {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--foreground);
+  }
+
+  .ph-ag-icon[aria-pressed="true"] {
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+  }
+
+  .ph-ag-open {
+    margin-left: auto;
+    height: 44px;
+    padding: 0 8px 0 12px;
+    border-radius: 12px;
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .ph-ag-empty {
+    margin: 0;
+    padding: 20px;
+    border-radius: 20px;
+    border: 1px dashed var(--border-strong);
+    text-align: center;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  /* v2/Insights */
+
+  .ph-ins {
+    flex: 1;
+    min-height: 0;
+    padding: 20px 20px 110px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-ins-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-ins-head > .ph-h1 {
+    flex: 1;
+  }
+
+  .ph-ins-cycle {
+    height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-ins-hero {
+    padding: 22px;
+  }
+
+  .ph-ins-label {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ins-rate {
+    margin: 6px 0 0;
+    font-size: 52px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--primary);
+  }
+
+  .ph-ins-meter {
+    margin-top: 16px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--muted);
+    overflow: hidden;
+  }
+
+  .ph-ins-meter-fill {
+    min-width: 8px;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-ins-dl {
+    margin: 18px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .ph-ins-stat {
+    min-width: 0;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+  }
+
+  .ph-ins-stat-label {
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-ins-stat-value {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .ph-ins-stat-value.ph-pri {
+    color: var(--primary);
+  }
+
+  .ph-ins-funnel {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ph-ins-fn-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+  }
+
+  .ph-ins-fn-label {
+    font-weight: 500;
+  }
+
+  .ph-ins-fn-n {
+    font-weight: 700;
+  }
+
+  .ph-ins-fn-pct {
+    color: var(--muted-foreground);
+  }
+
+  .ph-ins-track {
+    margin-top: 6px;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--muted);
+    overflow: hidden;
+  }
+
+  .ph-ins-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: var(--primary);
+  }
+
+  .ph-ins-fill[data-step="0"] {
+    background: color-mix(in oklab, var(--primary) 85%, var(--muted));
+  }
+
+  .ph-ins-fill[data-step="1"] {
+    background: color-mix(in oklab, var(--primary) 65%, var(--muted));
+  }
+
+  .ph-ins-fill[data-step="2"] {
+    background: color-mix(in oklab, var(--primary) 45%, var(--muted));
+  }
+
+  .ph-ins-week-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .ph-ins-week-head > .ph-sub {
+    margin: 0;
+  }
+
+  .ph-ins-weeks {
+    margin-top: 18px;
+    height: 110px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .ph-ins-week {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-ins-week-v {
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ins-week-bar {
+    width: 100%;
+    border-radius: 6px;
+    background: var(--primary-muted);
+  }
+
+  .ph-ins-week:last-child .ph-ins-week-bar {
+    background: var(--primary);
+  }
+
+  .ph-ins-days {
+    margin: 12px 0 0;
+  }
+
+  .ph-ins-day {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ph-ins-day + .ph-ins-day {
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-ins-day-label {
+    font-size: 14px;
+  }
+
+  .ph-ins-day-value {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .ph-ins-mode {
+    margin-top: 14px;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    gap: 3px;
+  }
+
+  .ph-ins-mode-a {
+    background: var(--chart-1);
+  }
+
+  .ph-ins-mode-p {
+    flex: 1;
+    background: var(--chart-3);
+  }
+
+  .ph-ins-legend {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+  }
+
+  .ph-ins-key {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-ins-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: var(--chart-1);
+  }
+
+  .ph-ins-swatch[data-mode="passive"] {
+    background: var(--chart-3);
+  }
+
+  .ph-ins-key-n {
+    font-weight: 700;
+  }
+
+  /* What the app needs on top of the boards. */
+
+  .ph-app {
+    line-height: normal;
+  }
+
+  /* signin/A_Desktop on a short screen (a phone in landscape, 812x375): the card clears the pair (top 20 + 36 + 20). Symmetric, so the card stays centred where the board draws it. Only below 828px = 2 x (card 448 / 2 + pair 166 + its right 24), where the pair can stand over the card; from 828 up the board's centring is untouched (1280x450 does not scroll). */
+  @media (max-width: 51.74rem) {
+    .ph-a-main {
+      padding-block: 76px;
+    }
+  }
+
+  .ph-tabbar {
+    position: fixed;
+    z-index: 40;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-fab {
+    position: fixed;
+    z-index: 40;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-bar {
+    position: fixed;
+    z-index: 40;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-scrim {
+    position: fixed;
+    z-index: 50;
+  }
+
+  .ph-sheet {
+    position: fixed;
+    z-index: 50;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-tab {
+    min-width: 0;
+  }
+
+  .ph-pill {
+    min-width: 0;
+    max-width: 100%;
+    overflow: clip;
+  }
+
+  button.ph-row {
+    width: 100%;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .ph-app .ph-group > li > .ph-row:focus-visible {
+    outline-offset: -2px;
+  }
+
+  /* A shape drawn under 44px keeps a 44px box; ::before paints the shape. */
+
+  .ph-btn.ph-sm,
+  .ph-seg > * {
+    --ph-hit-inset: 2px;
+  }
+
+  .ph-chip {
+    --ph-hit-inset: 4px;
+  }
+
+  .ph-switch {
+    --ph-hit-inset: 6px;
+    align-items: center;
+  }
+
+  .ph-btn.ph-sm,
+  .ph-chip,
+  .ph-seg > *,
+  .ph-switch {
+    position: relative;
+    isolation: isolate;
+    height: 44px;
+    margin-block: calc(var(--ph-hit-inset) * -1);
+  }
+
+  .ph-btn.ph-sm::before,
+  .ph-chip::before,
+  .ph-seg > *::before,
+  .ph-switch::before {
+    content: "";
+    position: absolute;
+    inset: var(--ph-hit-inset) 0;
+    z-index: -1;
+    border-radius: inherit;
+  }
+
+  .ph-btn.ph-sm.ph-pri,
+  .ph-btn.ph-sm.ph-sec,
+  .ph-btn.ph-sm.ph-dan,
+  .ph-chip,
+  .ph-chip.ph-on,
+  .ph-seg > .ph-on,
+  .ph-switch,
+  .ph-switch[aria-checked="true"] {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .ph-btn.ph-sm.ph-pri::before {
+    background: var(--primary);
+    box-shadow: var(--ph-glow);
+  }
+
+  .ph-btn.ph-sm.ph-sec::before {
+    background: var(--muted);
+  }
+
+  .ph-btn.ph-sm.ph-dan::before {
+    background: color-mix(in oklab, var(--destructive) 18%, transparent);
+  }
+
+  .ph-chip::before {
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-chip.ph-on::before {
+    background: var(--primary-muted);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+
+  .ph-seg > .ph-on::before {
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-switch::before {
+    background: var(--border-strong);
+  }
+
+  .ph-switch[aria-checked="true"]::before {
+    background: var(--primary);
+  }
+
+  .ph-hit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .ph-app
+    :is(
+      .ph-btn.ph-sm,
+      .ph-chip,
+      .ph-seg > *,
+      .ph-switch,
+      .ph-hit,
+      .ph-avatar
+    ):focus-visible {
+    outline: none;
+  }
+
+  .ph-app
+    :is(.ph-btn.ph-sm, .ph-chip, .ph-seg > *, .ph-switch):focus-visible::before,
+  .ph-app :is(.ph-hit, .ph-avatar):focus-visible > * {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Light `--ph-glow: none` voids the list (elevated alone); boards are content-box, no reset. */
+
+  .ph-app-ic {
+    box-sizing: content-box;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .dark .ph-app-ic {
+    box-shadow: var(--shadow-elevated), var(--ph-glow);
+  }
+
+  /* Bottom blocks clear the home indicator. */
+
+  .ph-safe-bottom {
+    padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* A screen under the shell's 56px back bar fills the rest, as the board's column does. */
+
+  .ph-below-top {
+    min-height: calc(100dvh - var(--cookie-notice-height, 0px) - 56px);
+  }
+
+  /* v2/Today, v2/Pipeline and v2/QuickAdd in the app. */
+
+  .ph-today,
+  .ph-pipe-main {
+    padding-bottom: calc(170px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The board's header and pills never scroll: in-column sticky chrome (z-30). */
+  .ph-pipe-top {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--background);
+  }
+
+  .ph-pipe-main a,
+  .ph-pipe-main button {
+    scroll-margin-top: 220px;
+  }
+
+  .ph-pipe-search {
+    margin-top: 12px;
+  }
+
+  /* Below ~360px the time range takes its own line, the actions stay right. */
+  .ph-hero .ph-hero-actions {
+    flex-wrap: wrap;
+  }
+
+  .ph-hero-actions > .ph-hero-range {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+
+  .ph-hero-btns {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* A long hint ends in an ellipsis; the label and the chevron never wrap. */
+  .ph-qa-form .ph-qa-more {
+    gap: 12px;
+  }
+
+  .ph-qa-more > :first-child {
+    flex: none;
+  }
+
+  .ph-qa-more .ph-qa-more-hint {
+    min-width: 0;
+  }
+
+  .ph-today-greet {
+    min-width: 0;
+  }
+
+  /* A long name ends in an ellipsis instead of breaking the row (PRD 0021). */
+  .ph-today-head .ph-today-h1 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-attn-company,
+  .ph-attn-role,
+  .ph-hero-sub,
+  .ph-up-title,
+  .ph-up-sub,
+  .ph-choice > span {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-choice {
+    max-width: 100%;
+  }
+
+  .ph-app
+    .ph-group
+    > li
+    > :is(.ph-up-row, .ph-pipe-row, .ph-show-more):focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ph-ghost,
+  .ph-stage-pill {
+    --ph-hit-inset: 2px;
+    position: relative;
+    isolation: isolate;
+    height: 44px;
+    margin-block: calc(var(--ph-hit-inset) * -1);
+  }
+
+  .ph-ghost::before,
+  .ph-stage-pill::before {
+    content: "";
+    position: absolute;
+    inset: var(--ph-hit-inset) 0;
+    z-index: -1;
+    border-radius: inherit;
+  }
+
+  .ph-ghost,
+  .ph-stage-pill,
+  .ph-stage-pill[aria-selected="true"] {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .ph-ghost::before {
+    background: var(--muted);
+  }
+
+  .ph-stage-pill::before {
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-stage-pill[aria-selected="true"]::before {
+    background: var(--primary-muted);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+
+  .ph-app :is(.ph-ghost, .ph-stage-pill):focus-visible {
+    outline: none;
+  }
+
+  .ph-app :is(.ph-ghost, .ph-stage-pill):focus-visible::before {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* The sheet keeps the board's 84px of scrim above it on a shorter phone. */
+  .ph-sheet.ph-qa-sheet {
+    padding: 0;
+    max-height: min(760px, calc(100% - 84px));
+  }
+
+  .ph-qa-sheet .ph-qa-foot {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Radix's hidden radio input sits inside the chip row, never past the form's edge. */
+  .ph-qa-group .ph-qa-choices {
+    position: relative;
+  }
+
+  button.ph-qa-close,
+  button.ph-qa-cta {
+    cursor: pointer;
+  }
+
+  button.ph-qa-cta[aria-disabled="true"] {
+    cursor: progress;
+  }
+
+  /* The soft field's focus is its 3px ring. */
+  .ph-app .ph-input-soft:focus-visible {
+    outline: none;
+  }
+
+  .ph-input-soft[aria-invalid="true"] {
+    border-color: var(--destructive-text);
+  }
+
+  .ph-qa-error {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--destructive-text);
+  }
+
+  /* Today's pickers drawn as the board's field: their Button utilities outrank this layer. */
+  .ph-input-soft-host [data-slot="catalog-select"] [role="combobox"],
+  .ph-input-soft-host [data-slot="date-picker-trigger"] {
+    height: 52px !important;
+    padding: 0 16px !important;
+    border: 1px solid transparent !important;
+    border-radius: 14px !important;
+    background: var(--muted) !important;
+    color: var(--foreground) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+  }
+
+  .ph-input-soft-host
+    [data-slot="catalog-select"]
+    [role="combobox"]:focus-visible,
+  .ph-input-soft-host
+    [data-slot="catalog-select"]
+    [role="combobox"][aria-expanded="true"],
+  .ph-input-soft-host [data-slot="date-picker-trigger"]:focus-visible,
+  .ph-input-soft-host [data-slot="date-picker-trigger"][aria-expanded="true"] {
+    border-color: var(--ring) !important;
+    background: var(--surface) !important;
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent) !important;
+  }
+
+  .ph-input-soft-host
+    [data-slot="catalog-select"]
+    [role="combobox"][aria-invalid="true"],
+  .ph-input-soft-host [data-slot="date-picker-trigger"][aria-invalid="true"] {
+    border-color: var(--destructive-text) !important;
+  }
+
+  /* v2/Application, v2/Schedule and v2/Insights in the app. */
+
+  /* The Application's header never scrolls (in-column sticky chrome, z-30); its bar is pinned, with no tab bar under it. */
+  .ph-top.ph-ap-head {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--background);
+  }
+
+  div.ph-ap-bar {
+    position: fixed;
+    z-index: 40;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  div.ph-ap-main {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* An archived cycle has no bar to clear. */
+  div.ph-ap-main.ph-ap-readonly {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-ap-main a,
+  .ph-ap-main button {
+    scroll-margin-top: 72px;
+    scroll-margin-bottom: 110px;
+  }
+
+  .ph-ap-tile-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ph-ap-tile-row > .ph-ap-tile {
+    flex: none;
+  }
+
+  .ph-gh + .ph-ap-link {
+    margin-top: 0;
+  }
+
+  button.ph-ap-log[aria-disabled="true"] {
+    cursor: progress;
+  }
+
+  .ph-row.ph-ap-danger,
+  .ph-ap-danger .ph-ic {
+    color: var(--destructive-text);
+  }
+
+  /* The Agenda's header and week never scroll; the main keeps the board's 22px under them (8 + 14). */
+  div.ph-ag-top {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding-bottom: 8px;
+    background: var(--background);
+  }
+
+  div.ph-ag-main {
+    padding-top: 14px;
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-ag-main a,
+  .ph-ag-main button {
+    scroll-margin-top: 224px;
+  }
+
+  /* Seven 44px days need 332px: below that the strip takes the side padding, then 2px gaps (44px down to 320). */
+  .ph-ag-top .ph-ag-week {
+    margin-inline: max(-20px, min(0px, calc((100% - 332px) / 2)));
+    column-gap: max(2px, min(4px, calc((100% - 308px) / 6)));
+  }
+
+  .ph-ag-allday {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .ph-ag-card-head > .ph-ag-when {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  div.ph-ins {
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-ins-archived {
+    margin: -8px 0 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ins-empty {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  /* pt-BR at 320: "Candidaturas" keeps its word (the column grows), "8 semanas" stays one line. */
+  .ph-card-lg .ph-ins-dl {
+    grid-template-columns: repeat(3, minmax(min-content, 1fr));
+  }
+
+  .ph-ins-stat > .ph-ins-stat-label {
+    overflow-wrap: normal;
+  }
+
+  .ph-card-lg .ph-ins-week-head {
+    gap: 8px;
+  }
+
+  .ph-ins-week-head .ph-sub {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .ph-ins-mode[data-empty] {
+    background: var(--muted);
+  }
+
+  /* A long cycle name ends in an ellipsis; the 40px pill keeps a 44px box. */
+  button.ph-ins-cycle {
+    --ph-hit-inset: 2px;
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    height: 44px;
+    margin-block: calc(var(--ph-hit-inset) * -1);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  button.ph-ins-cycle::before {
+    content: "";
+    position: absolute;
+    inset: var(--ph-hit-inset) 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-app button.ph-ins-cycle:focus-visible {
+    outline: none;
+  }
+
+  .ph-app button.ph-ins-cycle:focus-visible::before {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .ph-ins-cycle > svg {
+    flex: none;
+  }
+
+  .ph-ins-cycle-name {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* A long company, role or note ends in an ellipsis or wraps inside its card (PRD 0021). */
+  .ph-app .ph-ap-h1,
+  .ph-app .ph-ap-role,
+  .ph-app .ph-ag-h3 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-app .ph-ag-sub {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-app .ph-ap-meta,
+  .ph-app .ph-ap-next-title,
+  .ph-app .ph-ap-ev-title {
+    overflow-wrap: anywhere;
+  }
+
+  /* The boards have no reset: a row's 1px top border sits outside its min-height. */
+  .ph-kv-list > .ph-kv,
+  .ph-ins-days > .ph-ins-day {
+    box-sizing: content-box;
+  }
+
+  .ph-kv-list .ph-kv dt {
+    flex: none;
+  }
+
+  .ph-kv-list .ph-kv dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-app .ph-ap-notes,
+  .ph-app .ph-ag-notes {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* v2/Profile + v2/Devices (one screen, the seg nav of two links), v2/Cycles, v2/Reports, v2/ReportDay, v2/Admin; bodies as drawn. */
+
+  .ph-pf {
+    padding: 4px 20px calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .ph-pf-edit {
+    padding: 4px 20px calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    outline: none;
+  }
+
+  .ph-seg.ph-pf-seg {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ph-pf-head {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .ph-pf-avatar {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .ph-pf-who {
+    min-width: 0;
+  }
+
+  .ph-pf-name {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-pf-role {
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-pf-pills {
+    margin: 8px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-pf-bio {
+    margin: -8px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-pf-wrap {
+    overflow-wrap: anywhere;
+  }
+
+  /* The LinkedIn link keeps its text line and gets a 44px box. */
+  .ph-pf-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-block: -13px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-pf-tags {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-pf-badges-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .ph-pf-count {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-badges {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ph-badge {
+    padding: 12px 8px;
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+
+  .ph-badge .ph-b {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-muted);
+    color: var(--primary);
+  }
+
+  .ph-badge.ph-off {
+    opacity: 0.45;
+  }
+
+  .ph-badge.ph-off .ph-b {
+    background: var(--muted);
+    color: var(--muted-foreground);
+  }
+
+  .ph-badge-name {
+    font-size: 12px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-pf-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-pf-card-h {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-pf-card > .ph-btn,
+  .ph-pf-delete > .ph-btn {
+    align-self: flex-start;
+  }
+
+  .ph-pf-delete {
+    padding: 16px;
+    border-radius: 20px;
+    border: 1px solid color-mix(in oklab, var(--destructive) 35%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-pf-delete .ph-pf-card-h {
+    color: var(--destructive-text);
+  }
+
+  .ph-pf-delete-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-pf-delete-warning {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--destructive-text);
+  }
+
+  .ph-pf-delete-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+
+  .ph-pf-phrase {
+    color: var(--foreground);
+  }
+
+  .ph-pf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ph-dv-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-hint.ph-dv-lead {
+    margin-top: 4px;
+  }
+
+  .ph-dv-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-dv-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-dv-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ph-dv-ic {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-dv-who {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ph-dv-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-dv-name {
+    margin: 0;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-dv-here {
+    flex: none;
+  }
+
+  .ph-dv-method {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dv-dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    font-size: 13px;
+  }
+
+  .ph-dv-dl dt {
+    color: var(--muted-foreground);
+  }
+
+  .ph-dv-dl dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-dv-none {
+    text-align: center;
+  }
+
+  .ph-row.ph-dv-ended {
+    min-height: 64px;
+  }
+
+  .ph-dv-ended-name {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-dv-sub {
+    display: block;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+
+  .ph-cy {
+    padding: 0 20px calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-cy-current {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-cy-current-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-cy-eyebrow {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cy-name {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cy-stats {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cy-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-cy-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-cy-card-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-cy-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cy-sub {
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cy-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ph-iconbtn.ph-cy-trash {
+    color: var(--destructive-text);
+  }
+
+  .ph-rp,
+  .ph-rp-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-rp {
+    padding: 0 20px calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-rp-accent {
+    color: var(--primary);
+  }
+
+  .ph-rp-lead strong {
+    color: var(--foreground);
+  }
+
+  .ph-rp-progress {
+    margin-top: 12px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--muted);
+    overflow: hidden;
+  }
+
+  .ph-rp-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-rp-tip {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--primary-muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .ph-rp-current {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: 1px solid var(--primary);
+  }
+
+  .ph-rp-current-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-rp-day {
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .ph-rp-meta {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-rp-row-title {
+    display: block;
+  }
+
+  .ph-rp-sub {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+
+  .ph-row.ph-rp-future {
+    color: var(--muted-foreground);
+  }
+
+  .ph-rp-na {
+    font-size: 13px;
+  }
+
+  .ph-rp-closed {
+    padding: 40px 24px calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .ph-rp-lock {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-h1.ph-rp-closed-h1 {
+    margin-top: 24px;
+    font-size: 26px;
+  }
+
+  .ph-hint.ph-rp-closed-hint {
+    margin-top: 14px;
+  }
+
+  .ph-rp-closed-actions {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-rd {
+    padding: 0 20px calc(120px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .ph-rd.ph-rd-readonly {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-h1.ph-rd-h1 {
+    font-size: 26px;
+  }
+
+  .ph-hint.ph-rd-auto-hint {
+    margin: 4px 0 10px;
+  }
+
+  .ph-dl dd.ph-dd-num {
+    font-size: 22px;
+  }
+
+  .ph-dl dd.ph-rd-offers {
+    color: var(--primary);
+  }
+
+  .ph-rd-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-rd-grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    align-items: end;
+  }
+
+  .ph-rd-count {
+    align-self: flex-end;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-rd-count[data-over] {
+    font-weight: 500;
+    color: var(--destructive-text);
+  }
+
+  .ph-h2.ph-rd-totals-h {
+    margin-bottom: 10px;
+  }
+
+  .ph-hint.ph-rd-goal-lbl {
+    margin-bottom: 4px;
+  }
+
+  .ph-rd .ph-input[readonly] {
+    background: var(--muted);
+    border-color: transparent;
+  }
+
+  .ph-pill.ph-rd-status {
+    margin-right: 8px;
+  }
+
+  .ph-bar > .ph-rd-cancel {
+    flex: none;
+  }
+
+  .ph-bar > .ph-rd-submit {
+    flex: 1;
+  }
+
+  /* The board's numbers are plain fields: no spinner. */
+  .ph-input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .ph-input[type="number"]::-webkit-inner-spin-button,
+  .ph-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Today's DatePickerInput drawn as the board's .input: its Button utilities outrank this layer. */
+  .ph-input-host [data-slot="date-picker-trigger"] {
+    height: 52px !important;
+    padding: 0 16px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    background: var(--surface) !important;
+    color: var(--foreground) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+  }
+
+  .ph-input-host [data-slot="date-picker-trigger"][aria-invalid="true"] {
+    border-color: var(--destructive-text) !important;
+  }
+
+  .ph-ad-top {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 16px;
+  }
+
+  .ph-ad-head {
+    padding: 0 20px;
+  }
+
+  /* The board's 2px top is 4px: the chips' 44px boxes overhang the row by 4px. */
+  .ph-hs.ph-ad-chips {
+    position: relative;
+    padding: 4px 20px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-ad-body {
+    padding: 0 20px calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-ad-body.ph-ad-list,
+  .ph-ad-list-cards {
+    gap: 12px;
+  }
+
+  .ph-ad-list-cards,
+  .ph-ad-cards {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ph-ad-cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 12px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-ad-cards[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-ad-other {
+    padding: 0 20px calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-ad-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .ph-ad-card-h {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-ad-card-note {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ad-bars {
+    margin-top: 16px;
+    height: 110px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .ph-ad-bar-col {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-ad-bar-v,
+  .ph-ad-bar-m {
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ad-bar {
+    width: 100%;
+    border-radius: 6px 6px 2px 2px;
+    background: var(--primary-muted);
+  }
+
+  .ph-ad-bar-col:last-child .ph-ad-bar {
+    background: var(--primary);
+  }
+
+  .ph-ad-card-h.ph-ad-top-h {
+    margin: 0 0 6px;
+  }
+
+  .ph-ad-top-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ph-ad-top-row {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-ad-top-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-ad-top-v {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .ph-hint.ph-ad-none {
+    margin-top: 12px;
+  }
+
+  .ph-ad-src {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-ad-src-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-ad-src-name {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-ad-src-pending {
+    flex: none;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ad-src-dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .ph-ad-src-dl dt {
+    color: var(--muted-foreground);
+  }
+
+  .ph-ad-src-dl dd {
+    margin: 2px 0 0;
+    min-width: 0;
+  }
+
+  .ph-ad-src-dl dd.ph-ad-src-strong {
+    font-weight: 600;
+  }
+
+  .ph-hint.ph-ad-src-error {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-switch[aria-disabled="true"] {
+    cursor: progress;
+    opacity: 0.6;
+  }
+
+  .ph-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--primary-muted);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .ph-notice[data-tone="error"] {
+    border-color: color-mix(in oklab, var(--destructive) 40%, transparent);
+    background: color-mix(in oklab, var(--destructive) 10%, transparent);
+  }
+
+  .ph-notice > p {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-notice-ic {
+    flex: none;
+    margin-top: 2px;
+  }
+
+  .ph-notice[data-tone="error"] .ph-notice-ic {
+    color: var(--destructive-text);
+  }
+
+  .ph-notice[data-tone="info"] .ph-notice-ic {
+    color: var(--primary);
+  }
+
+  .ph-hit.ph-notice-close {
+    flex: none;
+    margin: -12px -14px -12px 0;
+    color: var(--muted-foreground);
+  }
+
+  /* The boards' sheets stack 14px apart (v2/Cycles); Cancel first, the action fills the row. */
+  .ph-sheet.ph-sheet-stack,
+  .ph-sheet-stack-form {
+    gap: 14px;
+  }
+
+  .ph-sheet-stack-form {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ph-sheet-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-sheet-actions > .ph-btn:last-child {
+    flex: 1;
+  }
+
+  .ph-strong {
+    color: var(--foreground);
+  }
+
+  /* A pending or not-yet-valid action keeps its focus (aria-disabled) and dims. */
+  .ph-btn[data-disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .ph-btn[aria-busy="true"] {
+    cursor: progress;
+  }
+
+  /* A heading that takes focus back (tabIndex -1) draws no ring. */
+  .ph-app .ph-focus-target:focus-visible {
+    outline: none;
+  }
+
+  /* The theme + language pair in the boards' chip slot: 44px boxes below md, its classes untouched. */
+
+  @media (max-width: 47.99rem) {
+    .ph-pair [role="radio"] {
+      height: 44px;
+    }
+
+    .ph-pair > button {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    /* A flags-only switcher (PhoneLandingHeader): each radio a 44px square, its flag centred. */
+    .ph-pair [data-flags-only] [role="radio"] {
+      min-width: 44px;
+      justify-content: center;
+    }
+  }
+
+  /* v2/Jobs, v2/JobDetail, v2/StartApplication, v2/Draft, v2/CVs, v2/CVEditor: their own <style> classes, bodies as drawn. */
+
+  .ph-fit {
+    height: 26px;
+    padding: 0 9px 0 6px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--foreground);
+    white-space: nowrap;
+  }
+
+  .ph-fit.ph-strong {
+    background: color-mix(in oklab, var(--success) 16%, transparent);
+  }
+
+  .ph-fit.ph-partial {
+    background: color-mix(in oklab, var(--warning) 16%, transparent);
+  }
+
+  .ph-fit.ph-low {
+    background: var(--muted);
+    color: color-mix(in oklab, var(--foreground) 75%, transparent);
+  }
+
+  .ph-kw {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .ph-kw.ph-m {
+    background: color-mix(in oklab, var(--success) 16%, transparent);
+  }
+
+  .ph-kw.ph-x {
+    border: 1px dashed var(--border-strong);
+    color: color-mix(in oklab, var(--foreground) 80%, transparent);
+  }
+
+  .ph-step {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ph-step .ph-n {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 2px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    box-sizing: border-box;
+  }
+
+  .ph-step.ph-on {
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    color: var(--foreground);
+  }
+
+  .ph-step.ph-on .ph-n {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .ph-sec-row {
+    min-height: 52px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .ph-acc {
+    width: 100%;
+    min-height: 60px;
+    padding: 0 16px;
+    border: 0;
+    background: transparent;
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ph-acc .ph-chev {
+    transition: transform 0.15s;
+  }
+
+  .ph-acc[aria-expanded="true"] .ph-chev {
+    transform: rotate(180deg);
+  }
+
+  /* The six boards' inline style blocks made classes, bodies as drawn. */
+
+  /* v2/Jobs (its top bar's Beta is .ph-pill; the hint under the list is .ph-hint centred) */
+  .ph-jb {
+    padding: 0 0 calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-jb-head,
+  .ph-jb-search,
+  .ph-jb-body {
+    padding: 0 20px;
+  }
+
+  .ph-jb-search-box {
+    position: relative;
+  }
+
+  .ph-jb-search-ic {
+    position: absolute;
+    left: 16px;
+    top: 17px;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-jb-search-input {
+    padding-left: 44px;
+  }
+
+  /* The board's 2px top is 4px: the chips' 44px boxes overhang the row by 4px. */
+  .ph-hs.ph-jb-chips {
+    padding: 4px 20px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-jb-chip-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-jb-results {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    outline: none;
+  }
+
+  .ph-jb-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-jb-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-card.ph-jb-card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .ph-jb-card[data-dismissed] {
+    opacity: 0.75;
+  }
+
+  .ph-app .ph-jb-link {
+    display: block;
+    padding: 16px 16px 12px;
+    color: var(--foreground);
+  }
+
+  .ph-app .ph-jb-link:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ph-jb-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .ph-jb-who {
+    min-width: 0;
+  }
+
+  .ph-jb-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jb-sub {
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jb-tags {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-jb-tag-li {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* A long tag, keyword or fact wraps inside its chip instead of widening the card. */
+  .ph-tag.ph-jb-tag,
+  .ph-tag.ph-cv-tag,
+  .ph-kw {
+    max-width: 100%;
+    height: auto;
+    min-height: 26px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jb-more-tags {
+    align-self: center;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-foot {
+    padding: 0 16px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-jb-posted {
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-dismissed {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-dismiss {
+    flex: none;
+    min-height: 44px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .ph-jb-dismiss[aria-disabled="true"] {
+    cursor: progress;
+    opacity: 0.7;
+  }
+
+  /* The status pill keeps the board's 24px inside a 44px box. */
+  .ph-hit.ph-jb-status {
+    flex: none;
+    margin-block: -10px;
+  }
+
+  .ph-hint.ph-jb-note {
+    padding: 0 20px;
+    text-align: center;
+  }
+
+  .ph-show-more.ph-jb-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .ph-jb-state {
+    margin: 0 20px;
+  }
+
+  .ph-jb-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ph-jb-state-h {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-group.ph-jb-options {
+    box-shadow: none;
+    border: 1px solid var(--border);
+  }
+
+  .ph-jb-check {
+    flex: none;
+    color: var(--primary);
+  }
+
+  .ph-jb-chipset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-block: 4px;
+  }
+
+  .ph-chip[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .ph-jb-tag-picked {
+    gap: 2px;
+    padding-right: 0;
+  }
+
+  .ph-jb-tag-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-hit.ph-jb-tag-x {
+    flex: none;
+    margin: -9px -10px -9px -6px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-toggle {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .ph-jb-saved {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* v2/JobDetail (its h1 is .ph-h1 at 26px; the bar is .ph-bar) */
+  .ph-jd {
+    padding: 4px 20px calc(120px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .ph-jd.ph-jd-nobar {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-jd-meta {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-h1.ph-jd-h1 {
+    margin-top: 6px;
+    font-size: 26px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jd-tags {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-jd-marks {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .ph-hint.ph-jd-note {
+    flex-basis: 100%;
+  }
+
+  .ph-hint.ph-jd-hint {
+    margin-top: 4px;
+  }
+
+  .ph-jd-gap {
+    margin-top: 12px;
+  }
+
+  /* The CV chips' 44px boxes overhang the board's row by 4px. */
+  .ph-hs.ph-jd-tabs {
+    margin: 8px 0 -4px;
+    padding: 4px 0;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-card.ph-jd-card {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ph-jd-card[data-state="inactive"] {
+    display: none;
+  }
+
+  .ph-jd-ring {
+    flex: none;
+  }
+
+  .ph-jd-score {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .ph-jd-pct {
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .ph-jd-band {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-lbl.ph-jd-kw-lbl {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .ph-jd-kws {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-jd-desc {
+    margin: 10px 0 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: color-mix(in oklab, var(--foreground) 85%, transparent);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-btn.ph-jd-source {
+    margin-top: 16px;
+  }
+
+  .ph-bar > .ph-jd-dismiss {
+    flex: none;
+  }
+
+  .ph-bar > .ph-jd-dismiss:only-child,
+  .ph-bar > .ph-jd-start {
+    flex: 1;
+  }
+
+  .ph-jd-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 20px;
+    text-align: center;
+  }
+
+  .ph-jd-empty-ic {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-jd-empty-h {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* v2/StartApplication (its options are .ph-opt; Cancel / Create draft are .ph-sheet-actions) */
+  .ph-sa-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ph-sa-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-sa-close {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    margin-right: -10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-sheet-body {
+    flex: 1;
+    min-height: 0;
+    margin: 0 -20px;
+    padding: 4px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-sa-fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ph-lbl.ph-sa-legend {
+    margin-bottom: 4px;
+    padding: 0;
+  }
+
+  .ph-hint.ph-sa-hint {
+    margin-bottom: 4px;
+  }
+
+  .ph-hint.ph-sa-none {
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px dashed var(--border-strong);
+  }
+
+  .ph-sa-error-card {
+    box-shadow: none;
+    border: 1px dashed var(--border-strong);
+  }
+
+  .ph-notice.ph-sa-alert {
+    margin-top: 8px;
+    outline: none;
+  }
+
+  .ph-sheet-foot {
+    padding-top: 8px;
+  }
+
+  .ph-sa-conflict {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px dashed var(--border-strong);
+    outline: none;
+  }
+
+  .ph-sa-conflict-h {
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-sa-conflict-h > svg {
+    flex: none;
+    margin-top: 2px;
+    color: var(--warning);
+  }
+
+  /* v2/Draft (its fields are .ph-field / .ph-input, "More details" is QuickAdd's .ph-qa-more) */
+  .ph-dr {
+    padding: 4px 20px calc(120px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-dr[data-noted] {
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-dr.ph-dr-nobar {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-h1.ph-dr-h1,
+  .ph-h1.ph-ce-h1 {
+    font-size: 26px;
+  }
+
+  .ph-dr-status {
+    padding-right: 8px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+
+  .ph-dr-ok {
+    flex: none;
+    color: var(--success);
+  }
+
+  .ph-dr-bad {
+    flex: none;
+    color: var(--destructive-text);
+  }
+
+  .ph-dr-warn {
+    flex: none;
+    color: var(--warning);
+  }
+
+  .ph-dr-steps {
+    padding: 4px;
+    border-radius: 18px;
+    background: var(--muted);
+    display: flex;
+    gap: 4px;
+  }
+
+  .ph-step {
+    min-width: 0;
+    min-height: 50px;
+  }
+
+  .ph-step[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .ph-app .ph-step:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ph-step-text {
+    min-width: 0;
+  }
+
+  .ph-step-t,
+  .ph-step-s {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-step-t {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ph-step-s {
+    font-size: 12px;
+  }
+
+  .ph-dr-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ph-dr-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ph-dr-tri {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ph-dr-tri[data-disabled] {
+    opacity: 0.5;
+  }
+
+  .ph-dr-amount {
+    position: relative;
+  }
+
+  .ph-dr-sym {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-dr-amount-input {
+    padding-left: 34px;
+    padding-right: 10px;
+  }
+
+  .ph-hint.ph-dr-error {
+    color: var(--destructive-text);
+  }
+
+  .ph-dr-cv {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    outline: none;
+  }
+
+  .ph-card.ph-dr-tailor {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-dr-tailor-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-dr-tailor-t {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-dr-tailor-s {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-copied {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-copied-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-dr-sec-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-dr-sec-meta {
+    flex: none;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-sec-meta.ph-mono {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-dr-edit-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ph-dr-message,
+  .ph-ce-message {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ph-dr-message-ic {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-dr-message-h,
+  .ph-ce-message-h {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-dr-alert {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* The bar holds a note row (what is missing, Finish's failure) above its two buttons. */
+  .ph-bar.ph-dr-bar {
+    flex-wrap: wrap;
+  }
+
+  .ph-bar > .ph-dr-lead-btn {
+    flex: none;
+  }
+
+  .ph-bar > .ph-dr-go-btn {
+    flex: 1;
+  }
+
+  .ph-dr-note {
+    flex-basis: 100%;
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-note.ph-dr-note-bad {
+    color: var(--foreground);
+  }
+
+  .ph-dr-note.ph-dr-note-bad > svg {
+    flex: none;
+    margin-top: 1px;
+    color: var(--destructive-text);
+  }
+
+  /* Today's pickers and selects drawn as the board's .input: their Button utilities outrank this layer. */
+  .ph-input-host [data-slot="catalog-select"] [role="combobox"],
+  .ph-input-host [data-slot="select-trigger"] {
+    width: 100% !important;
+    height: 52px !important;
+    padding: 0 16px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    background: var(--surface) !important;
+    color: var(--foreground) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+  }
+
+  .ph-input-host
+    [data-slot="catalog-select"]
+    [role="combobox"][aria-invalid="true"],
+  .ph-input-host [data-slot="select-trigger"][aria-invalid="true"] {
+    border-color: var(--destructive-text) !important;
+  }
+
+  .ph-input-host [data-slot="select-trigger"][data-placeholder] {
+    color: var(--muted-foreground) !important;
+  }
+
+  /* v2/CVs (its tags are .ph-tag, Edit / Delete are .ph-btn.ph-sm) */
+  .ph-cv {
+    padding: 0 20px calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-cv-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    outline: none;
+  }
+
+  .ph-cv-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-card.ph-cv-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-cv-card[data-deleting] {
+    opacity: 0.6;
+  }
+
+  .ph-cv-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .ph-cv-thumb {
+    flex: none;
+    width: 44px;
+    height: 52px;
+    border-radius: 8px;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 9px 8px;
+    box-sizing: border-box;
+  }
+
+  .ph-cv-thumb > span {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border-strong);
+  }
+
+  .ph-cv-thumb > span:first-child {
+    height: 4px;
+    width: 70%;
+    background: var(--primary);
+  }
+
+  .ph-cv-thumb > span:last-child {
+    width: 60%;
+  }
+
+  .ph-cv-who {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ph-cv-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cv-headline {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cv-updated {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cv-tags {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-cv-counts {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cv-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-cv-actions > :first-child {
+    flex: 1;
+  }
+
+  .ph-app .ph-cv-new {
+    min-height: 120px;
+    border-radius: 20px;
+    border: 2px dashed var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--foreground);
+  }
+
+  .ph-cv-new-ic {
+    color: var(--primary);
+  }
+
+  .ph-cv-new-t {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-cv-new-s {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-hint.ph-cv-limit {
+    text-align: center;
+  }
+
+  .ph-cv-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* v2/CVEditor (its rows are .ph-acc in a .ph-group; PDF is .ph-btn.ph-sm.ph-sec) */
+  .ph-ce {
+    padding: 0 20px calc(120px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-ce.ph-ce-nobar {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* CvFormSections' root as the board's group: its rows are divs, so the hairline is drawn here. */
+  .ph-group.ph-ce-list > * + * {
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-acc-h {
+    margin: 0;
+    font: inherit;
+  }
+
+  .ph-app .ph-ce-list .ph-acc:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ph-acc-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-acc-t {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-acc-m {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-acc-m.ph-acc-bad {
+    color: var(--destructive-text);
+  }
+
+  .ph-chev {
+    flex: none;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ce-status {
+    padding: 0 16px 8px;
+  }
+
+  .ph-ce-panel {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Today's CV fields drawn as the board's .input (their utilities outrank this layer); their icon buttons keep today's size. */
+  .ph-ce-panel [data-slot="input"],
+  .ph-ce-panel [data-slot="select-trigger"] {
+    height: 52px !important;
+    padding: 0 16px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    background: var(--surface) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+  }
+
+  .ph-ce-panel [data-slot="textarea"] {
+    min-height: 96px !important;
+    padding: 12px 16px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    background: var(--surface) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .ph-ce-panel [data-slot="input"][aria-invalid="true"],
+  .ph-ce-panel [data-slot="textarea"][aria-invalid="true"] {
+    border-color: var(--destructive-text) !important;
+  }
+
+  /* An added item's move and remove buttons (CvRepeatableSection, 32px on desktop): 44px wide, so the three never overlap, and 44px tall through negative margins, so the item's header row keeps its height. */
+  .ph-ce-panel [data-slot="cv-item-actions"] > [data-slot="button"] {
+    width: 44px !important;
+    height: 44px !important;
+    margin-block: -6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ph-acc .ph-chev {
+      transition: none;
+    }
+  }
+
+  /* v3: the boards' shared modifiers (AdminUsers, AdminCompanies, AdminPlatforms, AdminFeatures, AdminFeatureView, AdminWebhook, CVNew, ApplicationCV). */
+
+  .ph-h1.ph-h1-26 {
+    font-size: 26px;
+  }
+
+  /* The boards' [disabled], kept focusable (aria-disabled); a pending action keeps the look above (data-disabled, aria-busy). */
+  .ph-btn[aria-disabled="true"]:not([data-disabled]):not([aria-busy="true"]),
+  .ph-iconbtn[aria-disabled="true"]:not([data-disabled]):not(
+      [aria-busy="true"]
+    ) {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .ph-iconbtn[data-disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .ph-iconbtn[aria-busy="true"] {
+    cursor: progress;
+  }
+
+  .ph-iconbtn.ph-flat {
+    box-shadow: none;
+    background: var(--muted);
+  }
+
+  .ph-dl.ph-dl-bg > div {
+    background: var(--background);
+  }
+
+  .ph-dl.ph-dl-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* AdminFeatures' facts: a plain three-column grid, no boxes. */
+  .ph-dl.ph-dl-3s {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .ph-dl.ph-dl-3s > div {
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .ph-dl.ph-dl-3s dt {
+    font-size: inherit;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dl.ph-dl-3s dd {
+    margin: 2px 0 0;
+    font-size: inherit;
+    font-weight: 600;
+  }
+
+  .ph-tag.ph-miss {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+    color: var(--muted-foreground);
+  }
+
+  .ph-box {
+    flex: none;
+    margin-top: 1px;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border-strong);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-foreground);
+  }
+
+  .ph-opt[aria-checked="true"] {
+    border-color: var(--primary);
+    background: var(--primary-muted);
+  }
+
+  .ph-opt[aria-checked="true"] .ph-box {
+    border-color: var(--primary);
+    background: var(--primary);
+  }
+
+  .ph-pick {
+    padding: 14px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-pick.ph-on {
+    border-color: var(--primary);
+    background: var(--primary-muted);
+  }
+
+  .ph-req {
+    color: var(--destructive-text);
+  }
+
+  /* The pages control under a v3 list (AdminUsers, AdminCompanies, AdminPlatforms, AdminFeatureView). */
+  .ph-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-pager-n {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* v3/AdminUsers (its head is AdminPhoneHeader's .ph-h1.ph-h1-26 + .ph-lead, its body .ph-ad-body.ph-ad-list); bodies as drawn. */
+
+  .ph-au-search {
+    position: relative;
+  }
+
+  .ph-au-search-ic {
+    position: absolute;
+    left: 16px;
+    top: 17px;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-au-search-input {
+    padding-left: 44px;
+  }
+
+  .ph-au-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-au-count,
+  .ph-au-sort-by {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* The board's 2px top is 4px: the chips' 44px boxes overhang the row by 4px. */
+  .ph-hs.ph-au-sort {
+    margin: 0 -20px;
+    padding: 4px 20px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-au-arrow {
+    font-size: 12px;
+  }
+
+  .ph-au-list {
+    transition: opacity 0.2s;
+  }
+
+  .ph-au-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-au-row {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-au-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ph-au-ini {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .ph-au-who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-au-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-au-name {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-au-email {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-au-joined {
+    flex: none;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-au-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-au-counts {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-iconbtn.ph-au-shield {
+    color: var(--muted-foreground);
+  }
+
+  .ph-iconbtn.ph-au-shield[aria-pressed="true"] {
+    color: var(--primary);
+  }
+
+  .ph-au-sheet-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 12px;
+  }
+
+  .ph-au-sheet-body {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-au-span {
+    grid-column: 1 / -1;
+  }
+
+  .ph-au-bio {
+    margin: 0 4px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .ph-au-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 4px;
+  }
+
+  /* A long username or email ends in an ellipsis; a long detail wraps inside its box (PRD 0022). */
+  .ph-au-name,
+  .ph-h2.ph-au-sheet-h {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-au-name-row > .ph-pill {
+    flex: none;
+  }
+
+  .ph-au-dl dd,
+  .ph-au-bio {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-au-stack > .ph-tag {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* v3/AdminCompanies + v3/AdminPlatforms (one view; Companies adds the status pill and switch); bodies as drawn. */
+
+  .ph-cat-search {
+    position: relative;
+  }
+
+  .ph-cat-search-ic {
+    position: absolute;
+    left: 16px;
+    top: 17px;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-cat-search-input {
+    padding-left: 44px;
+  }
+
+  .ph-seg.ph-cat-seg {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ph-cat-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-cat-count {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cat-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-cat-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-cat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-cat-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ph-cat-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .ph-cat-name {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-cat-url-in {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-cat-nourl {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cat-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-btn.ph-cat-edit {
+    flex: 1;
+  }
+
+  .ph-h2.ph-cat-sheet-h {
+    padding: 4px 0 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cat-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ph-cat-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-cat-text {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .ph-cat-text > p {
+    margin: 0;
+  }
+
+  .ph-cat-text > .ph-cat-muted {
+    color: var(--muted-foreground);
+  }
+
+  .ph-hint.ph-cat-undone {
+    font-size: 15px;
+  }
+
+  .ph-cat-sheet-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-cat-sheet-actions > .ph-btn:first-child {
+    flex: none;
+  }
+
+  .ph-cat-sheet-actions > .ph-btn:last-child {
+    flex: 1;
+  }
+
+  /* The URL keeps the board's 28px line inside a 44px box (.ph-hit resets the link's colour and font). */
+  .ph-hit.ph-cat-url {
+    align-self: flex-start;
+    justify-content: flex-start;
+    max-width: 100%;
+    margin-block: -8px;
+    color: var(--primary);
+  }
+
+  .ph-hit.ph-cat-url:hover {
+    color: var(--accent-foreground);
+  }
+
+  .ph-cat-url-in {
+    max-width: 100%;
+  }
+
+  .ph-cat-url-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-cat-url-ic {
+    flex: none;
+  }
+
+  /* A long name ends in an ellipsis; the pills and the switch keep their size (PRD 0022). */
+  .ph-cat-name {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-cat-title > .ph-pill,
+  .ph-cat-head > .ph-pill {
+    flex: none;
+  }
+
+  .ph-hint.ph-cat-meta,
+  .ph-cat-text > p {
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cat-approve-url {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-cat-form .ph-input[aria-invalid="true"] {
+    border-color: var(--destructive-text);
+  }
+
+  /* v3: the boards' state cards (v3/AdminFeatures l.89-100, empty and failed load), drawn by Features, a feature and Report webhooks. */
+
+  .ph-card.ph-state-card {
+    text-align: center;
+    padding: 28px 20px;
+  }
+
+  .ph-state-t {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-hint.ph-state-b {
+    margin-top: 6px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-card.ph-alert-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-hint.ph-alert-b {
+    overflow-wrap: anywhere;
+  }
+
+  /* PhoneCheckOption: v3/AdminWebhook's .opt as a checkbox (l.46-49, l.121-124; .ph-box and the checked look above). */
+
+  .ph-opt.ph-opt-chk {
+    width: 100%;
+    font-size: 15px;
+  }
+
+  .ph-opt.ph-opt-chk[aria-invalid="true"] {
+    border-color: var(--destructive-text);
+  }
+
+  .ph-opt-text {
+    min-width: 0;
+  }
+
+  .ph-opt-l {
+    display: block;
+    font-weight: 600;
+  }
+
+  .ph-opt-d {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* v3/AdminFeatures (its head is AdminPhoneHeader's .ph-h1.ph-h1-26 + .ph-lead, its body .ph-ad-body; facts .ph-dl.ph-dl-3s); bodies as drawn. */
+
+  .ph-af-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-af-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-card.ph-af-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: var(--foreground);
+  }
+
+  .ph-af-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ph-af-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-af-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .ph-af-name {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-hint.ph-af-desc {
+    margin-top: 4px;
+  }
+
+  .ph-af-chev {
+    flex: none;
+    margin-top: 2px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-af-you {
+    margin: 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .ph-af-you-k {
+    color: var(--muted-foreground);
+  }
+
+  .ph-af-yes {
+    flex: none;
+    color: var(--success);
+  }
+
+  .ph-af-no {
+    flex: none;
+    color: var(--muted-foreground);
+  }
+
+  .ph-af-you-v {
+    font-weight: 500;
+  }
+
+  /* A long name ends in an ellipsis; a long description, key or reason wraps inside the card (PRD 0022). */
+  .ph-af-name {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-af-title > .ph-pill {
+    flex: none;
+  }
+
+  .ph-hint.ph-af-desc,
+  .ph-af-dl dd,
+  .ph-af-you-v {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-hint.ph-af-desc[data-empty],
+  .ph-lead.ph-fv-lead[data-empty] {
+    font-style: italic;
+  }
+
+  /* v3/AdminFeatureView (its bar is the shell's back "Features" + the System pill; its main is .ph-ad-body: px20 pb40 gap16); bodies as drawn. */
+
+  .ph-fv-header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-fv-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .ph-card.ph-fv-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-fv-card-h {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-fv-reason {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .ph-fv-switch-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-fv-switch-l {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  /* The board's locked switch (.switch[disabled], l.51), kept focusable; a saving one keeps the 0021 pending look. */
+  .ph-switch.ph-fv-switch[aria-disabled="true"]:not([aria-busy="true"]) {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .ph-fv-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-fv-count {
+    flex: none;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-fv-tools {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .ph-field.ph-fv-search {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-input.ph-fv-search-input {
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  /* Add user is drawn 44px tall beside the 44px search: its box is the shape. */
+  .ph-btn.ph-sm.ph-fv-add {
+    --ph-hit-inset: 0px;
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .ph-fv-members {
+    list-style: none;
+    margin: 0 -16px -16px;
+    padding: 0;
+    transition: opacity 0.2s;
+  }
+
+  .ph-fv-members[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-fv-members[data-paged] {
+    margin-bottom: 0;
+  }
+
+  .ph-fv-member {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-fv-who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-fv-user {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-fv-email {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-fv-added {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-btn.ph-fv-remove {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  /* The pages row closes the card under the last member, a row of its own. */
+  .ph-pager.ph-fv-pager {
+    margin: -12px -16px -8px;
+    padding: 8px 16px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-fv-state {
+    margin: 0 -16px -16px;
+    padding: 20px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .ph-fv-state.ph-fv-loading {
+    padding: 12px 16px 16px;
+    align-items: stretch;
+  }
+
+  .ph-fv-state-t {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-h2.ph-fv-sheet-h {
+    flex: none;
+    padding: 4px 0 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-fv-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .ph-fv-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-fv-lines > p {
+    margin: 0;
+  }
+
+  .ph-fv-lines > .ph-fv-muted {
+    color: var(--muted-foreground);
+  }
+
+  .ph-fv-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-fv-actions > .ph-btn:first-child {
+    flex: none;
+  }
+
+  .ph-fv-actions > .ph-btn:last-child {
+    flex: 1;
+  }
+
+  .ph-fv-add-body {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-hint.ph-fv-add-hint {
+    font-size: 14px;
+  }
+
+  .ph-fv-found {
+    flex: 0 1 auto;
+    min-height: 120px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    transition: opacity 0.2s;
+  }
+
+  .ph-fv-found[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-fv-found-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ph-fv-cand {
+    min-height: 60px;
+    padding: 8px 14px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ph-fv-cand + .ph-fv-cand {
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-fv-cand-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-fv-cand-top > .ph-pill,
+  .ph-btn.ph-fv-cand-add {
+    flex: none;
+  }
+
+  /* "On the list" is the board's pill inside a 44px box: the same button as Add, so focus stays on it. */
+  .ph-hit.ph-fv-listed {
+    flex: none;
+    cursor: default;
+  }
+
+  .ph-fv-found-note {
+    margin: 0;
+    padding: 20px 14px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+
+  .ph-fv-found-note.ph-fv-found-alert {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--foreground);
+  }
+
+  .ph-fv-found-alert > p {
+    margin: 0;
+  }
+
+  .ph-fv-found-pad {
+    padding: 8px 14px;
+  }
+
+  .ph-hint.ph-fv-found-more {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* The live region stays mounted; empty, it takes no gap. */
+  .ph-fv-status:empty {
+    margin-top: -12px;
+  }
+
+  .ph-fv-status-p {
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .ph-fv-ok {
+    flex: none;
+    margin-top: 2px;
+    color: var(--success);
+  }
+
+  /* A long feature name or username ends in an ellipsis; an email too; the rest wraps (PRD 0022). */
+  .ph-h1.ph-fv-name,
+  .ph-fv-user {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-fv-title > .ph-pill {
+    flex: none;
+  }
+
+  .ph-h1.ph-fv-h1,
+  .ph-lead.ph-fv-lead,
+  .ph-fv-key,
+  .ph-fv-reason,
+  .ph-fv-added,
+  .ph-fv-state > p,
+  .ph-fv-lines > p,
+  .ph-fv-found-note,
+  .ph-fv-status-p {
+    overflow-wrap: anywhere;
+  }
+
+  /* v3/AdminWebhook (its head is AdminPhoneHeader's .ph-h1.ph-h1-26 + .ph-lead, its body .ph-ad-body); bodies as drawn. */
+
+  .ph-wh-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-card.ph-wh-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-wh-card[data-deleting] {
+    opacity: 0.6;
+  }
+
+  .ph-wh-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-wh-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-wh-label[data-unlabelled] {
+    font-weight: 500;
+    font-style: italic;
+    color: var(--muted-foreground);
+  }
+
+  .ph-iconbtn.ph-wh-del {
+    color: var(--destructive-text);
+  }
+
+  .ph-wh-dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 8px 10px;
+    align-items: center;
+    font-size: 13px;
+  }
+
+  .ph-wh-dl dt {
+    color: var(--muted-foreground);
+  }
+
+  .ph-wh-dl dd {
+    margin: 0;
+  }
+
+  .ph-wh-badges-dd {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .ph-wh-none {
+    color: var(--muted-foreground);
+  }
+
+  .ph-wh-url {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-h2.ph-wh-sheet-h {
+    flex: none;
+    padding-top: 4px;
+  }
+
+  .ph-hint.ph-wh-sheet-d {
+    flex: none;
+    padding: 6px 0 14px;
+    font-size: 14px;
+  }
+
+  /* The board's scroll column, 4px wider each side so a focused field's ring is not clipped. */
+  .ph-wh-form {
+    min-height: 0;
+    margin: 0 -4px;
+    padding: 0 4px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-wh-current-url {
+    font-size: 12px;
+  }
+
+  .ph-wh-badges {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ph-lbl.ph-wh-legend {
+    padding: 0;
+    margin-bottom: 6px;
+  }
+
+  .ph-hint.ph-wh-error {
+    color: var(--destructive-text);
+  }
+
+  .ph-wh-form .ph-input[aria-invalid="true"] {
+    border-color: var(--destructive-text);
+  }
+
+  /* A refused delete, above the delete sheet's buttons: the description's 14px below it. */
+  .ph-notice.ph-wh-refusal {
+    flex: none;
+    margin-bottom: 14px;
+  }
+
+  .ph-wh-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-wh-actions > .ph-btn:first-child {
+    flex: none;
+  }
+
+  .ph-wh-actions > .ph-btn:last-child {
+    flex: 1;
+  }
+
+  /* A long label or masked address ends in an ellipsis; a sheet's words wrap (PRD 0022). */
+  .ph-wh-label,
+  .ph-wh-url {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-wh-badges-dd > .ph-pill {
+    flex: none;
+  }
+
+  .ph-hint.ph-wh-sheet-d,
+  .ph-wh-none,
+  .ph-wh-current-url,
+  .ph-hint.ph-wh-error {
+    overflow-wrap: anywhere;
+  }
+
+  /* v3/Cli (its header is PhoneLandingHeader's .ph-landing-header; its hero, eyebrow, lead and footer are v2/Landing's .ph-landing-hero, -eyebrow, -lead, -footer); bodies as drawn. */
+
+  .ph-clp-tile {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-landing-eyebrow.ph-clp-eyebrow {
+    margin-top: 20px;
+  }
+
+  .ph-clp-h1 {
+    margin: 8px 0 0;
+    font-size: 38px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  /* A filled link: later than .ph-app's link colours, so its own colour holds on hover too. */
+  .ph-clp-pypi {
+    margin-top: 24px;
+    height: 52px;
+    border-radius: 16px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-clp-sec {
+    padding: 48px 20px 0;
+  }
+
+  .ph-clp-h {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-clp-body {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-clp-body strong,
+  .ph-clp-li strong {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .ph-clp-code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--muted);
+    color: var(--foreground);
+    font-size: 13px;
+  }
+
+  .ph-clp-term {
+    margin-top: 16px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 6px 6px 6px 0;
+  }
+
+  .ph-clp-term > pre {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 0 10px 16px;
+    font-size: 13px;
+    line-height: 1.75;
+    white-space: pre;
+  }
+
+  .ph-clp-p {
+    color: var(--muted-foreground);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .ph-clp-copy {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-clp-copy[data-done="true"] {
+    color: var(--primary);
+  }
+
+  .ph-clp-list {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-clp-li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-clp-b {
+    flex: none;
+    margin-top: 9px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-clp-more {
+    margin: 48px 20px 0;
+    padding: 24px;
+    border-radius: 24px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-clp-more-h {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .ph-clp-more-p {
+    margin: 6px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-clp-more-a {
+    margin-top: 8px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-clp-back {
+    margin: 32px 20px 0;
+    font-size: 15px;
+    color: var(--muted-foreground);
+  }
+
+  /* The board's inline link, in a 44px box. */
+  .ph-clp-back-a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    font-weight: 600;
+  }
+
+  /* v3/CVNew (its main is v2/CVEditor's .ph-ce, its rows PhoneCvSections' .ph-acc in .ph-group.ph-ce-list, its bar .ph-bar with .ph-dr-lead-btn / .ph-dr-go-btn); bodies as drawn. */
+
+  .ph-cn-limit {
+    padding: 24px 20px;
+    border-radius: 20px;
+    border: 2px dashed var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .ph-cn-limit-t {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* The board's own fields (Identity and contact, Summary) as its .lbl, .req and .hint: CvField's utilities outrank this layer. A list section's items keep today's look. v3/ApplicationCV's copy editor (.ph-acv) is the same body. */
+  .ph-cn [data-section="identity"] > .ph-ce-panel > div,
+  .ph-acv [data-section="identity"] > .ph-ce-panel > div {
+    gap: 12px !important;
+  }
+
+  .ph-cn [data-section="identity"] > .ph-ce-panel label > span:first-child,
+  .ph-cn [data-section="summary"] > .ph-ce-panel label > span:first-child,
+  .ph-acv [data-section="identity"] > .ph-ce-panel label > span:first-child,
+  .ph-acv [data-section="summary"] > .ph-ce-panel label > span:first-child {
+    font-size: 13px !important;
+    line-height: normal !important;
+    font-weight: 600 !important;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cn
+    [data-section="identity"]
+    > .ph-ce-panel
+    label
+    > span:first-child
+    > [aria-hidden="true"],
+  .ph-cn
+    [data-section="summary"]
+    > .ph-ce-panel
+    label
+    > span:first-child
+    > [aria-hidden="true"],
+  .ph-acv
+    [data-section="identity"]
+    > .ph-ce-panel
+    label
+    > span:first-child
+    > [aria-hidden="true"],
+  .ph-acv
+    [data-section="summary"]
+    > .ph-ce-panel
+    label
+    > span:first-child
+    > [aria-hidden="true"] {
+    color: var(--destructive-text) !important;
+  }
+
+  .ph-cn [data-section="identity"] > .ph-ce-panel label ~ p,
+  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p,
+  .ph-acv [data-section="identity"] > .ph-ce-panel label ~ p,
+  .ph-acv [data-section="summary"] > .ph-ce-panel label ~ p {
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+  }
+
+  .ph-cn [data-section="identity"] > .ph-ce-panel label ~ p[id],
+  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p[id],
+  .ph-acv [data-section="identity"] > .ph-ce-panel label ~ p[id],
+  .ph-acv [data-section="summary"] > .ph-ce-panel label ~ p[id] {
+    color: var(--destructive-text) !important;
+  }
+
+  /* A list section's empty hint as the board's .hint, not today's dashed box: its utilities outrank this layer. On the copy editor's meta rows it follows the section's description. */
+  .ph-cn .ph-ce-panel > p:first-child,
+  .ph-acv .ph-ce-panel > .ph-hint + p {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    text-align: start !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* A list section's own error line (Skills), not drawn: the phone's error text. */
+  .ph-cn .ph-ce-panel > p[id],
+  .ph-acv .ph-ce-panel > p[id] {
+    margin-top: 0 !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    color: var(--destructive-text) !important;
+  }
+
+  /* A section's add button as the board's .btn.sec.sm in a 44px box (the .ph-btn.ph-sm model): its utilities outrank this layer. */
+  .ph-cn
+    .ph-ce-panel
+    > div:has(> [data-slot="button"][data-variant="outline"][data-size="sm"]),
+  .ph-acv
+    .ph-ce-panel
+    > div:has(> [data-slot="button"][data-variant="outline"][data-size="sm"]) {
+    margin-top: 0 !important;
+    display: flex;
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"],
+  .ph-acv
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"] {
+    position: relative;
+    isolation: isolate;
+    height: 44px !important;
+    margin-block: -2px;
+    padding: 0 14px !important;
+    gap: 8px !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--foreground) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]::before,
+  .ph-acv
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]::before {
+    content: "";
+    position: absolute;
+    inset: 2px 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--muted);
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]:focus-visible::before,
+  .ph-acv
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]:focus-visible::before {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]
+    > svg,
+  .ph-acv
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]
+    > svg {
+    stroke-width: 2.5;
+  }
+
+  .ph-card.ph-cn-pv {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ph-cn-pv-h {
+    align-self: flex-start;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* Today's CvDocumentPreview in the board's 210px column (the scale follows the frame's clientWidth): its utilities outrank this layer. */
+  .ph-cn-figure {
+    position: relative;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-cn-figure > [role="group"] {
+    width: 210px;
+    max-width: 100%;
+    margin-block: 0 !important;
+  }
+
+  .ph-cn-figure [data-slot="cv-page"] > div:first-child {
+    border-radius: 6px;
+    box-shadow: var(--shadow-elevated) !important;
+  }
+
+  .ph-cn-figure [data-slot="cv-page"] > div:last-child {
+    margin-top: 12px !important;
+    flex-wrap: wrap;
+    justify-content: center !important;
+    text-align: center;
+  }
+
+  .ph-cn-figure [data-slot="cv-page"] > div:last-child > p:last-child {
+    margin-left: 0 !important;
+    font-size: 12px !important;
+    line-height: normal !important;
+  }
+
+  .ph-cn-figure > figcaption {
+    justify-content: center;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    text-align: center;
+  }
+
+  .ph-cn-figure > figcaption > svg {
+    display: none;
+  }
+
+  /* v3/ApplicationCV (its main is v2/CVEditor's .ph-ce, its head .ph-h1.ph-h1-26 + .ph-lead, its h2 .ph-h2, its choices .ph-pick with .ph-radio, its tags and counts v2/CVs' .ph-cv-tags / .ph-tag.ph-cv-tag / .ph-cv-counts, its new tile v2/CVs' .ph-cv-new, its rows PhoneCvSections' .ph-acc in .ph-group.ph-ce-list, its bars .ph-bar with .ph-dr-go-btn); bodies as drawn. */
+
+  .ph-acv-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-acv-pick,
+  .ph-acv-pick-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-acv-pick-body {
+    outline: none;
+  }
+
+  .ph-hint.ph-acv-hint {
+    margin-top: 4px;
+  }
+
+  .ph-acv-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-pick.ph-acv-choice {
+    transition: opacity 0.2s;
+  }
+
+  .ph-pick.ph-acv-choice[data-deleting] {
+    opacity: 0.6;
+  }
+
+  /* The board's .opt as the radio's label: the native radio is visually hidden, the row is its target. */
+  .ph-acv-opt {
+    position: relative;
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    color: var(--foreground);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ph-app .ph-acv-opt:has(> input:focus-visible) {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .ph-pick.ph-on .ph-radio {
+    border-color: var(--primary);
+  }
+
+  .ph-pick.ph-on .ph-radio::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-acv-opt-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-acv-name {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-acv-upd {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-acv-who {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  /* The four actions fit one row at 390px; a narrower phone wraps Delete under them. */
+  .ph-acv-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* A button's words stay on one line; a row too narrow for them wraps the button instead. */
+  .ph-btn.ph-sm.ph-acv-act {
+    flex: 1;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  .ph-btn.ph-sm.ph-acv-del {
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .ph-app .ph-cv-new.ph-acv-new {
+    min-height: 96px;
+    gap: 4px;
+  }
+
+  .ph-card.ph-acv-tailor {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .ph-acv-tailor-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-acv-tailor-t {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* A closed or archived application with no copy (not drawn): nothing to choose, today's words. */
+  .ph-acv-locked {
+    margin: 0;
+    padding: 24px 20px;
+    border-radius: 20px;
+    border: 2px dashed var(--border-strong);
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  .ph-acv-banner {
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in oklab, var(--warning) 45%, transparent);
+    background: color-mix(in oklab, var(--warning) 12%, transparent);
+    display: flex;
+    gap: 10px;
+  }
+
+  .ph-acv-banner-ic {
+    flex: none;
+    margin-top: 1px;
+    color: var(--warning);
+  }
+
+  .ph-acv-banner-text {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .ph-acv-banner-t {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .ph-acv-banner-b {
+    margin: 2px 0 0;
+    color: var(--muted-foreground);
+  }
+
+  .ph-acv-src {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .ph-card.ph-acv-jd {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ph-acv-h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-acv-jd-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-acv-jd-text.ph-acv-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* "Show more" / "Show less" (not drawn, the owner's assumption): a text button in a 44px box, its words 10px under the text. */
+  .ph-acv-more {
+    align-self: flex-start;
+    min-height: 44px;
+    margin: -10px 0 -12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-btn.ph-sm.ph-acv-add {
+    align-self: flex-start;
+  }
+
+  .ph-card.ph-acv-fit {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    outline: none;
+  }
+
+  .ph-acv-fit-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-pill.ph-acv-fit-pill {
+    flex: none;
+  }
+
+  .ph-acv-kw-h {
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .ph-acv-fit-err {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ph-acv-fit-err-t {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .ph-card.ph-acv-chg {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-acv-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-acv-chg-l {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-acv-cmp {
+    margin: 0;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  /* "Reordered by job match: Skills, Experience": one inline list, a comma between its items. */
+  .ph-acv-moves {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ph-acv-moves > li {
+    display: inline;
+  }
+
+  .ph-acv-moves > li + li::before {
+    content: ", ";
+  }
+
+  .ph-acv-dl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-acv-dl-l {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .ph-acv-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ph-btn.ph-sm.ph-acv-grow {
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  .ph-btn.ph-sm.ph-acv-full {
+    flex: 1 0 100%;
+  }
+}

@@ -1,4 +1,4 @@
-"""The fit recompute (KODI-046, T046/T047, R-016) on in-memory fakes."""
+"""The fit recompute (T046/T047, R-016) on in-memory fakes."""
 
 from datetime import timedelta
 from typing import Any, cast

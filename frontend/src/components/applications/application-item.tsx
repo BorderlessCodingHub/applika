@@ -59,7 +59,7 @@ interface ApplicationItemProps {
   onDeleteClick?: (app: Application) => void;
   onReopenClick?: (app: Application) => void;
   reopenPending?: boolean;
-  /** Initial `isExpanded` (R-011, KODI-038 `?focus=`). Absent = today's behaviour (closed). */
+  /** Initial `isExpanded` (R-011, `?focus=`). Absent = today's behaviour (closed). */
   defaultExpanded?: boolean;
   /** The caller's `cvs` feature: without it the row has no CV link. */
   showCvLink?: boolean;
@@ -75,7 +75,7 @@ function optionLabel(
 }
 
 /**
- * Application row + inline expansion (PRD 0008, ADR 0012; KODI-015 reference
+ * Application row + inline expansion (PRD 0008, ADR 0012; its reference
  * image). Owns the status pill and the Reopen affordance, both derived from
  * `app.finalized_at` (the single source of truth for "closed" — see
  * `TimelineSection`). A closed application hides Edit/Close and offers Reopen
@@ -115,7 +115,7 @@ export function ApplicationItem({
     supports.platforms.find((p) => p.id === id)?.name ?? String(id);
 
   /**
-   * Divider visibility per tile, keyed by which tile it is (KODI-015
+   * Divider visibility per tile, keyed by which tile it is (PRD 0008
    * remediation): the five image tiles are always 1-column; Salary Range and
    * Expected Salary span 2; Notes spans the full row. A "full" span is
    * passed as `columns` itself so the packing simulation always starts and

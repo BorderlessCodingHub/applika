@@ -25,6 +25,13 @@ export const BADGE_GATE_COPY = liveCopy("badges.gate", [
 /** `membershipAccess(user).state`, or `loading` while the user loads. */
 export type BadgeGateState = "loading" | "none" | "needs_reconnect" | "held";
 
+/** What a closed gate knows: why, and the two ways out. */
+export interface BadgeGateClosed {
+  state: "none" | "needs_reconnect";
+  borderlessHref?: string;
+  onSignInAgain: () => void;
+}
+
 export interface BadgeGateViewProps {
   state: BadgeGateState;
   /** `needs_reconnect`'s "Sign in again": end this session, then `/login`. */
@@ -36,6 +43,11 @@ export interface BadgeGateViewProps {
   children: ReactNode;
   /** Borderless home (`config.ts`); the no-badge state links to it when given. */
   borderlessHref?: string;
+  /**
+   * Draws the closed states instead of today's explanations (the phone's
+   * board). Absent, the gate renders exactly as it always has.
+   */
+  closed?: (gate: BadgeGateClosed) => ReactNode;
 }
 
 export function BadgeGateView({
@@ -43,6 +55,7 @@ export function BadgeGateView({
   onSignInAgain,
   children,
   borderlessHref,
+  closed,
 }: BadgeGateViewProps) {
   // Subscribes: the copy getters read the active language at call time.
   useLocale();
@@ -56,6 +69,8 @@ export function BadgeGateView({
           <Loader2 aria-hidden className="size-6 animate-spin text-primary" />
           <span className="sr-only">{BADGE_GATE_COPY.loading}</span>
         </div>
+      ) : closed ? (
+        closed({ state, borderlessHref, onSignInAgain })
       ) : state === "needs_reconnect" ? (
         <ReconnectExplanation onSignInAgain={onSignInAgain} />
       ) : (
@@ -180,7 +195,14 @@ function NoBadgeExplanation({ borderlessHref }: { borderlessHref?: string }) {
  * in again"; otherwise why Reports are closed. Sits above the report hooks,
  * which also stay off unless the badge is held.
  */
-export function BadgeGate({ children }: { children: ReactNode }) {
+export function BadgeGate({
+  children,
+  closed,
+}: {
+  children: ReactNode;
+  /** See `BadgeGateViewProps.closed`: the phone's closed layout. */
+  closed?: (gate: BadgeGateClosed) => ReactNode;
+}) {
   const { user, isLoading, logout } = useAuth();
   const state: BadgeGateState =
     isLoading || !user ? "loading" : membershipAccess(user).state;
@@ -192,6 +214,7 @@ export function BadgeGate({ children }: { children: ReactNode }) {
       onSignInAgain={() => {
         void logout("/login");
       }}
+      closed={closed}
     >
       {children}
     </BadgeGateView>

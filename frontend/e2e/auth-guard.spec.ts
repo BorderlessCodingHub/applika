@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { loginAs } from "./support/auth";
 
 /**
- * Protected route guard (KODI-001 / R-005).
+ * Protected route guard (R-005).
  *
  * Applika is a static export, so there is no server middleware: identity is
  * resolved on the CLIENT by `(protected)/layout.tsx`, which calls the real
@@ -25,11 +25,14 @@ const PROTECTED_PATHS = [
   "/reports",
   "/profile",
   "/admin",
-  // KODI-058: the device approval page; a signed-out visit also stores the
+  // The device approval page (PRD 0014); a signed-out visit also stores the
   // return-to (`e2e/devices.spec.ts` follows it after sign-in).
   "/device",
   // ADR-0024: the one-time welcome choice of a new Borderless account.
   "/welcome",
+  // ADR-0027: the phone's Insights tab and Account hub.
+  "/insights",
+  "/account",
 ];
 
 test.describe("anonymous visitors are sent to /login", () => {
@@ -46,7 +49,7 @@ test.describe("anonymous visitors are sent to /login", () => {
       ).toBeVisible();
       await expect(
         page.getByRole("button", {
-          name: "Sign in with Borderless",
+          name: "Continue with Borderless",
           exact: true,
         }),
       ).toBeVisible();

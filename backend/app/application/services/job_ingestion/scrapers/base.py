@@ -1,4 +1,4 @@
-"""What every scraper returns and raises (KODI-046, R-005/R-006).
+"""What every scraper returns and raises (R-005/R-006).
 
 A port of Ían Muliterno's ``scrapers/base.py`` (``job_scrapping``, commit
 ``e670914``): his ``ScrapedJob`` becomes :class:`ScrapedPosting` with the

@@ -80,8 +80,8 @@ export function Header({
       <div className="ml-auto flex items-center gap-1.5 md:gap-2">
         {actions}
         <AgendaDropdown />
-        <LanguageToggle variant="default" />
         <ThemeToggle />
+        <LanguageToggle variant="default" />
         <div className="md:hidden">
           <UserMenu
             user={user}

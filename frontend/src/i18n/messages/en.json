@@ -29,14 +29,26 @@
     "logout": "Logout",
     "signIn": {
       "title": "Sign in to applika",
-      "lead": "Use your Borderless account. Borderless confirms it's you and sends you back here.",
-      "signInWithBorderless": "Sign in with Borderless",
       "pending": "Opening Borderless…",
       "cliCommand": "applika login",
       "cliRetry": "Return to your terminal and run <code>{command}</code> again.",
-      "noAccount": "No Borderless account yet?",
-      "createAccount": "Create a Borderless account",
-      "opensInNewTab": "Opens in a new tab."
+      "opensInNewTab": "Opens in a new tab.",
+      "optionC": {
+        "backToHome": "Back to home",
+        "logo": "Applika",
+        "badge": "with Borderless",
+        "eyebrow": "applika × Borderless",
+        "headline": "One account for your whole job search",
+        "lead": "Sign in with Borderless. It confirms it's you and sends you back here.",
+        "continue": "Continue with Borderless",
+        "noAccount": "I don't have a Borderless account"
+      },
+      "optionA": {
+        "logo": "Applika",
+        "borderless": "Borderless",
+        "lead": "Use your Borderless account. Borderless confirms it's you and sends you back here.",
+        "noAccount": "No account yet? <link>Create a Borderless account</link>"
+      }
     }
   },
   "cookies": {
@@ -2092,14 +2104,14 @@
         "platforms": "Top Platforms",
         "companies": "Top Companies",
         "noCompanies": "No company data yet",
-        "users": "{count, plural, other {{total} users}}"
+        "users": "{count, plural, one {{total} user} other {{total} users}}"
       },
       "heatmap": {
         "title": "Activity Heatmap",
         "unit": "applications / hour",
         "less": "Less",
         "more": "More",
-        "cell": "{day} {hour}:00 — {count, plural, other {{total} applications}}",
+        "cell": "{day} {hour}:00 — {count, plural, one {{total} application} other {{total} applications}}",
         "days": {
           "mon": "Mon",
           "tue": "Tue",
@@ -2119,7 +2131,7 @@
     "users": {
       "title": "User Management",
       "subtitle": "View, search, and manage all platform users",
-      "count": "{count, plural, other {{total} users}}",
+      "count": "{count, plural, one {{total} user} other {{total} users}}",
       "searchPlaceholder": "Search users...",
       "adminBadge": "admin",
       "viewDetails": "View user details",
@@ -2254,6 +2266,375 @@
       "webhookAdded": "Webhook added",
       "webhookUpdated": "Webhook updated",
       "webhookDeleted": "Webhook deleted"
+    }
+  },
+  "phone": {
+    "shell": {
+      "today": "Today",
+      "pipeline": "Pipeline",
+      "insights": "Insights",
+      "add": "Add",
+      "account": "Account",
+      "back": "Back",
+      "home": "Home",
+      "application": "Application"
+    },
+    "account": {
+      "workspace": "Workspace",
+      "viewProfile": "View profile",
+      "devices": "Devices & CLI",
+      "signedIn": "{count} signed in",
+      "codeFormat": "XXXX-XXXX",
+      "reportDay": "Day {day}",
+      "language": "Language",
+      "english": "English",
+      "portuguese": "Português (BR)",
+      "theme": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "sendFeedback": "Send feedback",
+      "cookiePolicy": "Cookie policy",
+      "openSource": "Applika.dev · open source"
+    },
+    "landing": {
+      "eyebrow": "Free & open-source job tracker",
+      "heroTitle": "Manage your job search with <highlight>clarity</highlight>.",
+      "heroBody": "Every application, interview and outcome in one calm place — with the numbers to show what's working.",
+      "previewLabel": "Product preview",
+      "preview": {
+        "initials": "NL",
+        "company": "Northwind Labs",
+        "role": "Senior Backend Engineer",
+        "applied": "Applied",
+        "event": "Technical interview",
+        "eventTime": "Sat 14:00",
+        "successRate": "Success rate"
+      },
+      "features": {
+        "track": {
+          "title": "Track every application",
+          "body": "Company, role, platform and salary — and the stage each process is in."
+        },
+        "interviews": {
+          "title": "Never miss an interview",
+          "body": "Every step lands on your agenda, with alerts before it starts."
+        },
+        "learn": {
+          "title": "Learn what works",
+          "body": "Conversion per stage, days per step and active vs passive sourcing."
+        }
+      },
+      "stepsTitle": "Up and running in minutes",
+      "steps": {
+        "signIn": {
+          "title": "Sign in with Borderless.",
+          "body": "No new password: your Borderless account is your Applika account."
+        },
+        "add": {
+          "title": "Add your applications.",
+          "body": "Three fields is enough to start."
+        },
+        "analyze": {
+          "title": "Analyze & optimize.",
+          "body": "Your insights fill in as you go."
+        }
+      },
+      "openSourceTitle": "Open source, built in the open",
+      "openSourceBody": "Every line of code is public. Feature requests, bug reports and pull requests are all welcome.",
+      "viewOnGithub": "View on GitHub",
+      "copyright": "© {name}"
+    },
+    "welcome": {
+      "howToStart": "How to start"
+    },
+    "load": {
+      "retry": "Retry"
+    },
+    "today": {
+      "greeting": {
+        "morning": "Good morning, {name}",
+        "afternoon": "Good afternoon, {name}",
+        "evening": "Good evening, {name}"
+      },
+      "nextInterview": "Next interview · {when}",
+      "startsIn": {
+        "hoursMinutes": "in {hours}h {minutes}m",
+        "hours": "in {hours}h",
+        "minutes": "in {minutes}m"
+      },
+      "addToCalendar": "Add to calendar",
+      "open": "Open",
+      "stats": {
+        "active": "Active",
+        "offers": "Offers",
+        "success": "Success",
+        "seeInsights": "See insights",
+        "loading": "Loading your numbers"
+      },
+      "attention": {
+        "title": "Needs your attention",
+        "quiet": "No update for {days, plural, one {# day} other {# days}}",
+        "logUpdate": "Log update",
+        "closeIt": "Close it",
+        "caughtUp": "All caught up. Every active application has a recent update."
+      },
+      "upcoming": {
+        "title": "Coming up",
+        "none": "No interviews coming up.",
+        "noMore": "Nothing else coming up."
+      }
+    },
+    "pipeline": {
+      "search": "Search applications",
+      "summary": "{cycle} · {count, plural, one {# application} other {# applications}}",
+      "filterLabel": "Filter by stage",
+      "all": "All",
+      "stage": {
+        "technical": "Technical",
+        "screening": "Screening",
+        "applied": "Applied",
+        "offer": "Offer",
+        "closed": "Closed"
+      },
+      "ago": {
+        "day": "{count}d",
+        "week": "{count}w",
+        "month": "{count}mo"
+      },
+      "agoLong": {
+        "day": "{count, plural, one {# day ago} other {# days ago}}",
+        "week": "{count, plural, one {# week ago} other {# weeks ago}}",
+        "month": "{count, plural, one {# month ago} other {# months ago}}"
+      },
+      "stale": "Stale",
+      "showMore": "Show {count} more"
+    },
+    "quickAdd": {
+      "title": "Add application",
+      "lead": "Just the essentials — you can add the rest later.",
+      "company": "Company",
+      "companyPlaceholder": "e.g. Northwind Labs",
+      "role": "Role",
+      "rolePlaceholder": "e.g. Senior Backend Engineer",
+      "where": "Where did you apply?",
+      "other": "Other",
+      "appliedOn": "Applied on",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "pickDate": "Pick a date",
+      "moreDetails": "More details",
+      "moreDetailsHint": "Link, work mode, salary",
+      "link": "Job posting link",
+      "linkPlaceholder": "https://",
+      "workMode": "Work mode",
+      "salaryFrom": "Salary from",
+      "salaryTo": "to",
+      "salaryToName": "Salary to",
+      "salaryFromPlaceholder": "60,000",
+      "salaryToPlaceholder": "75,000",
+      "startWithCv": "Start with a CV instead",
+      "submit": "Add to pipeline",
+      "salaryInvalid": "Enter the salary as a number, e.g. 60,000",
+      "salaryNeedsProfile": "Set your salary currency and period in your profile first, or leave the salary empty"
+    },
+    "application": {
+      "more": "More actions",
+      "loading": "Loading application",
+      "applied": "Applied {date} via {platform}",
+      "appliedOn": "Applied {date}",
+      "closed": "{outcome, select, denied {Closed · Denied} offer {Closed · Offer} other {Closed}}",
+      "progress": "Stage progress",
+      "nextStep": "Next step · {days, plural, =0 {today} =1 {tomorrow} other {in # days}}",
+      "nextWhen": "{date} · {time}",
+      "details": "Details",
+      "detail": {
+        "source": "Source",
+        "workMode": "Work mode",
+        "country": "Country",
+        "experience": "Experience",
+        "salaryRange": "Salary range",
+        "expected": "Expected"
+      },
+      "history": "History",
+      "historyWhen": "{date} · {status, select, scheduled {scheduled} passed {passed} other {done}}"
+    },
+    "agenda": {
+      "previousWeek": "Previous week",
+      "nextWeek": "Next week",
+      "weekOf": "Week of {date}",
+      "day": "{weekday} {month} {day}{today, select, yes {, today} other {}}{events, select, yes {, has events} other {}}",
+      "dayTitleToday": "Today · {date}",
+      "done": "Done",
+      "duration": {
+        "minutes": "{minutes} min",
+        "hours": "{hours} h",
+        "hoursMinutes": "{hours} h {minutes} min"
+      },
+      "companyDuration": "{company} · {duration}",
+      "timeRange": "{start} to {end}",
+      "alerts": "Sound alerts for {role} at {company}, 30, 15 and 5 minutes before",
+      "emptyDay": "Nothing scheduled this day.",
+      "later": "Later"
+    },
+    "insights": {
+      "chooseCycle": "Choose a cycle",
+      "successRate": "Success rate",
+      "applications": "Applications",
+      "funnel": "Funnel",
+      "funnelSub": "How far your applications get",
+      "perWeek": "Applications per week",
+      "weeks": "{count, plural, one {# week} other {# weeks}}",
+      "weeklyChart": "{trend, select, rising {Weekly applications rising from {first} to {last}} falling {Weekly applications falling from {first} to {last}} other {Weekly applications steady at {last}}}: {values}",
+      "stepDays": "Average days per step",
+      "step": {
+        "appliedToScreening": "Applied → Screening",
+        "screeningToTechnical": "Screening → Technical",
+        "technicalToOffer": "Technical → Offer"
+      },
+      "days": "{days, plural, one {# day} other {# days}}",
+      "noData": "No data",
+      "mode": "Active vs passive",
+      "modeSub": "You applied vs. a recruiter reached out"
+    },
+    "stageTitle": {
+      "interview": {
+        "unknown": "Interview",
+        "initial_screening": "Initial screening",
+        "technical": "Technical interview",
+        "cultural": "Cultural interview",
+        "hiring_manager": "Hiring manager interview",
+        "take_home": "Take-home",
+        "final": "Final interview"
+      },
+      "offer": "Offer",
+      "denied": "Denied"
+    },
+    "profile": {
+      "sections": "Profile sections",
+      "roleAt": "{role} at {company}",
+      "badgeEarned": "Earned: {description}",
+      "badgeNotEarned": "Not earned yet: {description}",
+      "loadingBadges": "Loading badges",
+      "loading": "Loading your profile",
+      "deleteHint": "Once you delete your account, all of your data — applications, steps, reports, and profile — will be permanently removed."
+    },
+    "devices": {
+      "revokeLabel": "Revoke access for {name}"
+    },
+    "cycles": {
+      "active": "Active",
+      "applications": "{count, plural, =1 {# application} other {# applications}}",
+      "offers": "{count, plural, =1 {# offer} other {# offers}}",
+      "since": "since {date}",
+      "archived": "Archived",
+      "deleteLabel": "Delete {name}",
+      "emptyBody": "When you start a new cycle, your current applications and reports are archived here.",
+      "newHint": "All current applications and reports will be permanently archived under a named cycle. This action cannot be undone.",
+      "nameLabel": "Cycle name",
+      "loading": "Loading cycles"
+    },
+    "reports": {
+      "progress": "Challenge progress",
+      "tip": "<strong>Tip</strong> · Reports are due every <strong>14 days</strong> during the 120-day challenge.",
+      "phaseDue": "Phase {phase} · due {date}",
+      "dayPhase": "Day {day} · Phase {phase}",
+      "loading": "Loading reports"
+    },
+    "reportDay": {
+      "loading": "Loading report"
+    },
+    "admin": {
+      "lastMonths": "Last {count, plural, =1 {month} other {# months}}",
+      "growthChart": "New users per month, from {first} in {firstMonth} to {last} in {lastMonth}",
+      "noData": "No data yet",
+      "loading": "Loading the dashboard",
+      "edit": "Edit"
+    },
+    "adminUsers": {
+      "searchLabel": "Search users",
+      "sortBy": "Sort by",
+      "sortGroup": "Sort users by",
+      "sortChip": "Sort by {label}{dir, select, asc {, ascending} desc {, descending} other {}}",
+      "arrow": "{dir, select, asc {↑} other {↓}}",
+      "counts": "Apps {apps} · Offers {offers} · Denials {denials}",
+      "loading": "Loading users",
+      "noMatch": "No users match your search.",
+      "empty": "No users yet.",
+      "detailLoading": "Loading user details"
+    },
+    "catalog": {
+      "meta": "Added by <who>{addedBy}</who> · <mono>{apps}</mono> {count, plural, one {app} other {apps}} · Created {date}",
+      "company": {
+        "loading": "Loading companies"
+      },
+      "platform": {
+        "loading": "Loading platforms"
+      }
+    },
+    "jobs": {
+      "toolbar": "Sort and filters",
+      "showMore": "Show more",
+      "dismissedNote": "{count} dismissed · Show dismissed in More filters",
+      "done": "Done"
+    },
+    "jobDetail": {
+      "loadingFit": "Loading your fit",
+      "cvTab": "{name} · {score}%",
+      "cvTabNoFit": "{name} · No fit yet",
+      "band": {
+        "strong": "Strong fit",
+        "partial": "Partial fit",
+        "low": "Low fit"
+      }
+    },
+    "startApplication": {
+      "cvHint": "Fit {score}% · updated {date}",
+      "keywordsHint": "Puts the skills and bullets that match this job's keywords first. No text is added or removed."
+    },
+    "draft": {
+      "lead": "Fill in the application, then tailor a copy of one of your master CVs. It saves as a draft while you type.",
+      "experience": "Experience",
+      "moreDetailsHint": "Date, source, link, salary",
+      "tailorHint": "Reorders skills and bullets by how well they match the job description.",
+      "loadingCopy": "Loading the CV copy",
+      "loadingMasterCvs": "Loading your master CVs",
+      "sectionsLabel": "CV copy sections",
+      "reordered": "Reordered",
+      "editCopy": "Edit the CV copy",
+      "editTitle": "Edit the CV copy",
+      "editHint": "Changes save to this draft as you type.",
+      "done": "Done",
+      "meta": {
+        "summary": "{count, plural, one {# character} other {# characters}}",
+        "skills": "{count, plural, one {# group} other {# groups}}",
+        "education": "{count, plural, one {# entry} other {# entries}}",
+        "certifications": "{count, plural, one {# certification} other {# certifications}}"
+      }
+    },
+    "cvs": {
+      "deleting": "Deleting..."
+    },
+    "cvEditor": {
+      "pdf": "PDF",
+      "invalid": "Needs a fix",
+      "meta": {
+        "empty": "None yet",
+        "links": "{count, plural, =0 {None yet} one {# link} other {# links}}",
+        "summary": "{count, plural, =0 {None yet} one {# character} other {# characters}}",
+        "skills": "{groups, plural, =0 {None yet} one {# group · {keywords, plural, one {# keyword} other {# keywords}}} other {# groups · {keywords, plural, one {# keyword} other {# keywords}}}}",
+        "experience": "{count, plural, =0 {None yet} one {# role} other {# roles}}",
+        "projects": "{count, plural, =0 {None yet} one {# project} other {# projects}}",
+        "education": "{count, plural, =0 {None yet} one {# qualification} other {# qualifications}}",
+        "certifications": "{count, plural, =0 {None yet} one {# certification} other {# certifications}}",
+        "languages": "{count, plural, =0 {None yet} one {# language} other {# languages}}"
+      }
+    },
+    "applicationCv": {
+      "changes": "Changes",
+      "pdfOf": "Download PDF of {name}",
+      "markdownOf": "Download Markdown of {name}",
+      "showMore": "Show more",
+      "showLess": "Show less"
     }
   }
 }

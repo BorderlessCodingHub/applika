@@ -15,8 +15,16 @@ import { TopCompaniesPanel } from "@/components/admin/top-companies-panel";
 import { ActivityHeatmap } from "@/components/admin/activity-heatmap";
 import { useAuth } from "@/contexts/auth-context";
 import { useTranslations } from "next-intl";
+import { AdminScreen } from "@/components/phone/screens/admin-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 
+/** `/admin`: below md the Admin board's Dashboard (PRD 0021); at md and up today's dashboard, unchanged. */
 export function AdminPage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <AdminScreen /> : <AdminDesktopPage />;
+}
+
+function AdminDesktopPage() {
   const { user } = useAuth();
   const t = useTranslations("admin.dashboard");
 

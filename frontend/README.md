@@ -82,4 +82,4 @@ e2e/                # Playwright specs
 Stack: Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, TanStack
 Query, React Hook Form + Zod, next-intl, Vitest, Playwright.
 
-More detail on each area: [CLAUDE.md](CLAUDE.md).
+More detail on each area: [AGENTS.md](AGENTS.md).

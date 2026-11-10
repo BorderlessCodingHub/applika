@@ -1,4 +1,4 @@
-"""One collection run (KODI-046, T045; R-004..R-009, R-016, R-034).
+"""One collection run (T045; R-004..R-009, R-016, R-034).
 
 For every enabled source that has a scraper: fetch the postings published in
 the lookback window (or undated), store them on ``(source_id,

@@ -1,4 +1,4 @@
-"""A short, human label for a device from its ``User-Agent`` (KODI-057).
+"""A short, human label for a device from its ``User-Agent``.
 
 Regex only, no dependency: "Chrome on macOS", "applika-cli 1.1.0", and
 "applika-cli (older version)" for the httpx agent that installed CLIs

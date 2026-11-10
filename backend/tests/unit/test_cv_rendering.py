@@ -1054,8 +1054,8 @@ def test_languages_is_the_only_one_line_entry():
 def test_links_are_never_a_section():
     """The owner's ruling, asserted on the mapper: ``Links`` is not a title.
 
-    It used to be one - KODI-004 added a ``Links`` section as the fallback for
-    a link RenderCV could not turn into a social network, and KODI-006 made it
+    It used to be one - the PDF export added a ``Links`` section as the fallback for
+    a link RenderCV could not turn into a social network, and the CV fidelity change made it
     the trailing section. The owner never asked for that: "Links isn't a
     section, it must appear in bellow the headline". No stored link, of any
     shape, may put a title back.

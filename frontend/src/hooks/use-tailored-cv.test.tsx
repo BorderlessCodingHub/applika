@@ -12,7 +12,7 @@ import { useUpdateTailoredCv } from "@/hooks/use-update-tailored-cv";
 import type { UpdateTailoredCvPayload } from "@/services/types/tailored-cv";
 
 /**
- * The wire contract of the CV-copy hooks (KODI-003).
+ * The wire contract of the CV-copy hooks.
  *
  * Everything here is asserted against the MOCKED AXIOS INSTANCE rather than
  * against the service class, so the test pins what actually leaves the browser:

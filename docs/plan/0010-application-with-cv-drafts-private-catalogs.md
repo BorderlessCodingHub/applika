@@ -33,7 +33,7 @@ reuses `applications.application_date` (drafts hold server today).
 ## Backend
 Pattern: `app/application/use_cases/applications/create_application.py`, `app/domain/repositories/
 application_repository.py`, `app/presentation/api/application.py`, `app/presentation/api/admin/platforms.py`.
-S2, S3, S7 (Done; as built `backend/CLAUDE.md` "Companies (`/companies`) and Platforms", "Application
+S2, S3, S7 (Done; as built `backend/AGENTS.md` "Companies (`/companies`) and Platforms", "Application
 drafts", "Support Data"): `catalog_visibility.visible_to`, `use_cases/catalog/resolve.py`, `NOT_DRAFT` (except
 `count_entity_references`, `tailored_cvs/guards`), `use_cases/application_drafts/*`, `GET /platforms`, paged admin list.
 S8:
@@ -45,12 +45,12 @@ S8:
   `use_cases/application_drafts/create_draft.py`, `update_draft.py`: `ensure_not_in_future` when given; update sets it only
   when given (absent keeps stored, like `job_description` on `PUT /applications/{id}`). `to_draft_dto` adds the field.
 - `finish_draft.py`: `day = data.application_date or application.application_date`; `ensure_not_in_future(day)`; set; flip.
-- `seed_drafts()` sends `application_date`, finishes one draft with no body; `backend/CHANGELOG.md`, `backend/CLAUDE.md`.
+- `seed_drafts()` sends `application_date`, finishes one draft with no body; `backend/CHANGELOG.md`, `backend/AGENTS.md`.
 
 ## Frontend
 Module `frontend/src`, no i18n lib. Pattern: `components/applications/application-fields.tsx`, `components/timeline/
 timezone-select.tsx`, `app/(protected)/applications/cv/application-cv-page.tsx`, `app/(protected)/cvs/editor/` (Suspense).
-S4, S5, S7 (Done; as built `frontend/CLAUDE.md` "Application drafts", "Admin — private company/
+S4, S5, S7 (Done; as built `frontend/AGENTS.md` "Application drafts", "Admin — private company/
 platform rows", "Company picker = platform picker…"): `application-fields.tsx` (sheet + draft page), `application-drafts/*`,
 `use-debounced-autosave.ts`, `catalog-select.tsx`, `form-section.tsx`, `admin/catalog-table.tsx`, `/admin/platforms`.
 S8:
@@ -73,8 +73,8 @@ S8:
   current cycle → `Tabs` "Applications" (default, list + filters + empty state as today) | "Drafts (n)"; past cycle →
   no `Tabs`, list only. `components/application-drafts/drafts-section.tsx` becomes the Drafts tab body: no own heading,
   empty state "No drafts yet." + "New with CV" link (`draft-copy.ts`) instead of rendering `null`.
-- `frontend/CLAUDE.md`: "Application drafts" (tabs, date), "Company picker…" (flat `FormSection`), "UI Components" (`wide`).
-Design-system (none named): `frontend/CLAUDE.md` "### Routing", "### Forms" (`useWatch`), "### Date Inputs", "### UI
+- `frontend/AGENTS.md`: "Application drafts" (tabs, date), "Company picker…" (flat `FormSection`), "UI Components" (`wide`).
+Design-system (none named): `frontend/AGENTS.md` "### Routing", "### Forms" (`useWatch`), "### Date Inputs", "### UI
 Components", "### App shell"; tokens `src/app/globals.css`; ADR-0006.
 
 ## Contract

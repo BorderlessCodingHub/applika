@@ -8,7 +8,7 @@ import { MONTH_YEAR_DISPLAY_FORMAT } from "@/lib/month-year";
 import { renderInPortuguese } from "@/test/portuguese";
 
 /**
- * The CV month-and-year control (KODI-007 / AC3).
+ * The CV month-and-year control (AC3).
  *
  * The owner: "it's a date input but only for month and year "MM/yyyy" for both
  * start and finish". It is a MASKED TEXT input, not a calendar and not a pair

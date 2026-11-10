@@ -158,7 +158,7 @@ export function useRestoreJob() {
 /**
  * `POST /applications/drafts/from-job` (R-020/R-021). No toast: the start
  * dialog shows a 404/422 `detail` inline and turns a 409 into "Open draft".
- * Always sends the user's LOCAL day as `application_date` (KODI-050): the
+ * Always sends the user's LOCAL day as `application_date`: the
  * server's UTC day is yesterday or tomorrow for part of the world, and Finish
  * refused a draft dated "tomorrow" as in the future.
  */

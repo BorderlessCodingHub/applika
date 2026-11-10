@@ -5,7 +5,7 @@ import { APPLICATION_CLOSE_COPY } from "@/components/applications/application-cl
 import { TimelineEventDialog } from "@/components/timeline/timeline-event-dialog";
 
 /**
- * PRD 0008 / ADR 0012, KODI-014 (AC1): the create/edit event dialog is
+ * PRD 0008 / ADR 0012 (AC1): the create/edit event dialog is
  * `max-w-3xl` wide from `sm`, anchored to the top (not centred), with a
  * bounded height so only its body scrolls.
  */

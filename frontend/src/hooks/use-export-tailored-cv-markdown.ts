@@ -10,7 +10,7 @@ import { services } from "@/services/services";
 
 /**
  * Download the server-rendered Markdown of an application's CV copy
- * (KODI-017 part 3, ADR 0011). The Markdown twin of `useExportTailoredCvPdf`:
+ * (ADR 0011). The Markdown twin of `useExportTailoredCvPdf`:
  * keyed by the application id, carries no finalized/archived guard (reading
  * and downloading a locked copy is exactly what it is still for), invalidates
  * nothing and raises no success toast.

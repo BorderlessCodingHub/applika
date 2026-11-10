@@ -7,7 +7,8 @@ export function parseTime(t: string): [number, number] {
   return [h, m];
 }
 
-function getUserTimezone(): string {
+/** The viewer's IANA zone (`UTC` when the runtime cannot say). */
+export function getUserTimezone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
   } catch {
@@ -129,8 +130,26 @@ function stepStartInstant(step: AgendaStep, localTz: string): Date {
   );
 }
 
+/**
+ * When a step starts, as an instant: a timed step at its `start_time` in its
+ * own zone (the viewer's without one); an untimed step at the start of its
+ * `step_date` in `localTz`. The phone screens order and measure with it
+ * (`lib/phone-format.ts`).
+ */
+export function agendaStartInstant(
+  step: Pick<AgendaStep, "step_date" | "start_time" | "timezone">,
+  localTz: string = getUserTimezone(),
+): Date {
+  if (!step.start_time) return zonedTimeToUtc(step.step_date, "00:00", localTz);
+  return zonedTimeToUtc(
+    step.step_date,
+    step.start_time,
+    step.timezone ?? localTz,
+  );
+}
+
 /** "YYYY-MM-DD" for `now`, as read in `timeZone` — never the process's own zone. */
-function calendarDayIn(now: Date, timeZone: string): string {
+export function calendarDayIn(now: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",

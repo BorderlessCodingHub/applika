@@ -1,4 +1,4 @@
-"""Recompute the fit of master CVs for listed jobs (KODI-046, T046, R-016).
+"""Recompute the fit of master CVs for listed jobs (T046, R-016).
 
 Given job ids, every master CV is scored against those jobs (new or changed
 postings). Given a master CV id, that CV is scored against every listed job

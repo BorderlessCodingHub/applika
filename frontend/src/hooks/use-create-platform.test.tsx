@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { useCreatePlatformOutcome } from "@/hooks/use-create-platform";
 import { services } from "@/services/services";
 
-/** PRD 0010 (KODI-033, T079/AC17): the hook-level 409 -> "exists" translation. */
+/** PRD 0010 (T079/AC17): the hook-level 409 -> "exists" translation. */
 
 vi.mock("@/services/services", () => ({
   services: {

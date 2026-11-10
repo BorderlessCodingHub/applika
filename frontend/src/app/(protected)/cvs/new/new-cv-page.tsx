@@ -16,11 +16,13 @@ import {
 import { BASE_CVS_MAX, type CvFormValues } from "@/components/base-cvs/types";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
+import { CvNewScreenView } from "@/components/phone/screens/cv-new-screen";
 import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useCreateBaseCv } from "@/hooks/use-create-base-cv";
 import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
 
 /**
  * `/cvs/new` — create a master CV.
@@ -56,6 +58,25 @@ function NewCvForm() {
   const createMutation = useCreateBaseCv({
     onSuccess: () => router.push("/cvs"),
   });
+  const isPhone = useIsPhone();
+
+  if (isPhone)
+    return (
+      <CvNewScreenView
+        beta={beta}
+        countLoading={isCountLoading}
+        atLimit={atLimit}
+        form={form}
+        onSubmit={form.handleSubmit(
+          (values) => createMutation.mutate(toBaseCvPayload(values)),
+          (errors) => {
+            const message = sectionErrorMessage(errors);
+            if (message) toast.error(message);
+          },
+        )}
+        creating={createMutation.isPending}
+      />
+    );
 
   return (
     <div className="space-y-6">

@@ -1,5 +1,4 @@
-"""``applications new|edit --file`` and the job-description options
-(KODI-018).
+"""``applications new|edit --file`` and the job-description options.
 
 Kept out of ``commands.py`` so the 0.1.4/0.2.0 named-option paths in
 ``new_application`` / ``edit_application`` stay exactly as they were: the

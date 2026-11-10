@@ -8,7 +8,7 @@ import { CV_SKILLS_COPY, CvSkillsSection } from "./cv-skills-section";
 import type { CvSkillCategory } from "./types";
 
 /**
- * The categorised skills editor (KODI-006 / AC3).
+ * The categorised skills editor (AC3).
  *
  * The owner: "skills isn't simply a section where i put "tags" or just
  * "keywords" it's a section where i can create a category and inside this

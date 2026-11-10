@@ -8,7 +8,10 @@ import { AxiosError } from "axios";
 import { word } from "@/i18n/translator";
 import { services } from "@/services/services";
 import { useSupports } from "@/contexts/supports-context";
-import { CreateApplicationPayload } from "@/services/types/applications";
+import type {
+  Application,
+  CreateApplicationPayload,
+} from "@/services/types/applications";
 import { getApiError } from "@/lib/api-client";
 import { rateLimitNotice } from "@/lib/rate-limit";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
@@ -126,8 +129,12 @@ export function useApplications(cycleId?: string | null) {
 
   return {
     filtered,
+    /** The cycle's whole list, before any filter (`undefined` until it loads). */
+    applications: query.data,
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
+    isFetching: query.isFetching,
     refetch: query.refetch,
     filters,
     updateFilter,
@@ -200,16 +207,20 @@ export function useApplicationDelete() {
       ),
   });
 
-  async function deleteApplication(id: string) {
-    await deleteMutation.mutate(id);
+  async function deleteApplication(
+    id: string,
+    options?: { onSuccess?: () => void },
+  ) {
+    await deleteMutation.mutate(id, { onSuccess: options?.onSuccess });
   }
 
-  return { deleteApplication };
+  return { deleteApplication, isPending: deleteMutation.isPending };
 }
 
 interface ApplicationMutateProps {
   applicationId?: string;
-  onSuccess?: () => Promise<void> | void;
+  /** Receives the saved application: the created row's `id` (the phone quick add opens it). */
+  onSuccess?: (application: Application) => Promise<void> | void;
 }
 
 export function useApplicationMutate(props: ApplicationMutateProps) {
@@ -221,7 +232,7 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
       : services.applications.createApplication(data);
   }
 
-  async function onSuccess() {
+  async function onSuccess(application: Application) {
     await queryClient.invalidateQueries({ queryKey: ["applications"] });
     await queryClient.invalidateQueries({ queryKey: ["statistics"] });
     await queryClient.invalidateQueries({ queryKey: ["company-search"] });
@@ -236,7 +247,7 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
           : "applications.toasts.created",
       ),
     );
-    if (props.onSuccess) await props.onSuccess();
+    if (props.onSuccess) await props.onSuccess(application);
   }
 
   function onError(error: AxiosError) {

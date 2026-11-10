@@ -1,4 +1,4 @@
-"""Open one job for the acting user (KODI-047, PRD 0012 R-007, R-012,
+"""Open one job for the acting user (PRD 0012 R-007, R-012,
 R-015).
 
 Ported from Ían Muliterno's ``get_job.py`` (``job_scrapping``): an unknown

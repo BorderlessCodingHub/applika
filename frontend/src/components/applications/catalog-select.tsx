@@ -177,7 +177,7 @@ export interface CatalogSelectProps {
   onValueChange: (id: string, option: CatalogOption) => void;
   /**
    * Debounced 300ms while typing; called immediately (not debounced) with
-   * the current search on open and with `""` on close (KODI-035, AC1) — so
+   * the current search on open and with `""` on close (AC1) — so
    * a caller that fetches from it (the company picker) lists the visible
    * rows as soon as the popover opens, and typing narrows from there.
    */
@@ -274,7 +274,7 @@ export function CatalogSelect({
     setOpen(next);
     if (next) {
       setNotice(null);
-      // Opening lists the visible rows right away (KODI-035, AC1: "list on
+      // Opening lists the visible rows right away (AC1: "list on
       // open") rather than waiting for the 300ms debounce below — a caller
       // with no `onSearchChange` (the platform picker, which preloads its
       // whole list up front) is unaffected.

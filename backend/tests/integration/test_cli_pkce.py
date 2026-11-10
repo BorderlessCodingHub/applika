@@ -1,4 +1,4 @@
-"""``applika login``: browser sign-in with PKCE S256 (KODI-057, ADR-0019,
+"""``applika login``: browser sign-in with PKCE S256 (ADR-0019,
 R-015, R-018, R-019, R-020, R-021).
 
 ``GET /auth/cli/authorize`` -> straight to the (fake) Borderless's sign-in

@@ -14,7 +14,7 @@ export interface GithubRestoreStart {
 }
 
 /**
- * `GET /auth/device/verify?user_code=` response (KODI-058, ADR-0019): the
+ * `GET /auth/device/verify?user_code=` response (ADR-0019): the
  * device asking to sign in, shown on `/device` before the user approves.
  * Structurally the `DeviceRequestInfo` the approval card renders.
  */

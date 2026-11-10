@@ -21,7 +21,7 @@ export function jobListQuery(filters: JobFilters, page: number): string {
   return params.toString();
 }
 
-/** Ported from Ían Muliterno's `job-service.ts` onto the KODI-047 contract. */
+/** Ported from Ían Muliterno's `job-service.ts` onto the PRD 0012 contract. */
 export class JobService implements IJobService {
   list(filters: JobFilters, page: number): Promise<JobPage> {
     return api

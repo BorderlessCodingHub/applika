@@ -28,7 +28,7 @@ K1 = KODI-072 cli: updater foundation → K2 = KODI-073 cli: daily auto update �
 
 ### Plan corrections (checked against the code, 2026-10-19)
 1. **Uncommitted docs on `develop`.** PRD 0017, plan 0017, this tasks file, ADR-0023, ADR-0018's 2026-10-19 note, `.claude/agent-memory/` (never `.claude/agent-memory-local/`). K1 T001 commits them alone, first, on the integration branch.
-2. **Base.** The plan's line numbers were read on a `develop` that carries 0016 (`cli/CHANGELOG.md` `[Unreleased]` names `--keep-open`; `frontend/CLAUDE.md` describes close mode). K1 T001 checks it.
+2. **Base.** The plan's line numbers were read on a `develop` that carries 0016 (`cli/CHANGELOG.md` `[Unreleased]` names `--keep-open`; `frontend/AGENTS.md` describes close mode). K1 T001 checks it.
 3. **Ticket keys in files K4 rewrites.** `backend/tests/unit/test_cv_diff_fixtures.py` l.3 ("KODI-017 T091 (R-024/R-025)"), fixtures `README.md` l.3, `cv-diff.fixtures.test.ts` l.10 ("KODI-017 part 3") and l.14 ("T091"). The rewritten docstring, README line and comment carry none. `scripts/e2e.sh` l.74 (`# KODI-057: …`) stays: the plan keeps the runner unchanged past l.3, l.14-16, l.19, so git records a rename.
 4. **Wrong suite name.** `test_cv_diff_fixtures.py` l.11 and fixtures `README.md` l.6 name `cv-diff.test.ts`; the suite that reads the folder is `cv-diff.fixtures.test.ts`. Plan fixes the README only; K4 fixes both.
 5. **Import cycle.** `commands/version.py` will import `PYPI_JSON_URL` from `lib/updater.py`, so `lib/updater.py` never imports `applika.commands.version`: it owns `PACKAGE_NAME` and reads the installed version itself (`importlib.metadata`). `installed_version()` stays in `version.py`: `app.py` l.11 imports it, `test_commands.py` l.849, l.858, l.880 patch it there.
@@ -36,7 +36,7 @@ K1 = KODI-072 cli: updater foundation → K2 = KODI-073 cli: daily auto update �
 7. **Guards must fail, not only refuse.** `after_command` swallows every exception, so a refusing `_transport` / `_run` raising `AssertionError` inside it is swallowed too and the test passes. The autouse guards record each call; the fixture fails the test at teardown on a guarded call the test did not install itself.
 8. **CI env.** `cli-ci.yaml` runs pytest on GitHub Actions: `CI=true`, no TTY. Tests never read the real `CI` or streams: they patch the updater's env and stream seams. The gate adds `CI=true uv run pytest`.
 9. **Version compare pads.** ADR-0023 compares numeric release parts only; a plain tuple compare calls `1.2.0` newer than `1.2`. Pad with zeros: `1.2` = `1.2.0`.
-10. **Local non-editable install.** `uv tool install --force .` (cli/README.md l.714, cli/CLAUDE.md Commands) leaves a `file:` URL in `direct_url.json`: a source checkout, never updated. README's Updates section says so beside the editable install (l.42-45).
+10. **Local non-editable install.** `uv tool install --force .` (cli/README.md l.714, cli/AGENTS.md Commands) leaves a `file:` URL in `direct_url.json`: a source checkout, never updated. README's Updates section says so beside the editable install (l.42-45).
 11. **Refusal lines.** Contract: one stderr line per blocker; the URL reason "+" its way back. K3 prints the way back on the same line, after the reason: line count = blocker count (R-016).
 12. **Install timeout text.** Contract has `Update failed: <argv> exited <code>.`; a timeout has no exit code. K3: `Update failed: <argv> timed out after 120 s.` + `Run it yourself: <argv>`, exit 1. Owner may reword.
 13. **ty on touched backend files.** `cv_diff.py` and `seed_e2e.py` get docstring edits only but count as changed: `.claude/rules/quality-gates.md` wants them clean. K4 checks; a pre-existing diagnostic goes to the owner, never a drive-by fix.
@@ -117,7 +117,7 @@ Touch:
 - cli/src/applika/config.py (`is_default_api_base_url`)
 - cli/src/applika/app.py (`_root` l.58-63)
 - cli/tests/test_updater.py
-- cli/CHANGELOG.md, cli/README.md, cli/CLAUDE.md
+- cli/CHANGELOG.md, cli/README.md, cli/AGENTS.md
 Pattern:
 - cli/src/applika/lib/updater.py after K1 (seams `_transport`, `_run`, `_state_dir`, `UpdateState`, lock)
 - cli/src/applika/config.py `resolve_api_base_url` l.15-27 (flag → env → session → default)
@@ -146,7 +146,7 @@ Steps:
 - T014 [P] [US1] Docs (no ticket keys):
   - cli/CHANGELOG.md `## [Unreleased]` `### Added`: `- daily auto update: at most once a day, after a command finishes, applika-cli checks PyPI and installs a newer release with the tool it was installed with (uv tool, pipx or pip), then prints "Updated applika-cli <old> → <new>" on stderr. It stays off when the API base URL is not https://applika.dev/api (flag, APPLIKA_API_BASE_URL or saved session), when APPLIKA_DISABLE_AUTOUPDATE is set, outside an interactive terminal (CI, pipes, AI agents) and for source or editable installs. A failed check or install prints nothing and never changes the command's exit status.`; no version bump (Plan corrections 17);
   - cli/README.md: new `## Updates` after `## Global options` (l.612), auto half: when it runs, the one stderr line, the gates, `APPLIKA_DISABLE_AUTOUPDATE`, the editable install (l.42-45) and `uv tool install --force .` (l.714) never update, the manual command per installer; env table row `APPLIKA_DISABLE_AUTOUPDATE` beside l.622;
-  - cli/CLAUDE.md: package tree `lib/updater.py`; Environment Variables `APPLIKA_DISABLE_AUTOUPDATE`, `CI` (read); Key Patterns: tests never reach PyPI, spawn an installer or touch `~/.config/applika/` (conftest guards).
+  - cli/AGENTS.md: package tree `lib/updater.py`; Environment Variables `APPLIKA_DISABLE_AUTOUPDATE`, `CI` (read); Key Patterns: tests never reach PyPI, spawn an installer or touch `~/.config/applika/` (conftest guards).
 - T015 [P] [US1] [US3] [US4] [US5] cli/tests/test_updater.py:
   - `detect_install` (tmp prefix, fake distribution): editable, `file:` url, uv receipt with and without `uv`, pipx with and without `pipx`, pip, pip `--user`, `INSTALLER` = `uv` → unknown, no distribution → unknown;
   - `is_default_api_base_url`: trailing slash, `HTTPS://Applika.DEV/api` → default; `http://applika.dev/api`, `/api/v2`, another host → not;
@@ -182,7 +182,7 @@ Touch:
 - cli/src/applika/commands/update.py (new)
 - cli/src/applika/lib/updater.py (`Blocker` gains the source)
 - cli/tests/test_update_command.py (new), cli/tests/test_updater.py
-- cli/CHANGELOG.md, cli/README.md, cli/CLAUDE.md
+- cli/CHANGELOG.md, cli/README.md, cli/AGENTS.md
 Pattern:
 - cli/src/applika/commands/version.py (a root command, `app.command(…)` in app.py l.23-27)
 - cli/src/applika/lib/updater.py after K2 (`detect_install`, `blockers`, `install`, `UpdateState`, lock)
@@ -213,7 +213,7 @@ Steps:
 - T022 [P] [US2] Docs (no ticket keys):
   - cli/CHANGELOG.md `## [Unreleased]` `### Added`: `- applika update [--force]: checks PyPI now and installs the latest applika-cli with the tool it was installed with, in a terminal, in CI, in a pipe or from an AI agent. It lists every reason it refuses: an API base URL other than https://applika.dev/api (with where it comes from and the way back, --force or not), a source or editable install, an install it cannot identify, or APPLIKA_DISABLE_AUTOUPDATE (lifted by --force, the only thing --force does).`;
   - cli/README.md `## Updates`: `applika update`, `--force`, each refusal and its way back, the results, the manual command per installer; a `### applika update [--force]` entry under `## Commands`;
-  - cli/CLAUDE.md: CLI Commands row `applika update [--force]`; package tree `commands/update.py`, `config.py` (URL source);
+  - cli/AGENTS.md: CLI Commands row `applika update [--force]`; package tree `commands/update.py`, `config.py` (URL source);
   - SKILL.md untouched (Plan corrections 18).
 - T023 [P] [US2] [US3] [US4] [US5] cli/tests/test_update_command.py (new) + cli/tests/test_updater.py:
   - refusals, each with and without `--force`, exit 1, no fetch: URL from flag, env, saved session (three ways back); source checkout; unknown;
@@ -252,13 +252,13 @@ AC:
 ## K4 — Repo layout: CV diff fixtures into backend tests, E2E runner into frontend   side: both (backend tests, frontend, root, CI)   covers: R-021, R-022, R-023, R-024, R-025   deps: K1 (branch only)
 Goal: `fixtures/cv-diff` → `backend/tests/fixtures/cv-diff` (beside `jobs/`), both suites read it there, the frontend suite fails when it is missing. `scripts/e2e.sh` → `frontend/scripts/e2e.sh` (beside `frontend/e2e`), same commands, same CI job. `docker-compose.e2e.yml` stays at the root. Every live reference, CI and the workspace rule updated. Root keeps `backend`, `cli`, `docs`, `frontend`, `legacy` and root files only.
 Owner's words: "And lastly I would like to reorganize the main repository directory since the folder @../fixtures/ and @../scripts/ dont seems to be in the right place"
-Clarified: "Into the owning project (Recommended)": "fixtures/cv-diff → backend/tests/fixtures/cv-diff, next to the existing jobs fixtures; the backend owns them and the frontend test's relative path is updated. scripts/e2e.sh → frontend/scripts/e2e.sh, next to the Playwright suite in frontend/e2e; docker-compose.e2e.yml stays at the root beside docker-compose.yml. CI paths, READMEs, CLAUDE.md files and the workspace rules are updated. Old planning docs keep their history."
+Clarified: "Into the owning project (Recommended)": "fixtures/cv-diff → backend/tests/fixtures/cv-diff, next to the existing jobs fixtures; the backend owns them and the frontend test's relative path is updated. scripts/e2e.sh → frontend/scripts/e2e.sh, next to the Playwright suite in frontend/e2e; docker-compose.e2e.yml stays at the root beside docker-compose.yml. CI paths, READMEs, AGENTS.md files and the workspace rules are updated. Old planning docs keep their history."
 Covers: R-021, R-022, R-023, R-024, R-025
 Release: one (no deploy effect; CD republishes both images on `main`, Plan corrections 14). Plan: `## Backend`, `## Frontend`, `## Repo root and CI`, `## Tests`. Tasks: Plan corrections 3, 4, 13, 14, 16.
 Touch:
 - moved (`git mv`): fixtures/cv-diff/ (9 JSON + README.md) → backend/tests/fixtures/cv-diff/; scripts/e2e.sh → frontend/scripts/e2e.sh
-- backend/tests/unit/test_cv_diff_fixtures.py, backend/app/application/services/cv_diff.py (l.7), backend/app/scripts/seed_e2e.py (l.4), backend/CLAUDE.md (l.49), backend/CHANGELOG.md
-- frontend/src/components/tailored-cvs/cv-diff.fixtures.test.ts, frontend/src/components/tailored-cvs/cv-diff.ts (l.8), frontend/playwright.config.ts (l.6), frontend/e2e/support/auth.ts, frontend/e2e/profile-discord.spec.ts (l.11), frontend/e2e/shell-responsive.spec.ts (l.15), frontend/CLAUDE.md
+- backend/tests/unit/test_cv_diff_fixtures.py, backend/app/application/services/cv_diff.py (l.7), backend/app/scripts/seed_e2e.py (l.4), backend/AGENTS.md (l.49), backend/CHANGELOG.md
+- frontend/src/components/tailored-cvs/cv-diff.fixtures.test.ts, frontend/src/components/tailored-cvs/cv-diff.ts (l.8), frontend/playwright.config.ts (l.6), frontend/e2e/support/auth.ts, frontend/e2e/profile-discord.spec.ts (l.11), frontend/e2e/shell-responsive.spec.ts (l.15), frontend/AGENTS.md
 - README.md (l.224), docker-compose.e2e.yml (l.11, l.28), .github/workflows/frontend-ci.yaml
 - outside the repo, no applika commit: /home/luis0ares/projects/applika-upgrade/.claude/rules/quality-gates.md (l.32)
 Pattern:
@@ -275,14 +275,14 @@ Steps:
 - T027 [P] [US6] Runner into the frontend:
   - `git mv scripts/e2e.sh frontend/scripts/e2e.sh` (mode 100755 kept); root `scripts/` gone;
   - l.19 `ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"`; l.3, l.14-16 → `frontend/scripts/e2e.sh` (from the repo root) / `./scripts/e2e.sh` (from `frontend/`); the rest unchanged: commands, arguments, environment, l.74 included (Plan corrections 3);
-  - backend/app/scripts/seed_e2e.py l.4 docstring and backend/CLAUDE.md l.49 → `frontend/scripts/e2e.sh`.
+  - backend/app/scripts/seed_e2e.py l.4 docstring and backend/AGENTS.md l.49 → `frontend/scripts/e2e.sh`.
 - T028 [US6] frontend/src/components/tailored-cvs/cv-diff.fixtures.test.ts:
   - l.20 → `resolve(__dirname, "../../../../backend/tests/fixtures/cv-diff")`;
   - drop `hasFixtures` and `describe.skipIf` (l.33-35) → plain `describe`; first `it` asserts `existsSync(FIXTURES_DIR)` with a message naming the path, then files > 0; `readdirSync` only when the folder exists (nothing throws at collection);
   - comment l.8-19: the backend owns the folder; a missing folder fails the suite; no ticket key;
   - cv-diff.ts l.8 → the new path.
 - T029 [P] [US6] Frontend E2E references → `frontend/scripts/e2e.sh`: playwright.config.ts l.6; e2e/support/auth.ts l.6, l.27, l.51, l.77 (thrown text: "Run the suite through \`frontend/scripts/e2e.sh\` from the repo root"), l.149; e2e/profile-discord.spec.ts l.11; e2e/shell-responsive.spec.ts l.15.
-- T030 [P] [US6] frontend/CLAUDE.md: l.78-80 → `./scripts/e2e.sh …` (run from `frontend/`); l.84, l.89, l.1496, l.1498 → `frontend/scripts/e2e.sh`; l.773 and l.847-850 → `applika/backend/tests/fixtures/cv-diff/`, and the suite fails when the folder is missing (replaces the `describe.skipIf` sentence). No ticket keys.
+- T030 [P] [US6] frontend/AGENTS.md: l.78-80 → `./scripts/e2e.sh …` (run from `frontend/`); l.84, l.89, l.1496, l.1498 → `frontend/scripts/e2e.sh`; l.773 and l.847-850 → `applika/backend/tests/fixtures/cv-diff/`, and the suite fails when the folder is missing (replaces the `describe.skipIf` sentence). No ticket keys.
 - T031 [US6] Root and CI:
   - README.md l.224 → `frontend/scripts/e2e.sh`; docker-compose.e2e.yml comments l.11, l.28 (the file stays at the root);
   - .github/workflows/frontend-ci.yaml: drop `"scripts/e2e.sh"` at l.22 and l.31 (now inside `frontend/**`); comments l.3-9 and l.160-161; l.185 `run: ./frontend/scripts/e2e.sh` (the script cds to the root itself); `backend/**` already triggers vitest and E2E;
@@ -309,7 +309,7 @@ AC:
 - Commit messages are conventional commits **without** a ticket key: `feat(cv): add base CV table`. The board is local and the repo is moving to a new remote, so nothing in git history points at a ticket. (.claude/rules/branches-and-commits.md 2)
 
 ## K5 — Closing 0017: full gate, E2E from the moved runner, ADR-0023, CLI update walk, one release   side: both (backend, frontend, cli)   covers: — (closing)   deps: K3, K4
-Goal: Prove 0017 whole: the full gate in CLAUDE.md order plus the target gates, the whole E2E suite through `frontend/scripts/e2e.sh`, ADR-0023 Accepted, no infra left, a walk by hand of the auto update and `applika update` in a disposable venv against a fake PyPI, the repo layout, and the `0017-release` tag. No new feature work. Never publish, never touch the user's installed CLI or `~/.config/applika/`.
+Goal: Prove 0017 whole: the full gate in AGENTS.md order plus the target gates, the whole E2E suite through `frontend/scripts/e2e.sh`, ADR-0023 Accepted, no infra left, a walk by hand of the auto update and `applika update` in a disposable venv against a fake PyPI, the repo layout, and the `0017-release` tag. No new feature work. Never publish, never touch the user's installed CLI or `~/.config/applika/`.
 Owner's words: "add a daily auto update to the cli and a command "applika update" to update the cli to the latest version automatically, same how claude cli does, if the api base url have been overriden, the auto update must be disabled and if the user runs "applika update" even with "--force" the cli must explain why it cannot complete the operation. And lastly I would like to reorganize the main repository directory since the folder @../fixtures/ and @../scripts/ dont seems to be in the right place"
 Clarified: success signals: with an overridden URL, `applika update` prints the URL, its source and the way back, every time, with and without `--force`; no CLI test triggers an install; both suites run all nine CV diff cases from the new folder and the frontend suite fails when it is missing; the CI E2E job passes from the runner's new place; the root lists `backend`, `cli`, `docs`, `frontend`, `legacy` and the root files only.
 Covers: — (closing)
@@ -320,7 +320,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0016-close-with-event-and-teal-palette.tasks.md K5
 Contract: none new.
 Steps:
-- T034 On `integration/0017-cli-self-update-and-repo-layout` after the K4 tip. Gate in CLAUDE.md order:
+- T034 On `integration/0017-cli-self-update-and-repo-layout` after the K4 tip. Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -380,7 +380,7 @@ Steps:
   - the owner steps of `### Release`: merge `--no-ff` into `develop`; `develop` → `main` is the owner's release (both images republished, no runtime change; the CLI publishes at the version the owner sets); Windows check before the publish; rollback = `git revert` for the layout, a higher fixed version for the CLI;
   - the agent never touches prod or `main`, never pushes, never publishes.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171, coverage ≥ 90%, prettier, tsc; CLI under FORCE_COLOR, CI=true and Python 3.10).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171, coverage ≥ 90%, prettier, tsc; CLI under FORCE_COLOR, CI=true and Python 3.10).
 - Every ADR the feature drafted reads Accepted (ADR-0023, Accepted 2026-10-19; ADR-0018 carries the PRD 0017 owner-exception note; bound ADR-0009 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases, testcontainers, walk venvs or fake HOME.
 - The E2E the feature earned (no new spec: no screen; the whole suite through the moved runner frontend/scripts/e2e.sh, locally and in the CI e2e job) runs inside the gate and is green; the update paths are carried by cli/tests/test_updater.py and cli/tests/test_update_command.py, the fixtures by test_cv_diff_fixtures.py and cv-diff.fixtures.test.ts.

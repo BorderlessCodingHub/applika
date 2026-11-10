@@ -8,7 +8,7 @@ import type { Application } from "@/services/types/applications";
 import { renderInPortuguese } from "@/test/portuguese";
 
 /**
- * KODI-015 (T075): the new toolbar/list structure. Exercises `useApplications`
+ * T075 (PRD 0008): the new toolbar/list structure. Exercises `useApplications`
  * through a mock so the page's own behaviour — the status option label (G6),
  * the error state with Retry (G8) — is asserted without a real query client
  * or API.
@@ -26,7 +26,7 @@ let hookState: {
   hasAnyFilter: boolean;
 };
 
-// `?focus=` (R-011, KODI-038): the scroll+focus effect gates on this SAME
+// `?focus=` (R-011): the scroll+focus effect gates on this SAME
 // `supports` value (real `useApplications` proxies it straight from
 // `useSupports()`) — mutable so a test can simulate it arriving late,
 // same as the real world where `ApplicationItem` renders `null` until it
@@ -74,7 +74,7 @@ vi.mock("@/hooks/use-reopen-application", () => ({
   useReopenApplication: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-// `?focus=` (R-011, KODI-038): ApplicationItem's own TimelineSection reaches
+// `?focus=` (R-011): ApplicationItem's own TimelineSection reaches
 // for real hooks (useSupports, useTimeline), which need a provider + a
 // mocked service — same shape as `application-item.test.tsx`.
 vi.mock("@/contexts/supports-context", () => ({
@@ -340,7 +340,7 @@ describe("ApplicationsPage — archived cycle shows no tabs and no drafts (AC9)"
   });
 });
 
-describe("ApplicationsPage — Applications | Drafts tabs (KODI-036, AC8)", () => {
+describe("ApplicationsPage — Applications | Drafts tabs (AC8)", () => {
   const draft = {
     id: "d-1",
     company_name: "Acme Inc",
@@ -488,7 +488,7 @@ describe("ApplicationsPage — the flag opens the one event dialog in close mode
   });
 });
 
-describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
+describe("ApplicationsPage — ?focus= (R-011)", () => {
   beforeEach(() => {
     searchParams = new URLSearchParams();
     window.history.replaceState(null, "", "/applications");

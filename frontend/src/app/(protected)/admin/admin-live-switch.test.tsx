@@ -269,8 +269,8 @@ describe("admin screens follow a live language switch", () => {
     );
     await screen.findByText("Activity Heatmap");
     await screen.findByText("Acme Inc");
-    // en is today's output: plain digits, no plural on "users".
-    expect(screen.getByText("1 users")).toBeInTheDocument();
+    // en: plain digits, and one user in the singular.
+    expect(screen.getByText("1 user")).toBeInTheDocument();
     expect(screen.getByText("1500 total")).toBeInTheDocument();
     expect(screen.getByText("Mon")).toBeInTheDocument();
     expect(

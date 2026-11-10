@@ -8,12 +8,12 @@ import {
 import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
- * The agenda page against the REAL stack (KODI-037/KODI-038, R-011/R-012).
+ * The agenda page against the REAL stack (R-011/R-012).
  *
- * One seeded application carries two INTERVIEW events (KODI-016: the agenda
+ * One seeded application carries two INTERVIEW events (PRD 0008: the agenda
  * only lists interviews) — one a few days in the future, one a few days in
  * the past, both inside the ±30-day window `GET /users/me/agenda` reads
- * (`backend/CLAUDE.md`, **Agenda**). That single application exercises the
+ * (`backend/AGENTS.md`, **Agenda**). That single application exercises the
  * whole slice: Upcoming/Past tabs and their counts, the search filter, the
  * hyphenated stage pill, the `.ics` download filename, the chevron's
  * read-only timeline (both events, no actions — R-012) and the note row's

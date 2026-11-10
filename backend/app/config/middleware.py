@@ -72,7 +72,7 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
         request_id_ctx.set(request_id)
 
         # The address uvicorn resolved, trusting the forwarded header only
-        # from FORWARDED_ALLOW_IPS (KODI-039, ADR-0015, Plan corrections 1,
+        # from FORWARDED_ALLOW_IPS (ADR-0015, Plan corrections 1,
         # R-022). The raw header is never read directly here: anyone can
         # forge it.
         client_ip = request.client.host if request.client else 'unknown'

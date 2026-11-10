@@ -1,4 +1,4 @@
-"""Unit tests for the diff Markdown document builder (KODI-017, T091).
+"""Unit tests for the diff Markdown document builder (T091).
 
 Pins the deterministic skeleton the ticket spells out verbatim: the title
 line, the "Compared with <label>: N changes" line, one ``## <Section> (n)``

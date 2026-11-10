@@ -34,7 +34,7 @@ interface TimelineEventCardProps {
  * A single timeline entry: icon tile, type pill (+ interview type / denied
  * title), date, an optional scheduled time range, the observation text, and —
  * for `offer` events — the salary. Only a `denied` event tints the whole card
- * (image element index, KODI-015). Presentational.
+ * (image element index). Presentational.
  */
 export function TimelineEventCard({
   event,

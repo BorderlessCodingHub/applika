@@ -8,7 +8,7 @@
  * the import path it has always been.
  *
  * There used to be a SECOND container here — `CvDocument`, the continuous
- * single-page render. KODI-008 removed it: once `CvDocumentPreview` stopped
+ * single-page render. PRD 0007 removed it: once `CvDocumentPreview` stopped
  * rendering it, nothing in `src/` did, and the parity table pinning the owner's
  * section order, the middle-dot separator, the category colon, the degree
  * joiner, the left-aligned languages, the `MM/yyyy` dates and the bold

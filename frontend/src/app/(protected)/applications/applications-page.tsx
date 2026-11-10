@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { isAxiosError, type AxiosError } from "axios";
 import { toast } from "sonner";
@@ -57,7 +57,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { scrollIntoContainer } from "@/lib/scroll-into-container";
+import { ApplicationScreen } from "@/components/phone/screens/application-screen";
+import { PipelineScreen } from "@/components/phone/screens/pipeline-screen";
 
 interface ApplicationAction {
   action: "none" | "new" | "inspect" | "edit" | "delete" | "finalize";
@@ -76,7 +79,112 @@ export function ApplicationsPageFallback() {
   );
 }
 
+/**
+ * `/applications`: below md the Pipeline board and, for `?focus=<id>`, the
+ * Application board (PRD 0021); at md and up today's list, unchanged.
+ * Crossing md remounts the other one.
+ */
 export function ApplicationsPage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <PhoneApplicationsPage /> : <ApplicationsDesktopPage />;
+}
+
+const PIPELINE_PATH = "/applications";
+
+/**
+ * The phone's two screens on one route. `?focus=` is the Application
+ * screen's address: read through `useSearchParams` and written through the
+ * History API, which Next keeps in sync (the `jobs-page.tsx` precedent;
+ * `router.replace` with only a new query is a no-op on this static export).
+ * A row's tap pushes it, so the phone's back gesture returns to the list;
+ * "Pipeline" goes back (or replaces, when the screen was opened from
+ * elsewhere: Today, the Agenda, a link). The list's scroll comes back.
+ */
+function PhoneApplicationsPage() {
+  const searchParams = useSearchParams();
+  const param = searchParams.get("focus");
+  // The URL decides; a tap answers at once, before the URL round trip.
+  const [focusId, setFocusId] = useState<string | null>(param);
+  const [seenParam, setSeenParam] = useState<string | null>(param);
+  if (param !== seenParam) {
+    setSeenParam(param);
+    setFocusId(param);
+  }
+  // The id a tap pushed: only then does "Pipeline" go back in history.
+  const pushedFor = useRef<string | null>(null);
+  const listScroll = useRef(0);
+  const lastOpened = useRef<string | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  // The phone shell scrolls the document, never its <main>.
+  useLayoutEffect(() => {
+    const page = document.scrollingElement ?? document.documentElement;
+    if (focusId) {
+      page.scrollTop = 0;
+      if (pushedFor.current === focusId) {
+        pageRef.current
+          ?.querySelector<HTMLElement>('[data-action="back"]')
+          ?.focus({ preventScroll: true });
+      }
+      return;
+    }
+    // Back on the list, whichever way (Pipeline, the back gesture).
+    pushedFor.current = null;
+    if (lastOpened.current) {
+      page.scrollTop = listScroll.current;
+      const id = lastOpened.current;
+      lastOpened.current = null;
+      Array.from(
+        pageRef.current?.querySelectorAll<HTMLElement>(
+          "a[data-application-id]",
+        ) ?? [],
+      )
+        .find((row) => row.dataset.applicationId === id)
+        ?.focus({ preventScroll: true });
+    }
+  }, [focusId]);
+
+  function openApplication(applicationId: string) {
+    listScroll.current = (
+      document.scrollingElement ?? document.documentElement
+    ).scrollTop;
+    lastOpened.current = applicationId;
+    pushedFor.current = applicationId;
+    setFocusId(applicationId);
+    window.history.pushState(
+      null,
+      "",
+      `${PIPELINE_PATH}?focus=${encodeURIComponent(applicationId)}`,
+    );
+  }
+
+  function backToList() {
+    const wasPushed =
+      pushedFor.current !== null && pushedFor.current === focusId;
+    setFocusId(null);
+    if (wasPushed) {
+      window.history.back();
+    } else {
+      window.history.replaceState(null, "", PIPELINE_PATH);
+    }
+  }
+
+  return (
+    <div ref={pageRef}>
+      {focusId ? (
+        <ApplicationScreen
+          key={focusId}
+          applicationId={focusId}
+          onBack={backToList}
+        />
+      ) : (
+        <PipelineScreen onOpenApplication={openApplication} />
+      )}
+    </div>
+  );
+}
+
+function ApplicationsDesktopPage() {
   const { selectedCycleId, isViewingPastCycle } = useCycleContext();
   const {
     filtered,
@@ -106,7 +214,7 @@ export function ApplicationsPage() {
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const advancedPanelId = useId();
 
-  // `?focus=` (R-011, KODI-038): read once, off the incoming URL, via a LAZY
+  // `?focus=` (R-011): read once, off the incoming URL, via a LAZY
   // useState initializer — never an effect (`react-hooks/set-state-in-effect`).
   const searchParams = useSearchParams();
   const [focusId] = useState<string | null>(() => searchParams.get("focus"));

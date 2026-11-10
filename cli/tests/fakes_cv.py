@@ -1,4 +1,4 @@
-"""A route-table fake API client for the KODI-018 CV commands.
+"""A route-table fake API client for the CV commands.
 
 Kept apart from ``conftest.py``'s ``FakeApiClient`` on purpose: that one is
 shaped around the 0.1.4/0.2.0 application routes and is asserted against by

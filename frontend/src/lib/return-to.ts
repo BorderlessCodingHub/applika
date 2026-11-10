@@ -1,5 +1,5 @@
 /**
- * Return-to after sign-in (KODI-058). A signed-out visit to a page that must
+ * Return-to after sign-in. A signed-out visit to a page that must
  * come back after login — today only `/device`, so a CLI device code
  * survives the sign-in round trip — stores its path + query in
  * `sessionStorage` before the protected layout sends the browser to

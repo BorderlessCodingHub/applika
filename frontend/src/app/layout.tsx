@@ -83,6 +83,9 @@ export const viewport: Viewport = {
   themeColor: "#101219",
   width: "device-width",
   initialScale: 1,
+  // The phone shell draws under the home indicator; its fixed chrome adds
+  // env(safe-area-inset-bottom) to the board's offsets (phone.css).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

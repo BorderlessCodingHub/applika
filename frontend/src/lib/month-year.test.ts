@@ -9,7 +9,7 @@ import {
 } from "./month-year";
 
 /**
- * The one ISO <-> `MM/yyyy` conversion (KODI-007 / AC3).
+ * The one ISO <-> `MM/yyyy` conversion (AC3).
  *
  * The owner: "it's a date input but only for month and year "MM/yyyy" for both
  * start and finish". `MM/yyyy` is what the user types and reads; ISO `YYYY-MM`

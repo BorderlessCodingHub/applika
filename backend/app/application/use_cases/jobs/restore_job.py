@@ -1,4 +1,4 @@
-"""Restore a dismissed job to the acting user's list (KODI-047, PRD 0012
+"""Restore a dismissed job to the acting user's list (PRD 0012
 R-029)."""
 
 from app.application.use_cases.jobs.get_job import JOB_NOT_FOUND

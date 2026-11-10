@@ -1,5 +1,5 @@
 /**
- * `DatePickerInput` local-date parsing (KODI-001 / R-001).
+ * `DatePickerInput` local-date parsing (R-001).
  *
  * The reason this component exists instead of `<input type="date">` is the
  * classic off-by-one: `new Date("2026-03-15")` is parsed by the JS engine as

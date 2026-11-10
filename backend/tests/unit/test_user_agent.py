@@ -1,4 +1,4 @@
-"""``describe_user_agent`` (KODI-057, R-009, R-020)."""
+"""``describe_user_agent`` (R-009, R-020)."""
 
 import pytest
 

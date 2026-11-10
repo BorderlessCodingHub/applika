@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery({
     queryKey: ["applika-auth"],
     queryFn: () => services.auth.refresh(),
-    // A 429 (R-019/R-024) or a 503 (KODI-058: the session store is down,
+    // A 429 (R-019/R-024) or a 503 (the session store is down,
     // ADR-0019 "fail closed") is temporary: keep retrying on the server's
     // own wait instead of ever settling into `isError`, which would sign a
     // still-valid session out. Any other error keeps today's behaviour —

@@ -6,7 +6,7 @@ import { Slider as SliderPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 /**
- * applika-only component (KODI-002 / T032): a Radix slider that renders one
+ * applika-only component (T032): a Radix slider that renders one
  * thumb per value, used by the dashboard's application-trend range control.
  * Restyled by hand to the new-york idiom — function component, `data-slot`
  * hooks, the unified `radix-ui` import — with the thumb-count behaviour and

@@ -80,7 +80,7 @@ class Settings(BaseSettings):
 
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Device sessions and CLI sign-in (KODI-057, ADR-0019). A device code
+    # Device sessions and CLI sign-in (ADR-0019). A device code
     # lives DEVICE_CODE_TTL_SECONDS and is polled no faster than every
     # DEVICE_CODE_POLL_INTERVAL_SECONDS. DEVICE_VERIFICATION_URI is the web
     # page that approves a device code; CLI_MANUAL_REDIRECT_URI is the web
@@ -126,7 +126,7 @@ class Settings(BaseSettings):
     ACCOUNT_LINK_REDIRECT_URI: str = 'http://127.0.0.1:8080/profile'
     ACCOUNT_LINK_STATE_TTL_SECONDS: int = 600
 
-    # API rate limiter (KODI-039, ADR-0015): per user with an IP fallback,
+    # API rate limiter (ADR-0015): per user with an IP fallback,
     # fixed window in Redis. Environment settings, so changing them takes a
     # restart, not a release (R-020).
     RATE_LIMIT_ENABLED: bool = True
@@ -134,7 +134,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: int = 10
     RATE_LIMIT_WINDOW_SECONDS: int = 60
 
-    # Background jobs (KODI-046, ADR-0016): the taskiq broker and the hourly
+    # Background jobs (ADR-0016): the taskiq broker and the hourly
     # job collection. ``TASKIQ_BROKER_URL`` unset means the broker shares
     # ``REDIS_URL`` (owner, at plan approval). ``JOBS_SCRAPERS`` is a comma
     # list of scraper codes; ``fixture`` serves every source from

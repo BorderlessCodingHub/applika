@@ -159,7 +159,7 @@ class CreateLegacyStepUseCase(_LegacyStepsBase):
             if event_type is EventType.OFFER
             else {}
         )
-        # KODI-016 (R-038/R-039): a step mapping to a non-interview event
+        # R-038/R-039: a step mapping to a non-interview event
         # never carries a schedule, and this deprecated route must never
         # 422 for it (.claude/rules/cli-compatibility.md) - so the times a
         # 0.1.4 client always sends are silently dropped here, before
@@ -241,7 +241,7 @@ class UpdateLegacyStepUseCase(_LegacyStepsBase):
         denied_reason = (
             keep_denied_reason if event_type is EventType.DENIED else {}
         )
-        # KODI-016 (R-038/R-039): same as the create path - a non-interview
+        # R-038/R-039: same as the create path - a non-interview
         # event never carries a schedule, silently, never a 422.
         schedule = (
             {

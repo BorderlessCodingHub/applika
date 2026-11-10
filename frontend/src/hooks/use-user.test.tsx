@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useMutateUserProfile, useUserProfile } from "@/hooks/use-user";
 
 /**
- * T042/T043 (KODI-041): a rate-limited profile update shows the server's
+ * T042/T043: a rate-limited profile update shows the server's
  * own `detail` in the usual error toast instead of the fixed "Failed to
  * update profile" text (R-025); any other failure keeps that fixed text.
  */
@@ -127,11 +127,11 @@ function unavailableError() {
 }
 
 /**
- * KODI-058 (ADR-0019 "fail closed"): a `/users/me` 503 is Redis being down.
+ * PRD 0014 (ADR-0019 "fail closed"): a `/users/me` 503 is Redis being down.
  * `useUserProfile` must not settle into `isError` (AuthContext would read
  * that as signed out); it retries after the server's `Retry-After: 5`.
  */
-describe("useUserProfile — 503 is temporary (KODI-058)", () => {
+describe("useUserProfile — 503 is temporary", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });

@@ -11,13 +11,13 @@ import {
 import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
- * The CV builder against the REAL stack (KODI-002 and KODI-003).
+ * The CV builder against the REAL stack (PRD 0007).
  *
  * Two surfaces, one spec, because they are one feature. First the MASTER CV:
  * its whole life through the UI — create, list, edit, delete — and the cap made
- * visible at three. Then the application's CV COPY (KODI-003): picked from a
+ * visible at three. Then the application's CV COPY: picked from a
  * master CV, tailored beside the job description, deleted, picked again, and
- * locked once the application is finalized. Finally the PDF (KODI-004), which
+ * locked once the application is finalized. Finally the PDF, which
  * is the one part of this feature the browser cannot fake: the bytes are
  * typeset by RenderCV/Typst on the server (ADR 0011) and only a real API can
  * produce them.
@@ -444,8 +444,8 @@ test("the live preview left-aligns languages at any count (AC6)", async ({
 
   const preview = page.locator('[data-slot="cv-document"]');
   // Scoped to the languages ATOM, not to `getByRole("list")` on the whole
-  // preview: the paginated document's sheets are themselves an ordered list
-  // (KODI-008), so a bare list locator now matches two elements.
+  // preview: the paginated document's sheets are themselves an ordered list,
+  // so a bare list locator now matches two elements.
   const list = preview
     .locator('[data-cv-block="languages:grid"]')
     .getByRole("list");
@@ -524,7 +524,7 @@ test("the API refuses a fourth master CV and the user is told what it said", asy
 });
 
 /* ---------------------------------------------------------------------------
- * KODI-003 — the application's CV copy.
+ * The application's CV copy.
  * ------------------------------------------------------------------------ */
 
 test("an application's CV copy is picked, tailored, deleted and picked again", async ({
@@ -710,7 +710,7 @@ test("a finalized application's CV copy is readable but locked", async ({
     page.getByRole("button", { name: "Delete this CV copy" }),
   ).toHaveCount(0);
 
-  // What the footer DOES keep is the download (KODI-004, AC1): refusing to let
+  // What the footer DOES keep is the download (AC1): refusing to let
   // a finalized copy be written is not the same as refusing to let it be read.
   const download = page.getByRole("button", { name: "Download PDF" });
   await expect(download).toBeVisible();
@@ -729,7 +729,7 @@ test("a finalized application's CV copy is readable but locked", async ({
 });
 
 /* ---------------------------------------------------------------------------
- * KODI-004 — the server-rendered PDF.
+ * The server-rendered PDF.
  * ------------------------------------------------------------------------ */
 
 /** The words AC3 requires, verbatim. Kept in sync with `CV_EXPORT_COPY.layoutNotice` (en). */
@@ -835,7 +835,7 @@ test("an application's CV copy downloads as a PDF", async ({
 });
 
 /* ---------------------------------------------------------------------------
- * KODI-008 — the live preview flowed across real A4 sheets, on the full width.
+ * The live preview flowed across real A4 sheets, on the full width.
  *
  * The owner: "if possible, make the preview during CV creation create pages if
  * the document become too large, use A4 dimensions" and "also, use the full
@@ -1025,7 +1025,7 @@ test("the live preview flows a long CV across real A4 sheets (AC1, AC2, AC3)", a
   }
   await expect(page.getByText(`CV preview: ${sheets} pages.`)).toHaveCount(1);
 
-  // ---- KODI-006's AC7, at the viewport where a tall preview could break it
+  // ---- The earlier AC7, at the viewport where a tall preview could break it
   // A multi-page preview is exactly the height that used to have nowhere to go
   // but the document. It lands in the pane's own capped scroll at `md` and up,
   // and in `main`'s below it — never in `<html>`'s.
@@ -1036,7 +1036,7 @@ test("the live preview flows a long CV across real A4 sheets (AC1, AC2, AC3)", a
   ).toBeLessThanOrEqual(1);
 
   // The notice is untouched and still said twice, and it does MORE work now
-  // that the preview looks like paginated A4 (KODI-004 AC3).
+  // that the preview looks like paginated A4 (AC3).
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
 });
 
@@ -1118,9 +1118,9 @@ test("the CV pages spend the whole shell width once there is an editor to show (
   page,
   request,
 }) => {
-  // The owner, KODI-008: "also, use the full page width for this page" — his
-  // screenshot showed the dead space to the right of the editor. Revised by
-  // KODI-017: "only full width when we have a cv copy to the application" —
+  // The owner: "also, use the full page width for this page" — his
+  // screenshot showed the dead space to the right of the editor. Revised
+  // later: "only full width when we have a cv copy to the application" —
   // `/applications/cv` now spends the full width ONLY once the editor is on
   // screen (a copy exists); every other state of that route, including the
   // picker, stays in the reading column like every other page. Asserted as
@@ -1136,7 +1136,7 @@ test("the CV pages spend the whole shell width once there is an editor to show (
   await loginAs(page, "user");
   // Wider than `max-w-7xl`, or the reading column would not bind and there
   // would be no dead space to remove. 1920px (Recommended, owner-ordered
-  // KODI-013 addendum) so the >100px dead-space precondition holds reliably;
+  // PRD 0008 addendum) so the >100px dead-space precondition holds reliably;
   // this widens only the viewport this test runs at, never the layout itself.
   await page.setViewportSize({ width: 1920, height: 1080 });
 
@@ -1183,74 +1183,179 @@ test("the CV pages spend the whole shell width once there is an editor to show (
   }
 });
 
-test("the preview restacks and stays usable below md (AC6)", async ({
+test("below md the CV editor is the phone board: sections that expand one at a time and the PDF, no live preview (PRD 0021)", async ({
   page,
   request,
 }) => {
+  // PRD 0021: the phone CV editor shows the sections as an expandable list
+  // and a PDF action, with no live preview. The restack proof that used to
+  // live here moved to `/cvs/new` below, whose phone board (v3/CVNew, PRD
+  // 0022) puts the live preview card after the rows.
   const cvId = await seedBulkyBaseCv(request, 4);
 
   await loginAs(page, "user");
   await page.setViewportSize({ width: 390, height: 844 });
-  const sheets = await openSettledEditor(page, cvId);
+  await page.goto(`/cvs/editor?id=${cvId}`);
+
+  const editor = page.locator('[data-slot="phone-cv-editor"]');
+  await expect(editor).toBeVisible();
+  // Identity and contact opens first, and holds the label.
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  const rows = editor.locator('[data-slot="cv-acc"]');
+  await expect(rows).toHaveCount(FORM_SECTIONS.length);
+  await expect(rows.first()).toHaveAttribute("data-section", "identity");
+  await expect(rows.first()).toHaveAttribute("data-open", "true");
+  await expect(editor.locator('[data-slot="cv-acc"][data-open]')).toHaveCount(
+    1,
+  );
+
+  // No preview, so no sheet, no page indicator and no layout notice; no
+  // Markdown either. The PDF is the top bar's "Download PDF".
+  await expect(page.locator('[data-slot="cv-document"]')).toHaveCount(0);
+  await expect(page.locator(SHEET)).toHaveCount(0);
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Download Markdown" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Download PDF", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('[data-action="save-cv"]')).toBeVisible();
+
+  // One row open at a time: Experience opens, Identity folds.
+  const experience = editor.locator(
+    '[data-slot="cv-acc"][data-section="experience"]',
+  );
+  await experience.getByRole("button", { name: "Experience" }).click();
+  await expect(experience).toHaveAttribute("data-open", "true");
+  await expect(rows.first()).not.toHaveAttribute("data-open", /.*/);
+  await expect(editor.locator('[data-slot="cv-acc"][data-open]')).toHaveCount(
+    1,
+  );
+
+  // Nothing runs off the side, in the document or in the shell's `main`.
+  const metrics = await page.evaluate(() => {
+    const doc = document.documentElement;
+    const main = document.querySelector("main");
+    return {
+      innerWidth: window.innerWidth,
+      documentScrollWidth: doc.scrollWidth,
+      mainScrollWidth: main?.scrollWidth ?? -1,
+      mainClientWidth: main?.clientWidth ?? -1,
+    };
+  });
+  expect(
+    metrics.documentScrollWidth,
+    `the phone editor widened the page: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.innerWidth + 1);
+  expect(
+    metrics.mainScrollWidth,
+    `the phone editor scrolls sideways: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
+});
+
+test("below md /cvs/new is the CVNew board: the rows, then the live preview card, never wider than the phone (AC6, PRD 0022)", async ({
+  page,
+}) => {
+  // v3/CVNew (PRD 0022): the sections as an expandable list, then the board's
+  // "Live preview" card holding today's live preview at the board's 210px
+  // sheet. Nothing is saved here.
+  await loginAs(page, "user");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/cvs/new");
+
+  const board = page.locator('[data-slot="phone-cv-new"]');
+  await expect(board).toHaveAttribute("data-state", "form");
+  const rows = board.locator('[data-slot="cv-acc"]');
+  await expect(rows).toHaveCount(FORM_SECTIONS.length);
+  await expect(rows.first()).toHaveAttribute("data-section", "identity");
+  await expect(rows.first()).toHaveAttribute("data-open", "true");
+  await page.getByLabel("CV label", { exact: true }).fill(CV_NAME);
+  await page.getByLabel("Full name", { exact: true }).fill("E2E Candidate");
+  const sheets = await settledSheetCount(page);
   expect(sheets).toBeGreaterThanOrEqual(1);
 
-  // Restacked: the preview is BELOW the form, not a second column beside it.
-  const label = await page
-    .getByLabel("CV label", { exact: true })
-    .boundingBox();
-  const preview = await page.locator('[data-slot="cv-document"]').boundingBox();
-  expect(label, "the form did not render").not.toBeNull();
-  expect(preview, "the preview did not render").not.toBeNull();
-  expect(preview!.y).toBeGreaterThan(label!.y + label!.height);
+  // Stacked: the preview card comes AFTER the last row, not beside the form.
+  const card = page.locator('[data-slot="cv-new-preview"]');
+  await expect(
+    card.getByRole("heading", { name: "Live preview" }),
+  ).toBeVisible();
+  const lastRow = await rows.last().boundingBox();
+  const cardBox = await card.boundingBox();
+  expect(lastRow, "the rows did not render").not.toBeNull();
+  expect(cardBox, "the preview card did not render").not.toBeNull();
+  expect(cardBox!.y).toBeGreaterThan(lastRow!.y + lastRow!.height);
+  // Live: the sheet holds what was just typed.
+  await expect(card.locator(SHEET).first()).toContainText("E2E Candidate");
 
   const metrics = await page.evaluate((sheetSelector) => {
     const doc = document.documentElement;
-    const sheet = document.querySelector<HTMLElement>(sheetSelector);
-    const frame = document.querySelector<HTMLElement>(
-      '[data-slot="cv-document"]',
-    )?.parentElement;
+    const main = document.querySelector("main");
+    const sheet = document
+      .querySelector<HTMLElement>(sheetSelector)
+      ?.firstElementChild?.getBoundingClientRect();
+    const frame = document
+      .querySelector<HTMLElement>('[data-slot="cv-document"]')
+      ?.parentElement?.getBoundingClientRect();
 
     return {
       innerWidth: window.innerWidth,
       innerHeight: window.innerHeight,
       documentScrollWidth: doc.scrollWidth,
       documentScrollHeight: doc.scrollHeight,
-      sheetWidth: sheet?.getBoundingClientRect().width ?? -1,
-      sheetRight: sheet?.getBoundingClientRect().right ?? -1,
-      frameWidth: frame?.clientWidth ?? -1,
+      shellHeight:
+        document
+          .querySelector('[data-slot="phone-shell"]')
+          ?.getBoundingClientRect().height ?? -1,
+      mainScrollWidth: main?.scrollWidth ?? -1,
+      mainClientWidth: main?.clientWidth ?? -1,
+      sheetWidth: sheet?.width ?? -1,
+      sheetHeight: sheet?.height ?? -1,
+      sheetRight: sheet?.right ?? -1,
+      frameWidth: frame?.width ?? -1,
     };
   }, SHEET);
 
-  // Usable: the sheet fills the column it is in and nothing runs off the side.
-  expect(metrics.sheetWidth).toBeGreaterThan(metrics.frameWidth - 2);
+  // The board's sheet: 210px wide in a 210px column, A4 tall, inside the phone.
+  expect(Math.round(metrics.frameWidth)).toBe(210);
+  expect(Math.round(metrics.sheetWidth)).toBe(210);
+  expect(Math.round(metrics.sheetHeight)).toBe(297);
   expect(metrics.sheetRight).toBeLessThanOrEqual(metrics.innerWidth + 1);
   expect(
     metrics.documentScrollWidth,
     `the paginated preview widened the page: ${JSON.stringify(metrics)}`,
   ).toBeLessThanOrEqual(metrics.innerWidth + 1);
+  expect(
+    metrics.mainScrollWidth,
+    `the paginated preview scrolls sideways: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
 
-  // KODI-006's AC7 holds at this viewport too: the added height lands in the
-  // editor's own scroll, never in the document's.
+  // The phone shell scrolls the document, so the page is as tall as the
+  // shell: the preview adds no height outside it (an off-screen measuring
+  // box would stretch the document past the shell).
+  expect(metrics.shellHeight).toBeGreaterThan(0);
   expect(
     metrics.documentScrollHeight,
-    `the paginated preview grew the page: ${JSON.stringify(metrics)}`,
-  ).toBeLessThanOrEqual(metrics.innerHeight + 1);
+    `the paginated preview grew the page past the shell: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(Math.ceil(metrics.shellHeight) + 1);
 
-  // Readable: the page indicator is NOT inside the sheet's `scale()`. At a
-  // scale near 0.45 an 11px folio would render at 5px, which is the whole
-  // reason the transform is applied per sheet and not to the stack.
+  // Readable: the page indicator is NOT inside the sheet's `scale()`; the
+  // board draws it 12px, centred under the sheet.
   const indicator = page.getByText(`Page 1 of ${sheets}`).locator("..");
-  await expect(indicator).toHaveCSS("font-size", "11px");
+  await expect(indicator).toHaveCSS("font-size", "12px");
   const indicatorBox = await indicator.boundingBox();
   expect(indicatorBox!.height).toBeGreaterThan(8);
 
-  // And it still says the words.
+  // And it still says the words: once on `/cvs/new`, which has no export
+  // button (the caption is the only notice there).
   await expect(page.getByText(`Page 1 of ${sheets}`)).toHaveCount(1);
-  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(1);
 });
 
 /* ===========================================================================
- * KODI-009 — the frontend improvements the owner asked for last.
+ * The frontend improvements the owner asked for last.
  *
  * "instead of listing the keywords, now lists only the categories, change this
  * to display all keywords inside all categories in skills and add a button to
@@ -1351,11 +1456,11 @@ test("every form section and every experience entry collapses, none of them star
   ).toBeVisible();
 });
 
-test("the page never scrolls, sections expanded OR collapsed (AC4 vs KODI-006 AC7)", async ({
+test("the page never scrolls, sections expanded OR collapsed (AC4 vs the earlier AC7)", async ({
   page,
   request,
 }) => {
-  // The invariant most at risk in this slice. KODI-006's AC7 is "remove the
+  // The invariant most at risk in this slice. The earlier AC7 is "remove the
   // page scroll" and collapsing nine sections changes the document's height by
   // most of a CV — in both directions. So it is measured in both states, on
   // the twelve-role CV that needs several A4 sheets.
@@ -1411,7 +1516,7 @@ test("the page never scrolls, sections expanded OR collapsed (AC4 vs KODI-006 AC
   ).toBeLessThanOrEqual(1);
 
   console.log(
-    `[KODI-009] no-page-scroll, ${sheets} A4 sheets — ` +
+    `[PRD 0007] no-page-scroll, ${sheets} A4 sheets — ` +
       `expanded ${JSON.stringify(expanded)} | ` +
       `collapsed ${JSON.stringify(collapsed)} | ` +
       `re-expanded ${JSON.stringify(reopened)}`,
@@ -1423,7 +1528,7 @@ test("the form and the preview each take half the editor, with no cap on either 
   request,
 }) => {
   // The owner: "increace the preview width size keep 50/50 "w-1/2" to the CV
-  // form and "w-1/2" to CV preview". This REVERSES KODI-008, which capped the
+  // form and "w-1/2" to CV preview". This REVERSES the old split, which capped the
   // preview at `2xl` and gave the surplus to the form — so the assertion is
   // that neither side is wider than the other, at a width where the old cap
   // used to bind.
@@ -1461,12 +1566,12 @@ test("the form and the preview each take half the editor, with no cap on either 
     expect(halves.form * 2).toBeGreaterThan(halves.split - 48);
 
     console.log(
-      `[KODI-009] 50/50 at ${width}px: ${JSON.stringify(halves)}, ${sheets} sheets`,
+      `[PRD 0007] 50/50 at ${width}px: ${JSON.stringify(halves)}, ${sheets} sheets`,
     );
   }
 
   // ---- The COPY editor gets the same 50/50, with no `2xl` cap either
-  // (KODI-017 criterion 4). Its preview landmark is a `<section
+  // (PRD 0007). Its preview landmark is a `<section
   // aria-label="CV preview">`, not the master editor's `<aside>` above, so
   // the selector is tag-agnostic on purpose — both are ARIA regions with the
   // same accessible name.
@@ -1499,42 +1604,50 @@ test("the form and the preview each take half the editor, with no cap on either 
     expect(copyHalves.form * 2).toBeGreaterThan(copyHalves.split - 48);
   }
 
-  // Below `md` the two stack, form first — the halves are a `md:` rule, not a
-  // 50% the phone inherits.
+  // Below `md` the master CV editor is the phone board, with no preview
+  // (PRD 0021), and `/cvs/new` is v3/CVNew (PRD 0022): the rows, then the
+  // Live preview card — the halves are a `md:` rule, not a 50% the phone
+  // inherits. Nothing is saved there.
   await page.setViewportSize({ width: 390, height: 844 });
-  await openSettledEditor(page, cvId);
+  await page.goto(`/cvs/editor?id=${cvId}`);
+  await expect(page.locator('[data-slot="phone-cv-editor"]')).toBeVisible();
+  await expect(page.locator('aside[aria-label="CV preview"]')).toHaveCount(0);
+  await page.goto("/cvs/new");
+  await page.getByLabel("CV label", { exact: true }).fill(CV_NAME);
+  await settledSheetCount(page);
+  await expect(page.locator('aside[aria-label="CV preview"]')).toHaveCount(0);
   const stacked = await page.evaluate(() => {
-    const form = document
-      .querySelector<HTMLElement>('[data-slot="cv-section"]')
+    const rows = document
+      .querySelector<HTMLElement>('[data-slot="phone-cv-new"] .ph-ce-list')
       ?.getBoundingClientRect();
     const preview = document
-      .querySelector<HTMLElement>('aside[aria-label="CV preview"]')
+      .querySelector<HTMLElement>('[data-slot="cv-new-preview"]')
       ?.getBoundingClientRect();
     return {
       inner: window.innerWidth,
       previewWidth: Math.round(preview?.width ?? -1),
       previewTop: Math.round(preview?.top ?? -1),
-      formTop: Math.round(form?.top ?? -1),
-      formWidth: Math.round(form?.width ?? -1),
+      rowsBottom: Math.round(rows?.bottom ?? -1),
+      rowsWidth: Math.round(rows?.width ?? -1),
     };
   });
-  // Stacked, form first, and each of them spends the whole narrow column.
-  expect(stacked.previewTop).toBeGreaterThan(stacked.formTop);
+  // Stacked, rows first, and each of them spends the whole narrow column.
+  expect(stacked.previewTop).toBeGreaterThan(stacked.rowsBottom);
   expect(stacked.previewWidth).toBeGreaterThan(stacked.inner / 2);
   expect(
-    Math.abs(stacked.previewWidth - stacked.formWidth),
+    Math.abs(stacked.previewWidth - stacked.rowsWidth),
   ).toBeLessThanOrEqual(1);
 });
 
-test("the 50/50 split moves the preview's scale, never its page count (KODI-008)", async ({
+test("the 50/50 split moves the preview's scale, never its page count", async ({
   page,
   request,
 }) => {
   // The page count is the A4 sheet's business: `cv-page-sheet.tsx` lays the
   // document out at a FIXED A4 content width and the column only scales the
-  // result. So widening the preview from KODI-008's `38rem` cap to a true half
+  // result. So widening the preview from the old `38rem` cap to a true half
   // must not repaginate the CV — which is the one way this slice could have
-  // broken KODI-008's pagination. Measured at three widths, including the one
+  // broken the A4 pagination. Measured at three widths, including the one
   // the old cap was written for.
   const cvId = await seedBulkyBaseCv(request, 12);
 
@@ -1547,7 +1660,7 @@ test("the 50/50 split moves the preview's scale, never its page count (KODI-008)
     await expect(page.getByText(`Page 1 of ${counts[width]}`)).toHaveCount(1);
   }
 
-  console.log(`[KODI-009] A4 page counts by width: ${JSON.stringify(counts)}`);
+  console.log(`[PRD 0007] A4 page counts by width: ${JSON.stringify(counts)}`);
 
   const values = Object.values(counts);
   expect(
@@ -1716,7 +1829,7 @@ test("the CV list shows every keyword of every skill category as a badge (AC1)",
 });
 
 /* ==========================================================================
- * KODI-009, round 2 — the owner's three refinements (criteria 10, 11, 12).
+ * Round 2 — the owner's three refinements (criteria 10, 11, 12).
  *
  * The owner: "remove the button to insert a new link/category/etc from the
  * category header and put inside the colapsable section, preferable bellow
@@ -1761,6 +1874,20 @@ test("the whole section header toggles it, and a collapsed section offers no add
   const lastRow = sectionCard(page, "Experience")
     .locator('[data-slot="cv-repeatable-item"]')
     .last();
+  // At md and up a row's move and remove buttons keep their 32px: the
+  // phone's 44px boxes come from `.ph-ce-panel`, which renders below md only.
+  await expect
+    .poll(() =>
+      lastRow
+        .locator('[data-slot="cv-item-actions"] > button')
+        .evaluateAll((buttons) =>
+          buttons.map((button) => {
+            const rect = button.getBoundingClientRect();
+            return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+          }),
+        ),
+    )
+    .toEqual(["32x32", "32x32", "32x32"]);
   const rowBox = await lastRow.boundingBox();
   const addBox = await add.boundingBox();
   expect(rowBox && addBox).toBeTruthy();
@@ -1889,7 +2016,7 @@ test("every chevron sits on the vertical centre of its own header (11)", async (
     ).toBeLessThanOrEqual(1);
   }
 
-  console.log(`[KODI-009] chevron offsets — ${JSON.stringify(offsets)}`);
+  console.log(`[PRD 0007] chevron offsets — ${JSON.stringify(offsets)}`);
 });
 
 /** Where the preview sits relative to the TOP of the shell's scrollport. */
@@ -2013,18 +2140,18 @@ test("the live preview does not gap from the top of the page as it scrolls (12)"
     ).toBeLessThanOrEqual(1);
   }
 
-  // 4. And none of it gave the page a scrollbar back (KODI-006 AC7).
+  // 4. And none of it gave the page a scrollbar back (AC7).
   for (const key of Object.keys(at)) {
     expect(at[key].docDelta, `${key} scrolls the document`).toBeLessThanOrEqual(
       1,
     );
   }
 
-  console.log(`[KODI-009] preview top gap — ${JSON.stringify(at)}`);
+  console.log(`[PRD 0007] preview top gap — ${JSON.stringify(at)}`);
 });
 
 /* ===========================================================================
- * KODI-009 (13) — the layout notice is ON SCREEN, not under the submit row.
+ * Criterion 13 — the layout notice is ON SCREEN, not under the submit row.
  * ======================================================================== */
 
 /**
@@ -2191,7 +2318,7 @@ async function expectCaptionUnoccluded(page: Page, where: string) {
     `the layout notice is covered on ${where} by ${hit.coveredBy}`,
   ).toBeNull();
 
-  console.log(`[KODI-009] caption hit-test ${where} — ${JSON.stringify(hit)}`);
+  console.log(`[PRD 0007] caption hit-test ${where} — ${JSON.stringify(hit)}`);
 }
 
 test("the layout notice is never under the submit row, on either editor (13)", async ({
@@ -2268,7 +2395,7 @@ test("the CV gallery says nothing about a preview it does not render (13)", asyn
 });
 
 /* ---------------------------------------------------------------------------
- * KODI-017 — the copy's diff against its baseline, and the Markdown/diff
+ * The copy's diff against its baseline, and the Markdown/diff
  * downloads (parts 2 and 3).
  * ------------------------------------------------------------------------ */
 
@@ -2292,7 +2419,7 @@ async function expectMarkdownRoute(
   expect(body).toContain(expectedContains);
 }
 
-test("the copy's diff: Changed + Revert, an Added badge on a new row, and Restore on a removed one (KODI-017)", async ({
+test("the copy's diff: Changed + Revert, an Added badge on a new row, and Restore on a removed one", async ({
   page,
   request,
 }) => {
@@ -2384,7 +2511,7 @@ test("the copy's diff: Changed + Revert, an Added badge on a new row, and Restor
   );
 });
 
-test("a master CV and a CV copy download as Markdown beside the PDF (KODI-017 part 3)", async ({
+test("a master CV and a CV copy download as Markdown beside the PDF", async ({
   page,
   request,
 }) => {
@@ -2427,7 +2554,7 @@ test("a master CV and a CV copy download as Markdown beside the PDF (KODI-017 pa
   expect(savedCopyMd.suggestedFilename()).toBe("e2e-master-cv.md");
 });
 
-test("the diff downloads as Markdown and PDF, and the Markdown carries the saved change (KODI-017 part 3)", async ({
+test("the diff downloads as Markdown and PDF, and the Markdown carries the saved change", async ({
   page,
   request,
 }) => {

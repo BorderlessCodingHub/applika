@@ -140,7 +140,7 @@ async def delete_me(
     token = await release.execute(c_user.id, force=True)
     if token:
         background.add_task(oidc.revoke, token)
-    # KODI-057 (R-008): every session of the account ends at once - their
+    # R-008: every session of the account ends at once - their
     # Redis keys go now, their rows with the user by CASCADE, as do the
     # Borderless binding, the badges and the GitHub identity row.
     await revoke_sessions.end_all_keys(c_user.id)

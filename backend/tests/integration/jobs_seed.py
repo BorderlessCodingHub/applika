@@ -1,4 +1,4 @@
-"""Seed helpers for the job collection tests (KODI-046).
+"""Seed helpers for the job collection tests.
 
 ``create_all`` builds the tables but not revision ``b28d5134631f``'s seed, so
 :func:`seed_sources` adds the same two sources, each pointing at its own

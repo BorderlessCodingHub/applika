@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { JobFiltersToolbar } from "@/components/jobs/job-filters";
 import {
@@ -9,13 +8,6 @@ import {
   clearJobFilters,
   hasAnyJobFilter,
 } from "@/components/jobs/job-copy";
-import {
-  filtersFromSearchParams,
-  filtersToSearchParams,
-  normalizeJobFilters,
-  pageFromSearchParams,
-  sameJobFilters,
-} from "@/components/jobs/job-filters-url";
 import {
   JobListItem,
   type JobMarkPending,
@@ -29,23 +21,20 @@ import {
   JobResultsCount,
 } from "@/components/jobs/job-list-states";
 import { MasterCvInvitation } from "@/components/jobs/master-cv-invitation";
-import {
-  SavedSearchesMenu,
-  type SavedSearchOutcome,
-} from "@/components/jobs/saved-searches-menu";
+import { SavedSearchesMenu } from "@/components/jobs/saved-searches-menu";
 import { StartApplicationFlow } from "@/components/jobs/start-application-flow";
+import {
+  useSavedSearchesMenu,
+  useUrlJobFilters,
+  writeJobsUrl,
+} from "@/components/jobs/use-job-board";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
+import { JobsScreen } from "@/components/phone/screens/jobs-screen";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import {
-  useCreateJobSearch,
-  useDeleteJobSearch,
-  useJobSearches,
-  useUpdateJobSearch,
-} from "@/hooks/use-job-searches";
-import {
-  apiStatus,
   jobApiDetail,
   useDismissJob,
   useJobs,
@@ -54,70 +43,28 @@ import {
 import { unknownErrorMessage } from "@/lib/api-error-message";
 import { scrollIntoContainer } from "@/lib/scroll-into-container";
 import { cn } from "@/lib/utils";
-import type { JobSearch } from "@/services/types/job-searches";
-import type { JobFilters, JobSummary } from "@/services/types/jobs";
-
-/**
- * Filters and page live in the URL (Plan corrections 17): read through
- * `useSearchParams`, written through the History API, which Next keeps in
- * sync with `useSearchParams`. `router.replace` with only a new query is a
- * no-op on this static export.
- */
-function writeJobsUrl(
-  filters: JobFilters,
-  page = 1,
-  mode: "push" | "replace" = "push",
-) {
-  const query = filtersToSearchParams(filters, page).toString();
-  const url = `${window.location.pathname}${query ? `?${query}` : ""}`;
-  if (mode === "push") window.history.pushState(null, "", url);
-  else window.history.replaceState(null, "", url);
-}
-
-/** A 4xx `detail` shows inline in the saved-search dialog; anything else is the menu's generic error. */
-function savedSearchOutcome(error: unknown): SavedSearchOutcome {
-  const status = apiStatus(error);
-  const detail = jobApiDetail(error, "");
-  if (status && status < 500 && detail) return detail;
-  throw error;
-}
+import type { JobSummary } from "@/services/types/jobs";
 
 /**
  * `/jobs` behind the `jobs` feature (PRD 0013): without it, the app's "page
  * not found" and not one job request — the gate sits above every job hook.
+ * Below md the v2/Jobs board (PRD 0021), inside the same gate; at md and up
+ * today's board, unchanged.
  */
 export function JobsPage() {
+  const isPhone = useIsPhone();
   return (
     <FeatureGate feature="jobs">
-      <JobBoard />
+      {isPhone ? <JobsScreen /> : <JobBoard />}
     </FeatureGate>
   );
-}
-
-/**
- * Fit, "Start application" (with its "Tailor by keywords"), the master CV
- * invitation and a draft link need `cvs` too. Without it the server sends no
- * fit, and an old `?min_fit=` or `sort=fit` (a link, a saved search) is
- * dropped here, since no control is left to clear it.
- */
-function withoutFit(filters: JobFilters): JobFilters {
-  return {
-    ...filters,
-    min_fit: null,
-    sort: filters.sort === "fit" ? "newest" : filters.sort,
-  };
 }
 
 function JobBoard() {
   const copy = useJobsCopy();
   const beta = useHasFeature("jobs").stage === "beta";
   const hasCvs = useHasFeature("cvs").has;
-  const searchParams = useSearchParams();
-  const filters = useMemo(() => {
-    const fromUrl = filtersFromSearchParams(searchParams);
-    return hasCvs ? fromUrl : withoutFit(fromUrl);
-  }, [searchParams, hasCvs]);
-  const page = pageFromSearchParams(searchParams);
+  const { filters, page } = useUrlJobFilters(hasCvs);
 
   const jobs = useJobs(filters, page);
   const baseCvs = useBaseCvs();
@@ -127,10 +74,7 @@ function JobBoard() {
   const restore = useRestoreJob();
   const [marks, setMarks] = useState<Record<string, JobMarkPending>>({});
 
-  const searches = useJobSearches();
-  const createSearch = useCreateJobSearch();
-  const updateSearch = useUpdateJobSearch();
-  const deleteSearch = useDeleteJobSearch();
+  const savedSearchesMenu = useSavedSearchesMenu(filters, hasCvs);
 
   const [starting, setStarting] = useState<JobSummary | null>(null);
   const [startOpen, setStartOpen] = useState(false);
@@ -187,53 +131,6 @@ function JobBoard() {
     });
   }
 
-  // Without `cvs` a search saved with a fit sort or minimum reads (and
-  // applies, and matches the board) without them, like the URL does.
-  const savedSearches = useMemo(
-    () =>
-      hasCvs
-        ? searches.data
-        : searches.data?.map((search) => ({
-            ...search,
-            filters: withoutFit(search.filters),
-          })),
-    [searches.data, hasCvs],
-  );
-
-  const activeSearchId =
-    savedSearches?.find((search) => sameJobFilters(search.filters, filters))
-      ?.id ?? null;
-
-  async function saveSearch(name: string): Promise<SavedSearchOutcome> {
-    try {
-      await createSearch.mutateAsync({
-        name,
-        filters: normalizeJobFilters(filters),
-      });
-    } catch (error) {
-      return savedSearchOutcome(error);
-    }
-  }
-
-  async function renameSearch(
-    search: JobSearch,
-    name: string,
-  ): Promise<SavedSearchOutcome> {
-    try {
-      await updateSearch.mutateAsync({ id: search.id, data: { name } });
-    } catch (error) {
-      return savedSearchOutcome(error);
-    }
-  }
-
-  async function removeSearch(search: JobSearch): Promise<SavedSearchOutcome> {
-    try {
-      await deleteSearch.mutateAsync(search.id);
-    } catch (error) {
-      return savedSearchOutcome(error);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -249,17 +146,7 @@ function JobBoard() {
           </p>
         </div>
         <SavedSearchesMenu
-          searches={savedSearches}
-          isLoading={searches.isLoading}
-          error={searches.isError ? jobApiDetail(searches.error) : null}
-          onRetry={() => void searches.refetch()}
-          activeId={activeSearchId}
-          onApply={(search) =>
-            writeJobsUrl(normalizeJobFilters(search.filters))
-          }
-          onSave={saveSearch}
-          onRename={renameSearch}
-          onDelete={removeSearch}
+          {...savedSearchesMenu}
           className="w-full sm:w-auto"
         />
       </div>

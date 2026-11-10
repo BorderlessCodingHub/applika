@@ -180,7 +180,7 @@ export function FeatureOwnAccess({
                 className="size-3.5 text-muted-foreground motion-safe:animate-spin"
               />
             ) : null}
-            {/* aria-disabled, not disabled: a locked switch stays focusable so its reason is read with it, and pending keeps focus (KODI-048). */}
+            {/* aria-disabled, not disabled: a locked switch stays focusable so its reason is read with it, and pending keeps focus. */}
             <Switch
               id={switchId}
               checked={checked}

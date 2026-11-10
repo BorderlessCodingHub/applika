@@ -260,7 +260,7 @@ const languageSchema = z.object({
  * projects, qualifications, certifications and languages validates, and
  * `toBaseCvPayload` drops a row the user added and never typed into rather than
  * rejecting it. A row with anything in it has to be complete, because the API
- * refuses a half-filled one — and since KODI-007 that includes the START of an
+ * refuses a half-filled one — and that now includes the START of an
  * experience or education period, which is required on BOTH sections.
  */
 export const baseCvSchema = z.object({

@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import { formatTimeRange } from "@/components/timeline/timeline-format";
 
 /**
- * PRD 0008 / ADR 0012, KODI-016 (AC2): the timeline formatters reuse
+ * PRD 0008 / ADR 0012 (AC2): the timeline formatters reuse
  * `timeZoneLabel` — the exact formatter `TimezoneSelect` shows — so a card's
  * time range reads the zone the same way the select does (underscores as
  * spaces), never the raw IANA id, and never a second implementation of the
  * same substitution.
  */
-describe("formatTimeRange — readable zone (AC2, KODI-016)", () => {
+describe("formatTimeRange — readable zone (AC2)", () => {
   it("renders the zone with underscores replaced by spaces, exactly like the timezone select", () => {
     expect(formatTimeRange("10:00", "11:00", "America/Sao_Paulo")).toBe(
       "10:00–11:00 · America/Sao Paulo",
@@ -22,7 +22,7 @@ describe("formatTimeRange — readable zone (AC2, KODI-016)", () => {
     ).toBe("09:00–10:00 · America/Argentina/Buenos Aires");
   });
 
-  it("returns null when there is no start time, whether the keys are null or entirely absent (KODI-016)", () => {
+  it("returns null when there is no start time, whether the keys are null or entirely absent", () => {
     expect(formatTimeRange(null, null, null)).toBeNull();
     expect(formatTimeRange(undefined, undefined, undefined)).toBeNull();
   });

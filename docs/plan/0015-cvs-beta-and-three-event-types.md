@@ -70,7 +70,7 @@ ORM (B): `EventType` three members; `TimelineEventModel.__table_args__` mirrors 
   keyword, drafts, from-job seeds; `seed_timeline()` notes → interviews.
 - `app/scripts/seed_e2e.py` `reset_beta_features`: `cvs` beta, `released_at` NULL, `e2e-user` listed, `e2e-discord`
   off, no `e2e-admin` opt-out; missing row fails loudly.
-- `backend/CHANGELOG.md`, `backend/CLAUDE.md` (Beta features, Timeline, Enums). Pattern: `api/jobs.py` router gate.
+- `backend/CHANGELOG.md`, `backend/AGENTS.md` (Beta features, Timeline, Enums). Pattern: `api/jobs.py` router gate.
 
 ## Frontend
 - `src/services/types/features.ts`: `FeatureKey` = `"jobs" | "cvs"`. `src/components/layout/nav.ts:42` CVs `feature: "cvs"`.
@@ -84,7 +84,7 @@ ORM (B): `EventType` three members; `TimelineEventModel.__table_args__` mirrors 
 - Timeline: `timeline-types.ts` three types; `timeline-options.ts` drop note/feedback config;
   `timeline-event-schema.ts` drop note/feedback branch, default `interview` + `unknown`; `timeline-event-form.tsx`.
 - i18n: none (copy constants in modules). Design system: none named; reuse `FeatureGate`, `BetaBadge`, `NotFoundMessage`.
-- `frontend/CLAUDE.md` (Beta features, Timeline, nav counts).
+- `frontend/AGENTS.md` (Beta features, Timeline, nav counts).
 
 ## CLI
 `cli/src/applika/schemas/enums.py` `EventType` three; `commands/applications/commands.py` help; `skills/applika-cli/SKILL.md`,

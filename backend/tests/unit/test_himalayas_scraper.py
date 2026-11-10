@@ -1,4 +1,4 @@
-"""Himalayas scraper (KODI-046, T044) - Ían Muliterno's
+"""Himalayas scraper (T044) - Ían Muliterno's
 ``tests/unit/test_himalayas_scraper.py`` (``job_scrapping``, commit
 ``e670914``) ported to the new interface: ``parse_job`` returns a
 ``ScrapedPosting``, a block raises ``SourceBlocked`` (no RSS fallback any

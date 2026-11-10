@@ -1,5 +1,5 @@
 """Round-trip test for catalog visibility and draft flag columns, revision
-``3b78c3cd2a71`` (KODI-030, Release A).
+``3b78c3cd2a71`` (Release A).
 
 ``.claude/rules/migration-tests.md`` 2: this drives the **real Alembic
 chain** against a dedicated testcontainers Postgres — upgrade to the
@@ -1322,8 +1322,8 @@ def test_round_trip_carries_a_private_platform(migration_db: str) -> None:
 
 def test_orm_maps_only_what_its_own_release_ships() -> None:
     """Release A (this revision) shipped no ORM change. Release B (K2,
-    KODI-031) mapped ``is_public`` on both tables and ``created_by`` on
-    ``platforms``; S3 (KODI-032, drafts) later mapped ``is_draft`` on
+    private catalogs) mapped ``is_public`` on both tables and ``created_by`` on
+    ``platforms``; S3 (drafts) later mapped ``is_draft`` on
     ``applications`` - this test now confirms all four are mapped."""
     from app.domain.models import ApplicationModel, CompanyModel, PlatformModel
 

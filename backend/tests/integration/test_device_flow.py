@@ -1,5 +1,5 @@
-"""``applika login --device``: the RFC 8628 device code (KODI-057,
-ADR-0019, R-016, R-017).
+"""``applika login --device``: the RFC 8628 device code
+(ADR-0019, R-016, R-017).
 
 The CLI asks for a code (``POST /auth/device/code``), a signed-in web user
 looks it up (``GET /auth/device/verify``) and approves or denies it, and the

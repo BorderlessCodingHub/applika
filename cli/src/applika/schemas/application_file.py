@@ -1,4 +1,4 @@
-"""The ``applications new|edit --file`` payload (KODI-018).
+"""The ``applications new|edit --file`` payload.
 
 Vendored from the backend's ``CreateApplication`` / ``UpdateApplication``
 (``applika/backend/app/presentation/schemas/application.py``): the file speaks

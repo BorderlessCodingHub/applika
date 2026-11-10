@@ -1,4 +1,4 @@
-"""discord_connections + discord_report_webhooks (K5, KODI-023, Release A2)
+"""discord_connections + discord_report_webhooks (K5, Release A2)
 
 Revision ID: ba44f9cfd3c1
 Revises: c1d9f4a7b3e6

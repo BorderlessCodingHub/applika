@@ -43,7 +43,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AgendaScreen } from "@/components/phone/screens/agenda-screen";
 import { useAgendaNotifications } from "@/contexts/agenda-notifications-context";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useAgenda } from "@/hooks/use-user";
 import { useTimeline } from "@/hooks/use-timeline";
 import { getApiError } from "@/lib/api-client";
@@ -60,7 +62,7 @@ interface AgendaTabPanelProps {
 }
 
 /**
- * The chevron body (R-012, KODI-038). Rendered as `AgendaItemCard`'s
+ * The chevron body (R-012). Rendered as `AgendaItemCard`'s
  * `children`, so Radix `CollapsibleContent` (unmounts while closed, see
  * `collapsible.tsx`) is what makes this load only once the card is opened —
  * no `open` state is lifted into the page. Read-only: no `renderActions`.
@@ -153,7 +155,13 @@ function AgendaTabPanel({
   );
 }
 
+/** `/agenda`: below md the Schedule board's week (PRD 0021); at md and up today's agenda, unchanged. */
 export function AgendaPage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <AgendaScreen /> : <AgendaDesktopPage />;
+}
+
+function AgendaDesktopPage() {
   const { data: steps, isLoading, isError, error, refetch } = useAgenda();
   const { toggle, isEnabled } = useAgendaNotifications();
   const t = useTranslations("agenda");

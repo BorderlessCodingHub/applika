@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
 import { BaseCvList } from "@/components/base-cvs/base-cv-list";
+import { CvsScreen } from "@/components/phone/screens/cvs-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { BASE_CVS_MAX } from "@/components/base-cvs/types";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useDeleteBaseCv } from "@/hooks/use-delete-base-cv";
@@ -36,12 +38,14 @@ import type { BaseCv } from "@/services/types/base-cv";
  * No outer container: `AppShell` already renders the `max-w-7xl` one.
  *
  * Behind the `cvs` feature (PRD 0013): without it, the app's "page not found"
- * and not one CV request — the gate sits above every CV hook.
+ * and not one CV request — the gate sits above every CV hook. Below md the
+ * v2/CVs board (PRD 0021), inside the same gate.
  */
 export function CvsPage() {
+  const isPhone = useIsPhone();
   return (
     <FeatureGate feature="cvs">
-      <CvGallery />
+      {isPhone ? <CvsScreen /> : <CvGallery />}
     </FeatureGate>
   );
 }

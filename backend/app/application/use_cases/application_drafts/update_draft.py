@@ -18,9 +18,9 @@ class UpdateDraftUseCase:
     """Full-replace update of a draft's application data.
 
     The CV copy is untouched: this use case never reads or writes
-    ``tailored_cv`` (KODI-032 acceptance #4 - going back to step 1, changing
+    ``tailored_cv`` (drafts API acceptance #4 - going back to step 1, changing
     the data and returning to step 2 must not lose the copy). ``job_id``
-    (KODI-047) is untouched too: it is not part of ``DraftInputDTO``, so a
+    is untouched too: it is not part of ``DraftInputDTO``, so a
     draft started from a job stays tied to it (plan 0012 corrections 19).
     """
 
@@ -35,7 +35,7 @@ class UpdateDraftUseCase:
         self.company_repo = company_repo
 
     async def execute(self, id: int, data: DraftInputDTO) -> DraftDTO:
-        # KODI-036: validated up front, before the draft is even fetched,
+        # validated up front, before the draft is even fetched,
         # so a future date writes nothing.
         if data.application_date is not None:
             ensure_not_in_future(data.application_date, 'application_date')
@@ -72,7 +72,7 @@ class UpdateDraftUseCase:
         application.work_mode = data.work_mode
         application.country = data.country
         application.job_description = data.job_description
-        # KODI-036, R-003: application_date is sticky, unlike every other
+        # R-003: application_date is sticky, unlike every other
         # field above - an omitted key or an explicit null both mean "keep
         # the stored value" (never clears), so only a given value is applied.
         if data.application_date is not None:

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 /**
- * applika-only component (KODI-002 / T032): `command` is not regenerated from
+ * applika-only component (T032): `command` is not regenerated from
  * the registry because the company and timezone comboboxes drive it directly.
  * Restyled by hand to the new-york idiom — function components, `data-slot`
  * hooks, the unified `radix-ui`/lucide `*Icon` names — with the exported API

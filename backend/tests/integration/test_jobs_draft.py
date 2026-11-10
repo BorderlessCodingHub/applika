@@ -1,4 +1,4 @@
-"""Start a draft from a job (KODI-047, T068; PRD 0012 R-017..R-022, R-026,
+"""Start a draft from a job (T068; PRD 0012 R-017..R-022, R-026,
 R-031) against the testcontainers Postgres.
 
 ``POST /applications/drafts/from-job`` fills a PRD 0010 draft from the job,
@@ -46,7 +46,7 @@ from tests.integration.test_tailored_cv_api import (
     base_cv_payload,
 )
 
-# KODI-052 (ADR-0018): every route here sits behind the "jobs" beta
+# ADR-0018: every route here sits behind the "jobs" beta
 # feature; ``jobs_beta`` seeds it and puts the ``async_client`` user on its
 # list.
 # ADR-0021: drafts and master CVs need "cvs" too; ``cvs_beta`` seeds it and
@@ -611,7 +611,7 @@ async def test_losing_the_race_at_the_unique_index_is_the_same_409(
 
 
 # ---------------------------------------------------------------------------
-# KODI-050: the draft carries the caller's local day
+# the draft carries the caller's local day
 # ---------------------------------------------------------------------------
 
 
