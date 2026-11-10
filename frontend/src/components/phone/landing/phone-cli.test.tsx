@@ -15,10 +15,12 @@ import { LocaleProvider } from "@/i18n/locale-provider";
 import { PhoneCli } from "./phone-cli";
 
 /**
- * v3/Cli below md: the board's header (home, the language + theme pair, Sign
- * in), the hero, the four command blocks with Copy → "Copied", "Everything
- * else", the line back home and the footer. The commands are today's
- * (`cli-page.tsx`'s constants), so a copy gives the desktop block's text.
+ * v3/Cli below md: the public phone header (home, then the theme + language
+ * pair, flags only, no Sign in), the hero, the four command blocks with Copy
+ * → "Copied", "Everything else", the line back home, the footer, and
+ * v2/Landing's floating Sign in / Dashboard after it. The commands are
+ * today's (`cli-page.tsx`'s constants), so a copy gives the desktop block's
+ * text.
  */
 
 let auth = { isAuthenticated: false, isLoading: false };
@@ -88,36 +90,53 @@ describe("PhoneCli", () => {
     expect(root()).toHaveClass("ph-app", "md:hidden", "flex", "flex-col");
   });
 
-  it("draws the header: home, one language + theme pair, Sign in", () => {
+  it("draws the header: home, then one theme + language pair, flags only, no Sign in", () => {
     setup();
     const header = within(root()).getByRole("banner");
 
-    expect(
-      within(header).getByRole("link", { name: "Applika.dev home" }),
-    ).toHaveAttribute("href", "/");
+    const home = within(header).getByRole("link", { name: "Applika.dev home" });
+    expect(home).toHaveAttribute("href", "/");
     expect(
       screen.getAllByRole("radiogroup", { name: "Toggle language" }),
     ).toHaveLength(1);
-    expect(
-      within(header).getByRole("radiogroup", { name: "Toggle language" }),
-    ).toBeInTheDocument();
-    expect(
-      within(header).getByRole("button", { name: /toggle theme/i }),
-    ).toBeInTheDocument();
-    expect(
-      within(header).getByRole("link", { name: "Sign in" }),
-    ).toHaveAttribute("href", "/login");
+    const group = within(header).getByRole("radiogroup", {
+      name: "Toggle language",
+    });
+    expect(group).toHaveAttribute("data-flags-only", "");
+    const theme = within(header).getByRole("button", { name: /toggle theme/i });
+    expect(theme.nextElementSibling).toBe(group);
+    expect(within(header).getAllByRole("link")).toEqual([home]);
   });
 
-  it("signed in, the header offers Dashboard instead of Sign in", () => {
+  it("floats Sign in with Borderless to /login after the footer", () => {
+    setup();
+    const cta = root().querySelector<HTMLElement>(
+      '[data-slot="landing-phone-cta"]',
+    )!;
+
+    expect(cta).toHaveClass("ph-landing-cta");
+    expect(
+      within(cta).getByRole("link", { name: "Sign in with Borderless" }),
+    ).toHaveAttribute("href", "/login");
+    // The root's last child, so `sticky bottom-0` holds it in view.
+    expect(root().lastElementChild).toBe(cta);
+  });
+
+  it("signed in, the floating button offers Go to Dashboard; the header no Dashboard", () => {
     auth = { isAuthenticated: true, isLoading: false };
     setup();
     const header = within(root()).getByRole("banner");
+    const cta = root().querySelector<HTMLElement>(
+      '[data-slot="landing-phone-cta"]',
+    )!;
 
     expect(
-      within(header).getByRole("link", { name: "Dashboard" }),
+      within(cta).getByRole("link", { name: "Go to Dashboard" }),
     ).toHaveAttribute("href", "/dashboard");
-    expect(within(header).queryByRole("link", { name: "Sign in" })).toBeNull();
+    expect(
+      within(header).queryByRole("link", { name: /dashboard/i }),
+    ).toBeNull();
+    expect(within(root()).queryByRole("link", { name: /sign in/i })).toBeNull();
   });
 
   it("draws the hero: tile, Command line, applika-cli, the lead, View on PyPI", () => {
@@ -356,8 +375,14 @@ describe("PhoneCli", () => {
     expect(cookie).toHaveAttribute("href", "/cookie-policy");
     expect(cookie).toHaveClass("min-h-11");
     expect(footer).toHaveTextContent("© Applika.dev");
-    // The footer follows the main, as the board draws it.
-    expect(root().lastElementChild).toBe(footer);
+    // The footer follows the main, as the board draws it; then the floating button.
+    expect(footer.previousElementSibling).toBe(
+      within(root()).getByRole("main"),
+    );
+    expect(footer.nextElementSibling).toHaveAttribute(
+      "data-slot",
+      "landing-phone-cta",
+    );
   });
 
   it("every control the board draws carries its name, in board order", () => {
@@ -372,10 +397,9 @@ describe("PhoneCli", () => {
     );
     const names: (string | RegExp)[] = [
       "Applika.dev home",
+      /toggle theme/i,
       "English",
       "Português",
-      /toggle theme/i,
-      "Sign in",
       "View on PyPI Opens in a new tab.",
       "Copy command",
       "Copy command",
@@ -384,6 +408,7 @@ describe("PhoneCli", () => {
       "View on PyPI Opens in a new tab.",
       "home page",
       "Cookie policy",
+      "Sign in with Borderless",
     ];
     expect(controls).toHaveLength(names.length);
     controls.forEach((control, index) =>

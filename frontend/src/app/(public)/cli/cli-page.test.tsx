@@ -10,10 +10,11 @@ import { CliPage, INSTALL, SIGN_IN, SKILL, TRACK } from "./cli-page";
 
 /**
  * `/cli` mounts both widths' trees and CSS shows one: v3/Cli below md
- * (`[data-slot="cli-phone"]`, whose header holds the language + theme pair)
+ * (`[data-slot="cli-phone"]`, whose header holds the theme + language pair)
  * and today's page at md and up (`[data-slot="cli-desktop"]`). jsdom applies
  * no CSS, so every query is scoped by the tree's `data-slot`. Without an auth
- * provider the phone header reads the context default (signed out): "Sign in".
+ * provider the phone tree's floating button reads the context default
+ * (signed out): "Sign in with Borderless".
  */
 
 // The phone tree's header holds the language switcher: it needs a `LocaleProvider`.
@@ -74,7 +75,7 @@ describe("CliPage, desktop tree (md and up)", () => {
 });
 
 describe("CliPage, phone tree (below md, v3/Cli)", () => {
-  it("comes first, phone-only, with the one language + theme pair in its header", () => {
+  it("comes first, phone-only, with the one theme + language pair in its header and the floating Sign in", () => {
     renderPage();
 
     expect(tree("cli-phone")).toHaveClass("ph-app", "md:hidden");
@@ -86,17 +87,17 @@ describe("CliPage, phone tree (below md, v3/Cli)", () => {
       screen.getAllByRole("radiogroup", { name: "Toggle language" }),
     ).toHaveLength(1);
     const header = phone().getByRole("banner");
-    expect(
-      within(header).getByRole("radiogroup", { name: "Toggle language" }),
-    ).toBeInTheDocument();
-    expect(
-      within(header).getByRole("button", { name: /toggle theme/i }),
-    ).toBeInTheDocument();
+    const group = within(header).getByRole("radiogroup", {
+      name: "Toggle language",
+    });
+    const theme = within(header).getByRole("button", { name: /toggle theme/i });
+    expect(theme.nextElementSibling).toBe(group);
     expect(
       within(header).getByRole("link", { name: "Applika.dev home" }),
     ).toHaveAttribute("href", "/");
+    expect(within(header).getAllByRole("link")).toHaveLength(1);
     expect(
-      within(header).getByRole("link", { name: "Sign in" }),
+      phone().getByRole("link", { name: "Sign in with Borderless" }),
     ).toHaveAttribute("href", "/login");
   });
 

@@ -28,8 +28,8 @@ export function LandingHeader() {
         </Link>
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-          <LanguageToggle variant="default" />
           <ThemeToggle />
+          <LanguageToggle variant="default" />
           {!isLoading && isAuthenticated ? (
             <Button
               asChild

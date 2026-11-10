@@ -4189,6 +4189,20 @@
       min-width: 44px;
       min-height: 44px;
     }
+
+    /* A flags-only switcher (PhoneLandingHeader): each radio a 44px square, its flag centred. */
+    .ph-pair [data-flags-only] [role="radio"] {
+      min-width: 44px;
+      justify-content: center;
+    }
+
+    /* Focus scrolling stops above the floating Sign in / Dashboard of / and /cli (12 + 54 + 28). */
+    html:has(.ph-landing-cta) {
+      scroll-padding-bottom: calc(
+        94px + env(safe-area-inset-bottom, 0px) +
+          var(--cookie-notice-height, 0px)
+      );
+    }
   }
 
   /* v2/Jobs, v2/JobDetail, v2/StartApplication, v2/Draft, v2/CVs, v2/CVEditor: their own <style> classes, bodies as drawn. */

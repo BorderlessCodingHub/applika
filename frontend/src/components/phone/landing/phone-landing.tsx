@@ -4,10 +4,10 @@ import Link from "next/link";
 import { ArrowUpRight, Calendar, ChartLine } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
+import { PhoneLandingCta } from "@/components/phone/landing/phone-landing-cta";
 import { PhoneLandingHeader } from "@/components/phone/landing/phone-landing-header";
 import { PhoneKanban } from "@/components/phone/phone-icons";
 import { APP_CONFIG } from "@/config";
-import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 
 const GITHUB_URL = "https://github.com/applikadev";
@@ -26,19 +26,15 @@ const STEPS = ["signIn", "add", "analyze"] as const;
 /** The preview card's progress: three stages done of four. */
 const PREVIEW_DONE = 3;
 
-/** v2/Landing below md; signed in, both sign-in links lead to the dashboard as on desktop. */
+/** v2/Landing below md; signed in, the floating action leads to the dashboard as on desktop. */
 export function PhoneLanding() {
   const t = useTranslations("phone.landing");
   const tLanding = useTranslations("landing");
-  const tSignIn = useTranslations("auth.signIn");
   const tTimeline = useTranslations("timeline");
   const tNav = useTranslations("nav");
   const tStats = useTranslations("dashboard.stats");
   const tAccount = useTranslations("phone.account");
   const format = useFormatter();
-  const { isAuthenticated, isLoading } = useAuth();
-  const signedIn = !isLoading && isAuthenticated;
-  const destination = signedIn ? "/dashboard" : "/login";
 
   const stages = [
     t("preview.applied"),
@@ -232,13 +228,7 @@ export function PhoneLanding() {
         </span>
       </footer>
 
-      <div data-slot="landing-phone-cta" className="ph-landing-cta">
-        <Link href={destination} className="ph-landing-cta-btn">
-          {signedIn
-            ? tLanding("goToDashboard")
-            : tSignIn("signInWithBorderless")}
-        </Link>
-      </div>
+      <PhoneLandingCta />
     </div>
   );
 }

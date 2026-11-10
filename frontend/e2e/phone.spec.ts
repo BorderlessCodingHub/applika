@@ -31,8 +31,10 @@ import {
  * tree; Playwright leaves `display: none` out of role queries): below md
  * `/` is v2/Landing, `/cookie-policy` v2/CookiePolicy, `/cli/code`
  * v2/CliCode, and `/cli` v3/Cli (PRD 0022: the landing's phone header, the
- * four command blocks with Copy, its own footer). The landing header and
- * footer are md-and-up only. `/login`
+ * four command blocks with Copy, its own footer, the landing's floating
+ * Sign in). The landing header and footer are md-and-up only. The phone
+ * header of `/` and `/cli` (home, theme, flags) is walked from 320 to 430
+ * in `headers.spec.ts`. `/login`
  * (option C) is walked in `borderless-signin.spec.ts`, `/device` in
  * `devices.spec.ts`, the signed-in shell in `shell-responsive.spec.ts`.
  *
@@ -120,11 +122,13 @@ test.describe("public screens below md", () => {
       page.getByText("Free & open-source job tracker"),
     ).toBeVisible();
     await expectThePair(page);
-    const signIn = phone
-      .getByRole("banner")
-      .getByRole("link", { name: "Sign in", exact: true });
-    await expect(signIn).toBeVisible();
-    await expect(signIn).toHaveAttribute("href", "/login");
+    // The header holds the home link alone: Sign in floats at the bottom.
+    await expect(phone.getByRole("banner").getByRole("link")).toHaveCount(1);
+    await expect(
+      phone
+        .getByRole("banner")
+        .getByRole("link", { name: "Sign in", exact: true }),
+    ).toHaveCount(0);
 
     // The sticky CTA is on screen at the top, halfway and at the bottom.
     const cta = phone
@@ -145,7 +149,8 @@ test.describe("public screens below md", () => {
     const box = await cta.boundingBox();
     expect(box!.y + box!.height).toBeLessThanOrEqual(PHONE.height);
 
-    await expectPhoneTargets(page, 8);
+    // home, theme, English, Português, View on GitHub, Cookie policy, the CTA.
+    await expectPhoneTargets(page, 7);
     await expectNoSidewaysScroll(page);
 
     await cta.click();
@@ -191,7 +196,7 @@ test.describe("public screens below md", () => {
     await page.waitForURL((url) => url.pathname === "/");
   });
 
-  test("/cli is the Cli board: the header with the pair and Sign in, the four command blocks with Copy, the footer", async ({
+  test("/cli is the Cli board: the header with the pair, the four command blocks with Copy, the footer, the floating Sign in", async ({
     page,
     context,
   }) => {
@@ -212,7 +217,13 @@ test.describe("public screens below md", () => {
     await expectThePair(page);
     await expect(
       header.getByRole("link", { name: "Sign in", exact: true }),
-    ).toHaveAttribute("href", "/login");
+    ).toHaveCount(0);
+    // Sign in floats at the bottom, as on the landing.
+    const cta = phone
+      .locator('[data-slot="landing-phone-cta"]')
+      .getByRole("link", { name: "Sign in with Borderless", exact: true });
+    await expect(cta).toBeInViewport();
+    await expect(cta).toHaveAttribute("href", "/login");
 
     await expect(
       phone.getByText("Command line", { exact: true }),
@@ -259,8 +270,8 @@ test.describe("public screens below md", () => {
     ).toHaveAttribute("href", "/cookie-policy");
     await expect(footer).toContainText("© Applika.dev");
 
-    // home, the two radios, theme, Sign in, two PyPI, four Copy, home page,
-    // Cookie policy.
+    // home, theme, the two radios, two PyPI, four Copy, home page, Cookie
+    // policy, the floating Sign in.
     await expectPhoneTargets(page, 13);
     await expectNoSidewaysScroll(page);
     // The long Track command scrolls inside its own block.
@@ -1641,21 +1652,25 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expectNoSidewaysScroll(page);
   });
 
-  test("/cli signed in: the Cli board's header offers Dashboard instead of Sign in", async ({
+  test("/cli signed in: the Cli board's floating button offers Go to Dashboard; the header no link but home", async ({
     page,
   }) => {
     await loginAs(page, "user");
     await page.goto("/cli");
 
-    const header = page.locator('[data-slot="cli-phone"]').getByRole("banner");
-    const dashboard = header.getByRole("link", {
-      name: "Dashboard",
-      exact: true,
-    });
-    await expect(dashboard).toBeVisible();
+    const phone = page.locator('[data-slot="cli-phone"]');
+    const dashboard = phone
+      .locator('[data-slot="landing-phone-cta"]')
+      .getByRole("link", { name: "Go to Dashboard", exact: true });
+    await expect(dashboard).toBeInViewport();
     await expect(dashboard).toHaveAttribute("href", "/dashboard");
+    const header = phone.getByRole("banner");
+    await expect(header.getByRole("link")).toHaveCount(1);
     await expect(
-      header.getByRole("link", { name: "Sign in", exact: true }),
+      header.getByRole("link", { name: "Dashboard", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      phone.getByRole("link", { name: "Sign in with Borderless", exact: true }),
     ).toHaveCount(0);
     await expectThePair(page);
     await expectPhoneTargets(page, 13);

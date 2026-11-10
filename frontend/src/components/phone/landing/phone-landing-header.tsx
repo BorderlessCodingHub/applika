@@ -6,18 +6,14 @@ import { useTranslations } from "next-intl";
 import { ApplikaIcon } from "@/components/app-logo";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useAuth } from "@/contexts/auth-context";
 
 /**
- * The public phone header of v2/Landing and v3/Cli: the home link, the
- * language + theme pair (the boards draw only the logo and Sign in; the pair
- * stays, mobile-design rule 5) and Sign in, or Dashboard when signed in.
+ * The public phone header of v2/Landing and v3/Cli: the home link, then the
+ * theme toggle and the language toggle with flags only. Sign in and Dashboard
+ * live in the floating `PhoneLandingCta`.
  */
 export function PhoneLandingHeader() {
-  const tLanding = useTranslations("landing");
   const tHeader = useTranslations("header");
-  const { isAuthenticated, isLoading } = useAuth();
-  const signedIn = !isLoading && isAuthenticated;
 
   return (
     <header className="ph-landing-header h-auto min-h-16 flex-wrap gap-x-1 gap-y-1 py-[7px]">
@@ -32,18 +28,10 @@ export function PhoneLandingHeader() {
           <span>.dev</span>
         </span>
       </Link>
-      {/* 44px boxes abut, no gap: one row from 387px wide, else this group wraps right. */}
-      <div className="ml-auto flex items-center">
-        <div className="ph-pair flex items-center">
-          <LanguageToggle variant="default" />
-          <ThemeToggle />
-        </div>
-        <Link
-          href={signedIn ? "/dashboard" : "/login"}
-          className="flex min-h-11 items-center text-[15px] font-semibold"
-        >
-          {signedIn ? tLanding("dashboard") : tLanding("signIn")}
-        </Link>
+      {/* Link 126 + 4 + theme 44 + 4 + flags 94 = 272: one row from 312px wide. */}
+      <div className="ph-pair ml-auto flex items-center gap-1">
+        <ThemeToggle />
+        <LanguageToggle variant="default" flagsOnly />
       </div>
     </header>
   );

@@ -261,7 +261,7 @@ describe("phone welcome in Portuguese", () => {
 });
 
 describe("phone landing and public bar in Portuguese", () => {
-  it("writes the Landing board in Portuguese, the pair and both sign-in links", async () => {
+  it("writes the Landing board in Portuguese, the pair and the floating sign-in link", async () => {
     await renderInPortuguese(<PhoneLanding />, { localeSwitch: true });
 
     // jsdom's name computation pads the highlighted word: read the text.
@@ -279,33 +279,42 @@ describe("phone landing and public bar in Portuguese", () => {
         name: "Pronto para usar em minutos",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Entrar" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    // The header: home, theme, then the flags (named by their endonyms); no Entrar.
+    const header = within(screen.getByRole("banner"));
+    expect(header.queryByRole("link", { name: "Entrar" })).toBeNull();
+    const group = header.getByRole("radiogroup", { name: "Alternar idioma" });
     expect(
-      screen.getByRole("link", { name: "Entrar com a Borderless" }),
+      header.getByRole("button", { name: "Alternar tema" }).nextElementSibling,
+    ).toBe(group);
+    expect(
+      within(group).getByRole("radio", { name: "Português" }),
+    ).toBeChecked();
+    expect(group).not.toHaveTextContent(/EN|BR/);
+    expect(
+      within(tree("landing-phone-cta")).getByRole("link", {
+        name: "Entrar com a Borderless",
+      }),
     ).toHaveAttribute("href", "/login");
     expect(screen.getByRole("link", { name: "Ver no GitHub" })).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "Política de cookies" }),
     ).toHaveAttribute("href", "/cookie-policy");
-    expect(
-      screen.getByRole("radiogroup", { name: "Alternar idioma" }),
-    ).toBeInTheDocument();
   });
 
-  it("offers the dashboard in Portuguese to a signed-in visitor", async () => {
+  it("offers the dashboard in Portuguese to a signed-in visitor, in the floating button", async () => {
     auth = { isAuthenticated: true, isLoading: false };
     await renderInPortuguese(<PhoneLanding />, { localeSwitch: true });
 
-    expect(screen.getByRole("link", { name: "Painel" })).toHaveAttribute(
-      "href",
-      "/dashboard",
-    );
     expect(
-      screen.getByRole("link", { name: "Ir para o painel" }),
+      within(tree("landing-phone-cta")).getByRole("link", {
+        name: "Ir para o painel",
+      }),
     ).toHaveAttribute("href", "/dashboard");
+    expect(
+      within(screen.getByRole("banner")).queryByRole("link", {
+        name: "Painel",
+      }),
+    ).toBeNull();
   });
 
   it("names the public bar's back link in Portuguese", async () => {
@@ -356,13 +365,17 @@ describe("the applika-cli page in Portuguese", () => {
     expect(
       header.getByRole("link", { name: "Página inicial do Applika.dev" }),
     ).toHaveAttribute("href", "/");
-    expect(header.getByRole("link", { name: "Entrar" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(header.queryByRole("link", { name: "Entrar" })).toBeNull();
     expect(
       header.getByRole("radiogroup", { name: "Alternar idioma" }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("data-flags-only", "");
+    expect(
+      within(
+        tree("cli-phone").querySelector<HTMLElement>(
+          '[data-slot="landing-phone-cta"]',
+        )!,
+      ).getByRole("link", { name: "Entrar com a Borderless" }),
+    ).toHaveAttribute("href", "/login");
     expect(
       phone.getAllByRole("link", { name: "Ver no PyPI Abre em uma nova aba." }),
     ).toHaveLength(2);
@@ -401,15 +414,18 @@ describe("the applika-cli page in Portuguese", () => {
     ).toHaveTextContent("Copiado");
   });
 
-  it("offers Painel to a signed-in visitor", async () => {
+  it("offers Ir para o painel to a signed-in visitor, in the floating button", async () => {
     auth = { isAuthenticated: true, isLoading: false };
     await renderInPortuguese(<CliPage />, { localeSwitch: true });
     const header = within(within(tree("cli-phone")).getByRole("banner"));
+    const cta = tree("cli-phone").querySelector<HTMLElement>(
+      '[data-slot="landing-phone-cta"]',
+    )!;
 
-    expect(header.getByRole("link", { name: "Painel" })).toHaveAttribute(
-      "href",
-      "/dashboard",
-    );
+    expect(
+      within(cta).getByRole("link", { name: "Ir para o painel" }),
+    ).toHaveAttribute("href", "/dashboard");
+    expect(header.queryByRole("link", { name: "Painel" })).toBeNull();
     expect(header.queryByRole("link", { name: "Entrar" })).toBeNull();
   });
 });

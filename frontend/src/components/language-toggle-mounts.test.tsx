@@ -24,8 +24,11 @@ import type { User } from "@/services/types/users";
  * header, the landing header (md and up; the cookie policy and /cli pages
  * share it), the phone landing's header and the phone public bar (below md:
  * /cookie-policy, /cli), the sign-in page and the terminal code page (one
- * mount each, laid out for both widths). The `default` look everywhere, right
- * before the theme toggle; the `landing` look is ported but mounted nowhere.
+ * mount each, laid out for both widths). The `default` look everywhere; the
+ * `landing` look is ported but mounted nowhere. The two public headers and the
+ * signed-in header put it right after the theme toggle; the sign-in page, the
+ * terminal code page and the phone public bar keep it right before. Only the
+ * phone landing's header shows the flags alone.
  */
 
 vi.mock("next/navigation", () => ({
@@ -68,8 +71,8 @@ function Providers({ children }: { children: ReactNode }) {
 
 const DEFAULT_ROOT = `${LANGUAGE_TOGGLE_ROOT_CLASS} ${LANGUAGE_TOGGLE_VARIANTS.default.root}`;
 
-/** The one switcher on screen: default look, EN checked, right before the theme toggle. */
-function expectDefaultToggleBeforeTheme() {
+/** The one switcher on screen: default look, EN checked, a sibling of the theme toggle. */
+function expectOneDefaultToggle() {
   const groups = screen.getAllByRole("radiogroup", { name: "Toggle language" });
   expect(groups).toHaveLength(1);
   const group = groups[0];
@@ -80,11 +83,24 @@ function expectDefaultToggleBeforeTheme() {
   expect(english.className).toContain(LANGUAGE_TOGGLE_VARIANTS.default.active);
   const theme = screen.getByRole("button", { name: /toggle theme/i });
   expect(group.parentElement).toBe(theme.parentElement);
+  return { group, theme };
+}
+
+/** Language, then theme: the sign-in page, the terminal code page, the phone public bar. */
+function expectDefaultToggleBeforeTheme() {
+  const { group, theme } = expectOneDefaultToggle();
   expect(group.nextElementSibling).toBe(theme);
 }
 
+/** Theme, then language: the landing header, the signed-in header, the phone landing's header. */
+function expectDefaultToggleAfterTheme() {
+  const { group, theme } = expectOneDefaultToggle();
+  expect(theme.nextElementSibling).toBe(group);
+  return group;
+}
+
 describe("LanguageToggle mounts", () => {
-  it("the signed-in header holds it, default look, before the theme toggle", () => {
+  it("the signed-in header holds it, default look, after the theme toggle", () => {
     render(
       <Header
         user={user}
@@ -94,16 +110,20 @@ describe("LanguageToggle mounts", () => {
       />,
       { wrapper: Providers },
     );
-    expectDefaultToggleBeforeTheme();
+    expect(expectDefaultToggleAfterTheme()).not.toHaveAttribute(
+      "data-flags-only",
+    );
     // Inside the z-30 header itself, no portal.
     expect(screen.getByRole("banner")).toContainElement(
       screen.getByRole("radiogroup", { name: "Toggle language" }),
     );
   });
 
-  it("the landing header (and so the cookie policy page) holds it, default look", () => {
+  it("the landing header (and so the cookie policy page) holds it, default look, after the theme toggle", () => {
     render(<LandingHeader />, { wrapper: Providers });
-    expectDefaultToggleBeforeTheme();
+    expect(expectDefaultToggleAfterTheme()).not.toHaveAttribute(
+      "data-flags-only",
+    );
     expect(screen.getByRole("banner")).toContainElement(
       screen.getByRole("radiogroup", { name: "Toggle language" }),
     );
@@ -121,9 +141,12 @@ describe("LanguageToggle mounts", () => {
     expectDefaultToggleBeforeTheme();
   });
 
-  it("the phone landing's header holds it, default look, before the theme toggle", () => {
+  it("the phone landing's header holds it, default look, flags only, after the theme toggle", () => {
     render(<PhoneLanding />, { wrapper: Providers });
-    expectDefaultToggleBeforeTheme();
+    expect(expectDefaultToggleAfterTheme()).toHaveAttribute(
+      "data-flags-only",
+      "",
+    );
     expect(screen.getByRole("banner")).toContainElement(
       screen.getByRole("radiogroup", { name: "Toggle language" }),
     );
@@ -157,9 +180,14 @@ describe("LanguageToggle mounts", () => {
       "components/phone/landing/phone-landing-header.tsx",
       "components/phone/phone-public-bar.tsx",
     ]);
-    for (const [, text] of mounts) {
+    for (const [path, text] of mounts) {
       const tags = text.match(/<LanguageToggle\b[^>]*>/g) ?? [];
-      expect(tags).toEqual(['<LanguageToggle variant="default" />']);
+      // Only the phone landing's header asks for the flags alone.
+      expect(tags).toEqual([
+        path === "components/phone/landing/phone-landing-header.tsx"
+          ? '<LanguageToggle variant="default" flagsOnly />'
+          : '<LanguageToggle variant="default" />',
+      ]);
     }
   });
 });

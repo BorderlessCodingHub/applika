@@ -124,6 +124,20 @@ function clampAt(value: string, width: number): number {
   return Math.min(max, Math.max(min, (vw * width) / 100));
 }
 
+/** One rule's declarations, whitespace folded: `{ property: value }`. */
+function declarations(body: string): Record<string, string> {
+  return Object.fromEntries(
+    body
+      .split(";")
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .map((line) => {
+        const at = line.indexOf(":");
+        return [line.slice(0, at).trim(), line.slice(at + 1).trim()];
+      }),
+  );
+}
+
 // Sign-in option C (C_Mobile, C_Desktop), v2/Landing, v2/CookiePolicy,
 // v2/CliCode and v2/DeviceSignIn: each board's own <style> classes, the
 // boards' inline style blocks made classes, and what the app adds to them.
@@ -380,9 +394,32 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     expect(media![1]).toMatch(
       /\.ph-pair > button\s*\{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/,
     );
+    // The phone landing header's flags-only switcher: each radio a 44px square.
+    expect(media![1]).toMatch(
+      /\.ph-pair \[data-flags-only\] \[role="radio"\]\s*\{\s*min-width:\s*44px;\s*justify-content:\s*center;?\s*\}/,
+    );
     // Nothing outside that media rule styles the pair: md and up stays as today.
     const outside = css.replace(media![0], "");
     expect(outside).not.toMatch(/\.ph-pair\b/);
+    expect(outside).not.toMatch(/data-flags-only/);
+  });
+
+  it("stops focus scrolling above the floating Sign in / Dashboard of / and /cli, below md only", () => {
+    const media = /@media \(max-width: 47\.99rem\)\s*\{([\s\S]*?)\n {2}\}/.exec(
+      css,
+    );
+    const rule = /html:has\(\.ph-landing-cta\)\s*\{([^}]*)\}/.exec(media![1]);
+    expect(rule).not.toBeNull();
+    // 12 + 54 + 28: the block's top padding, the button, its bottom padding.
+    expect(declarations(rule![1])).toEqual({
+      "scroll-padding-bottom":
+        "calc( 94px + env(safe-area-inset-bottom, 0px) + var(--cookie-notice-height, 0px) )",
+    });
+    const cta = declarations(ruleBodies(".ph-landing-cta")[0]);
+    const btn = declarations(ruleBody(".ph-landing-cta-btn"));
+    expect(cta.padding).toBe("12px 20px 28px");
+    expect(btn.height).toBe("54px");
+    expect(css.replace(media![0], "")).not.toMatch(/scroll-padding/);
   });
 });
 
