@@ -36,6 +36,7 @@ const TREES = [
       h1: "One account for your whole job search",
       lead: "Sign in with Borderless. It confirms it's you and sends you back here.",
       cta: "Continue with Borderless",
+      logo: "20",
       signUp: "I don't have a Borderless account",
     },
   ],
@@ -45,7 +46,8 @@ const TREES = [
     {
       h1: "Sign in to applika",
       lead: "Use your Borderless account. Borderless confirms it's you and sends you back here.",
-      cta: "Sign in with Borderless",
+      cta: "Continue with Borderless",
+      logo: "18",
       signUp: "Create a Borderless account",
     },
   ],
@@ -111,7 +113,7 @@ describe.each(TREES)("SignInScreen, %s tree", (_name, slot, words) => {
     ).toBeNull();
   });
 
-  it("ready: Borderless's logo before the label, decorative, as option A draws it", () => {
+  it("ready: Borderless's mark before the label, decorative, in the outline button", () => {
     renderScreen({ autoFocus: false });
     const button = cta(slot);
     const logo = button.querySelector<HTMLImageElement>(
@@ -122,9 +124,11 @@ describe.each(TREES)("SignInScreen, %s tree", (_name, slot, words) => {
     expect(logo!.tagName).toBe("IMG");
     expect(logo).toHaveAttribute("alt", "");
     expect(logo).toHaveAttribute("src", BORDERLESS_BADGE_SRC);
-    expect(logo).toHaveAttribute("width", "22");
-    expect(logo).toHaveAttribute("height", "22");
+    expect(logo).toHaveAttribute("width", words.logo);
+    expect(logo).toHaveAttribute("height", words.logo);
     expect(logo).toHaveClass("ph-a-logo");
+    expect(button).toHaveClass("ph-btn", "ph-bl");
+    expect(button).not.toHaveClass("ph-pri");
     // First in the button, then the words; the name is the words alone.
     expect(button.firstElementChild).toBe(logo);
     expect(button).toHaveTextContent(words.cta);
@@ -287,7 +291,7 @@ describe("SignInScreen, phone tree: option C", () => {
     renderScreen({ autoFocus: false });
     expect(cta("sign-in-phone")).toHaveClass(
       "ph-btn",
-      "ph-pri",
+      "ph-bl",
       "h-14",
       "text-[16px]",
     );
@@ -333,7 +337,7 @@ describe("SignInScreen, desktop tree: option A", () => {
     expect(within(card).getByRole("heading", { level: 1 })).toHaveClass(
       "ph-a-h1",
     );
-    expect(cta("sign-in-desktop")).toHaveClass("ph-btn", "ph-pri", "ph-a-cta");
+    expect(cta("sign-in-desktop")).toHaveClass("ph-btn", "ph-bl", "ph-a-cta");
     expect(cta("sign-in-desktop")).not.toHaveClass("h-14", "text-[16px]");
   });
 
@@ -383,7 +387,7 @@ describe("SignInScreen, desktop tree: option A", () => {
     const foot = desktop().querySelector<HTMLElement>(".ph-a-foot")!;
     expect(foot.tagName).toBe("P");
     expect(foot).toHaveTextContent(
-      "No Borderless account yet? Create a Borderless account",
+      "No account yet? Create a Borderless account",
     );
     const link = within(foot).getByRole("link", {
       name: "Create a Borderless account",

@@ -291,6 +291,11 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     expect(badge).toMatch(/bottom:\s*-14px/);
     expect(badge).toMatch(/box-shadow:\s*0 0 0 4px var\(--background\)/);
     expect(ruleBody(".ph-c-badge img")).toMatch(/width:\s*100%/);
+    expect(ruleBody(".ph-c-badge img")).toMatch(/object-fit:\s*contain/);
+    // The transparent mark on the tile's ground, no border.
+    expect(css).toMatch(
+      /\.ph-c-badge \{\s*padding: 8px;\s*box-sizing: border-box;\s*background: var\(--background\);\s*\}/,
+    );
   });
 
   it("drops C_Desktop's classes: the side panel, its icon, badge, features, main and headline", () => {
@@ -346,7 +351,17 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
         "box-sizing": "border-box",
       },
     ],
-    [".ph-a-tile img", { width: "100%", height: "100%", display: "block" }],
+    [
+      ".ph-a-tile img",
+      {
+        width: "100%",
+        height: "100%",
+        display: "block",
+        padding: "14px",
+        "box-sizing": "border-box",
+        "object-fit": "contain",
+      },
+    ],
     [
       ".ph-a-main",
       {
@@ -419,13 +434,25 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
         "border-radius": "12px",
       },
     ],
-    [".ph-a-logo", { width: "22px", height: "22px", "border-radius": "6px" }],
+    [".ph-a-logo", { flex: "none", width: "18px", height: "18px" }],
+    [".ph-a-logo.ph-c-logo", { width: "20px", height: "20px" }],
+    [
+      ".ph-btn.ph-bl",
+      {
+        background: "var(--background)",
+        color: "var(--foreground)",
+        border: "1px solid var(--border)",
+        "font-weight": "500",
+        gap: "12px",
+      },
+    ],
     [
       ".ph-a-foot",
       {
-        margin: "0",
+        margin: "0 -20px",
         "font-size": "14px",
         color: "var(--muted-foreground)",
+        "white-space": "nowrap",
       },
     ],
     [

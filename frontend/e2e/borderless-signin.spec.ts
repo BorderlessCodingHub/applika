@@ -817,7 +817,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     await expect(cta).toBeVisible();
     await expect(cta).toBeFocused();
     await expect(cta).toHaveAccessibleName("Continue with Borderless");
-    // Option A's logo before the label: decorative, decoded, 22×22, radius 6.
+    // Borderless's mark before the label: decorative, decoded, 20×20.
     const logo = cta.locator('img[data-slot="sign-in-logo"]');
     await expect(logo).toHaveAttribute("alt", "");
     await expect(cta.getByRole("img")).toHaveCount(0);
@@ -825,8 +825,8 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
       await logo.evaluate((img) => (img as HTMLImageElement).naturalWidth),
     ).toBeGreaterThan(0);
     const logoBox = (await logo.boundingBox())!;
-    expect(logoBox.width).toBeCloseTo(22, 0);
-    expect(logoBox.height).toBeCloseTo(22, 0);
+    expect(logoBox.width).toBeCloseTo(20, 0);
+    expect(logoBox.height).toBeCloseTo(20, 0);
     expect(
       await logo.evaluate((img) => getComputedStyle(img).borderRadius),
     ).toBe("6px");
@@ -983,7 +983,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     await expect(page.locator('[data-slot="sign-in-phone"]')).toBeHidden();
   }
 
-  test("1280, ready: option A's card, the paired tiles, Sign in with Borderless focused with its logo, the sign-up link in a new tab (dark)", async ({
+  test("1280, ready: option A's card, the paired tiles, Continue with Borderless focused with its logo, the sign-up link in a new tab (dark)", async ({
     page,
   }) => {
     await openDesktop(page, "/login");
@@ -1035,7 +1035,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     const cta = signInWithBorderlessButton(page);
     await expect(cta).toHaveCount(1);
     await expect(cta).toBeFocused();
-    await expect(cta).toHaveAccessibleName("Sign in with Borderless");
+    await expect(cta).toHaveAccessibleName("Continue with Borderless");
     await expect(cta).toHaveAccessibleDescription(A_LEAD);
     const ctaBox = (await cta.boundingBox())!;
     expect(ctaBox.height).toBeCloseTo(48, 0);
@@ -1046,12 +1046,12 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     expect(
       await logo.evaluate((img) => (img as HTMLImageElement).naturalWidth),
     ).toBeGreaterThan(0);
-    expect((await logo.boundingBox())!.width).toBeCloseTo(22, 0);
+    expect((await logo.boundingBox())!.width).toBeCloseTo(18, 0);
 
     // The rule, then the sign-up line: Borderless's sign-up in a new tab.
     await expect(desktop.locator('[data-slot="separator"]')).toBeVisible();
     await expect(desktop.locator(".ph-a-foot")).toHaveText(
-      "No Borderless account yet? Create a Borderless account",
+      "No account yet? Create a Borderless account",
     );
     const account = page.getByRole("link", {
       name: "Create a Borderless account",
@@ -1148,7 +1148,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
       page.getByRole("heading", { name: "Entre no Applika", level: 1 }),
     ).toBeVisible();
     const cta = page.getByRole("button", {
-      name: "Entrar com a Borderless",
+      name: "Continuar com a Borderless",
       exact: true,
     });
     await expect(cta).toBeVisible();
@@ -1158,7 +1158,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     await expect(
       page.locator('[data-slot="sign-in-desktop"] .ph-a-foot'),
     ).toHaveText(
-      "Ainda não tem conta na Borderless? Criar uma conta na Borderless",
+      "Não tem uma conta ainda? Criar uma conta na Borderless",
     );
     const account = page.getByRole("link", {
       name: "Criar uma conta na Borderless",

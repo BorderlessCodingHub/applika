@@ -14,8 +14,7 @@ import { LoginPage, signedInLandingFor } from "./login-page";
 
 /**
  * The sign-in page (ADR-0026; option A at md and up, option C below): one
- * Borderless button per width ("Sign in with Borderless" / "Continue with
- * Borderless") that leaves for the API's `/auth/borderless/login`, the words of
+ * "Continue with Borderless" button per width that leaves for the API's `/auth/borderless/login`, the words of
  * every `?error=<code>` the callback sends back (in the active language), the
  * terminal hint on `&cli=1`, and where a signed-in visit lands. No password,
  * code or token is ever asked for or held. Both widths' trees are in the DOM
@@ -117,7 +116,7 @@ describe("LoginPage: the Borderless button (AC1, AC22)", () => {
     ).toBeInTheDocument();
     expect(desktop.getByText(LEAD)).toBeInTheDocument();
     expect(
-      desktop.getByRole("button", { name: "Sign in with Borderless" }),
+      desktop.getByRole("button", { name: "Continue with Borderless" }),
     ).toBe(signInButton());
     expect(signInButton()).toHaveAccessibleDescription(LEAD);
     // One CTA per width, nothing else to press.

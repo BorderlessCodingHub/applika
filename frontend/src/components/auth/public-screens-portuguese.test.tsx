@@ -142,12 +142,12 @@ describe("sign-in in Portuguese", () => {
     ).toBeInTheDocument();
     expect(desktop.getByText(desktopLead)).toBeInTheDocument();
     expect(
-      desktop.getByRole("button", { name: "Entrar com a Borderless" }),
+      desktop.getByRole("button", { name: "Continuar com a Borderless" }),
     ).toHaveAccessibleDescription(desktopLead);
     expect(
-      desktop.getByText(/^Ainda não tem conta na Borderless\?/),
+      desktop.getByText(/^Não tem uma conta ainda\?/),
     ).toHaveTextContent(
-      "Ainda não tem conta na Borderless? Criar uma conta na Borderless",
+      "Não tem uma conta ainda? Criar uma conta na Borderless",
     );
     expect(
       desktop.getByRole("link", { name: "Criar uma conta na Borderless" }),
@@ -184,7 +184,7 @@ describe("sign-in in Portuguese", () => {
 
     await userEvent.click(
       within(tree("sign-in-desktop")).getByRole("button", {
-        name: "Entrar com a Borderless",
+        name: "Continuar com a Borderless",
       }),
     );
 

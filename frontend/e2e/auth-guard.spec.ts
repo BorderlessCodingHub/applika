@@ -49,7 +49,7 @@ test.describe("anonymous visitors are sent to /login", () => {
       ).toBeVisible();
       await expect(
         page.getByRole("button", {
-          name: "Sign in with Borderless",
+          name: "Continue with Borderless",
           exact: true,
         }),
       ).toBeVisible();

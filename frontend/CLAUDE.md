@@ -234,8 +234,7 @@ almost every session refresh and report request refreshes at the fake.
 (`sub`, `email`, `password`: `user` (seeded, never through the web),
 `free`, `starter`, `unverified`, `revoke`, `logout`), `borderlessUrl(path)`,
 `signInWithBorderlessButton(page)` (the CTA of the tree the viewport shows,
-`/^(Sign in|Continue) with Borderless$/`: A's "Sign in with Borderless" at md
-and up, C's "Continue with Borderless" below) and `signInWithFake(page, email)`
+named "Continue with Borderless", `exact: true`, at every width) and `signInWithFake(page, email)`
 (`/login` → the button → the fake's page → that account's one-click button
 named by its email → back on the web origin; only in a context with NO fake
 session — with one the fake answers straight back and its page never shows).
@@ -424,7 +423,7 @@ Route groups control access:
 
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
-`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option A at md and up ("Sign in with Borderless") and option C below md ("Continue with Borderless"), one button each, behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
+`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option A at md and up and option C below md, one "Continue with Borderless" button each, behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
 
 CLI sign-in routes (ADR-0019):
 
@@ -760,8 +759,7 @@ The Axios instance in `src/lib/api-client.ts` handles cookie-based auth with `wi
 ### Auth & Token Refresh
 
 Sign-in is Borderless's own OpenID Connect sign-in, started by the
-"Sign in with Borderless" button at `/login` ("Continue with Borderless"
-below md; ADR-0026; see **Sign-in,
+"Continue with Borderless" button at `/login` (ADR-0026; see **Sign-in,
 welcome, membership badge**); there is no GitHub sign-in and no password anywhere in
 the web. Authentication uses HTTP-only JWT cookies that the API's callback
 sets; the web never sees a code, a state or a token. Token refresh is handled via **polling in AuthContext** (not via Axios interceptor):
@@ -2041,8 +2039,7 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
   `[data-slot="sign-in-badge"]`, which is in this tree only, eyebrow
   "applika × Borderless", h1 "One account for your whole job search", lead
   "Sign in with Borderless. It confirms it's you and sends you back here.",
-  the CTA h56 "Continue with Borderless" with the Borderless logo before its
-  label as A draws it, and the account link "I don't have a Borderless
+  the CTA h56 "Continue with Borderless" (its mark at 20px), and the account link "I don't have a Borderless
   account" at the bottom). `[data-slot="sign-in-desktop"]` is A_Desktop
   whole: the mesh (`.ph-a-mesh`) and the dots (`.ph-dots`) fill the root,
   `main.ph-a-main` centres one 448px card (`.ph-a-card`: padding 40,
@@ -2051,8 +2048,8 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
   `.ph-a-link`, decorative), h1 "Sign in to applika" (`.ph-a-h1`, always,
   even with `&cli=1`), the lead "Use your Borderless account. Borderless
   confirms it's you and sends you back here." (`optionA.lead`), the states,
-  the 48px CTA "Sign in with Borderless" (`.ph-a-cta`), a `Separator`, and
-  "No Borderless account yet? Create a Borderless account" (`.ph-a-foot`,
+  the 48px CTA "Continue with Borderless" (`.ph-a-cta`), a `Separator`, and
+  "No account yet? Create a Borderless account" (`.ph-a-foot`,
   the link `.ph-a-signup`; `optionA.noAccount` with a `<link>` tag). Below
   828px (`@media (max-width: 51.74rem)`, 2 × (224 + the pair's 166 + 24)),
   where the pair can stand over the card, `.ph-a-main` gets `padding-block:
@@ -2065,10 +2062,15 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
   trees (`.ph-app` on the root); the theme + language pair is mounted once
   outside both (see **i18n**). The Applika mark is `role="img"` "Applika";
   the Borderless images are `public/borderless-logo.png`
-  (`BORDERLESS_BADGE_SRC`, a copy of the design file's asset) through
-  `next/image` `unoptimized`: the phone badge `alt` "with Borderless", A's
-  tile `alt` "Borderless", and the CTA's logo
-  (`img[data-slot="sign-in-logo"]`, 22px, radius 6) `alt=""`, decorative.
+  (`BORDERLESS_BADGE_SRC`, the Borderless mark on a transparent ground,
+  128×128) through `next/image` `unoptimized`: the phone badge `alt` "with
+  Borderless" (`.ph-c-badge`: the tile's `--background`, 8px inset, no
+  border), A's tile `alt` "Borderless" (14px inset), and the CTA's logo
+  (`img[data-slot="sign-in-logo"]`, 18px on A, 20px on C via `.ph-c-logo`)
+  `alt=""`, decorative. Both CTAs are Career Forge's outline button,
+  `.ph-btn.ph-bl` (the `--background` fill, a 1px `--border`, the
+  foreground words at weight 500, a 12px gap, `--muted` on hover), never
+  `.ph-pri`.
   Each tree's lead describes its CTA (`aria-describedby`, an id per tree).
   The CTA is `[data-action="sign-in-borderless"]`, one per tree; the
   sign-up link (`[data-slot="create-borderless-account"]`, one per tree)

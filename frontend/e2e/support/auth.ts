@@ -113,14 +113,14 @@ export function borderlessUrl(path = ""): string {
 }
 
 /**
- * The applika sign-in page's one button (ADR-0026): "Sign in with
- * Borderless" at md and up (option A), "Continue with Borderless" below
- * (option C). Each width has its own tree; the hidden one is out of role
- * queries, so this is the button the viewport shows.
+ * The applika sign-in page's one button (ADR-0026): "Continue with
+ * Borderless" at every width. Each width has its own tree; the hidden one
+ * is out of role queries, so this is the button the viewport shows.
  */
 export function signInWithBorderlessButton(page: Page) {
   return page.getByRole("button", {
-    name: /^(Sign in|Continue) with Borderless$/,
+    name: "Continue with Borderless",
+    exact: true,
   });
 }
 

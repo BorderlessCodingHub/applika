@@ -44,7 +44,7 @@ const PAGES: PageCase[] = [
     visitors: ["anon"],
     // The route lives at `src/app/login/`, OUTSIDE the `(public)` group, so it
     // renders no landing header. It is the Borderless sign-in (ADR-0026,
-    // option A at this desktop width): one "Sign in with Borderless" button,
+    // option A at this desktop width): one "Continue with Borderless" button,
     // no field at all, no GitHub sign-in.
     assert: async (page) => {
       await expect(
@@ -52,7 +52,7 @@ const PAGES: PageCase[] = [
       ).toBeVisible();
       await expect(
         page.getByRole("button", {
-          name: "Sign in with Borderless",
+          name: "Continue with Borderless",
           exact: true,
         }),
       ).toBeVisible();

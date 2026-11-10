@@ -187,9 +187,11 @@ interface SignInCtaProps {
   /** The ready words; pending reads `auth.signIn.pending` in both trees. */
   label: string;
   className: string;
+  /** The phone's 56px button draws the mark at 20px, A's 48px one at 18px. */
+  largeLogo?: boolean;
 }
 
-/** Borderless's logo before the label, as A draws it; pending, the spinner takes its place. */
+/** Career Forge's outline button: Borderless's mark before the label; pending, the spinner takes its place. */
 function SignInCta({
   ctaRef,
   leadId,
@@ -197,6 +199,7 @@ function SignInCta({
   onSignIn,
   label,
   className,
+  largeLogo = false,
 }: SignInCtaProps) {
   const t = useTranslations("auth.signIn");
   return (
@@ -211,7 +214,7 @@ function SignInCta({
         if (!pending) onSignIn();
       }}
       className={cn(
-        "ph-btn ph-pri aria-busy:cursor-progress aria-busy:opacity-75",
+        "ph-btn ph-bl aria-busy:cursor-progress aria-busy:opacity-75",
         className,
       )}
     >
@@ -227,10 +230,10 @@ function SignInCta({
           data-slot="sign-in-logo"
           src={BORDERLESS_BADGE_SRC}
           alt=""
-          width={22}
-          height={22}
+          width={largeLogo ? 20 : 18}
+          height={largeLogo ? 20 : 18}
           unoptimized
-          className="ph-a-logo"
+          className={cn("ph-a-logo", largeLogo && "ph-c-logo")}
         />
       )}
       {pending ? t("pending") : label}
@@ -391,6 +394,7 @@ export function SignInScreen({
             onSignIn={onSignIn}
             label={tC("continue")}
             className="h-14 text-[16px]"
+            largeLogo
           />
           <AccountLink href={createAccountHref} />
         </div>
@@ -420,7 +424,7 @@ export function SignInScreen({
               leadId={desktopLeadId}
               pending={pending}
               onSignIn={onSignIn}
-              label={t("signInWithBorderless")}
+              label={tC("continue")}
               className="ph-a-cta"
             />
             <Separator className="my-6" />

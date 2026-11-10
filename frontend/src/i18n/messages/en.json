@@ -29,7 +29,6 @@
     "logout": "Logout",
     "signIn": {
       "title": "Sign in to applika",
-      "signInWithBorderless": "Sign in with Borderless",
       "pending": "Opening Borderless…",
       "cliCommand": "applika login",
       "cliRetry": "Return to your terminal and run <code>{command}</code> again.",
@@ -48,7 +47,7 @@
         "logo": "Applika",
         "borderless": "Borderless",
         "lead": "Use your Borderless account. Borderless confirms it's you and sends you back here.",
-        "noAccount": "No Borderless account yet? <link>Create a Borderless account</link>"
+        "noAccount": "No account yet? <link>Create a Borderless account</link>"
       }
     }
   },
