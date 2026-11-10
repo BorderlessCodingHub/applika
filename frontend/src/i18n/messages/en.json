@@ -2105,14 +2105,14 @@
         "platforms": "Top Platforms",
         "companies": "Top Companies",
         "noCompanies": "No company data yet",
-        "users": "{count, plural, other {{total} users}}"
+        "users": "{count, plural, one {{total} user} other {{total} users}}"
       },
       "heatmap": {
         "title": "Activity Heatmap",
         "unit": "applications / hour",
         "less": "Less",
         "more": "More",
-        "cell": "{day} {hour}:00 — {count, plural, other {{total} applications}}",
+        "cell": "{day} {hour}:00 — {count, plural, one {{total} application} other {{total} applications}}",
         "days": {
           "mon": "Mon",
           "tue": "Tue",
@@ -2132,7 +2132,7 @@
     "users": {
       "title": "User Management",
       "subtitle": "View, search, and manage all platform users",
-      "count": "{count, plural, other {{total} users}}",
+      "count": "{count, plural, one {{total} user} other {{total} users}}",
       "searchPlaceholder": "Search users...",
       "adminBadge": "admin",
       "viewDetails": "View user details",

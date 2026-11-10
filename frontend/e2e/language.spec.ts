@@ -668,6 +668,40 @@ test.describe("320px: a longer Portuguese label truncates on the phone", () => {
   });
 });
 
+test.describe("a count of 0 in Portuguese on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("Cycles reads 0 in the plural (0 ofertas), never the singular", async ({
+    page,
+    context,
+    request,
+  }) => {
+    // e2e-discord's current cycle: no offer ever (no spec writes one for it).
+    const stats = await request.get(apiUrl("/applications/statistics"), {
+      headers: apiHeaders("discord"),
+    });
+    expect(stats.ok(), await stats.text()).toBeTruthy();
+    const { total_applications: applications, offers } =
+      (await stats.json()) as { total_applications: number; offers: number };
+    expect(offers, "e2e-discord's offers: the 0 to read").toBe(0);
+    const words = (count: number, one: string, many: string) =>
+      `${count} ${count === 1 ? one : many}`;
+
+    await setLocaleCookie(context, "pt-BR");
+    await loginAs(page, "discord");
+    await page.goto("/cycles");
+    await expectLanguage(page, "pt-BR");
+    const current = page.locator('[data-slot="cycles-current"]');
+    await expect(current).toContainText(
+      `${words(applications, "candidatura", "candidaturas")} · ${words(offers, "oferta", "ofertas")}`,
+    );
+    await expect(current).toContainText("0 ofertas");
+    await expect(current).not.toContainText(
+      /(^|\D)0 (candidatura|oferta)( |·|$)/,
+    );
+  });
+});
+
 test.describe("320px: no sideways scroll", () => {
   test.use({ viewport: { width: 320, height: 720 } });
 

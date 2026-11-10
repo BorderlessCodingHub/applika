@@ -163,6 +163,20 @@ describe("the admin Users board below md (v3/AdminUsers)", () => {
     expect(empty).toHaveClass("ph-card", "ph-hint");
   });
 
+  it("counts one user in the singular", async () => {
+    mocks.list
+      .mockReset()
+      .mockImplementation((params?: AdminUsersParams) =>
+        Promise.resolve(page([SAMC], params)),
+      );
+    await renderUsers();
+    await screen.findByText("samcarter");
+
+    expect(
+      document.querySelector('[data-slot="user-count"]'),
+    ).toHaveTextContent(/^1 user$/);
+  });
+
   it("draws the board: search, count, Sort by and one row per user", async () => {
     await renderUsers();
     await screen.findByText("samcarter");

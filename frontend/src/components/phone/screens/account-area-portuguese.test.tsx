@@ -21,8 +21,17 @@ import { SAM, renderPhoneScreen } from "@/test/phone-screens";
  * follow the language, with no English left on the phone screen.
  */
 
+const STATS = {
+  total_applications: 12,
+  success_rate: 8,
+  offers: 1,
+  denials: 2,
+  active: 9,
+};
+
 const mocks = vi.hoisted(() => ({
   user: { current: null as User | null },
+  stats: { current: null as Record<string, number> | null },
 }));
 
 vi.mock("@/contexts/auth-context", async () => {
@@ -48,14 +57,7 @@ vi.mock("sonner", () => ({
 vi.mock("@/services/services", () => ({
   services: {
     statistics: {
-      getGeneralStats: () =>
-        Promise.resolve({
-          total_applications: 12,
-          success_rate: 8,
-          offers: 1,
-          denials: 2,
-          active: 9,
-        }),
+      getGeneralStats: () => Promise.resolve(mocks.stats.current ?? STATS),
     },
     sessions: {
       list: () =>
@@ -294,6 +296,28 @@ describe("the account area in Portuguese below md", () => {
     expect(
       screen.getByRole("button", { name: "Excluir Primavera 2026" }),
     ).toBeInTheDocument();
+  });
+
+  it("Cycles with nothing yet: 0 reads in the plural", async () => {
+    mocks.stats.current = {
+      total_applications: 0,
+      success_rate: 0,
+      offers: 0,
+      denials: 0,
+      active: 0,
+    };
+    try {
+      await renderPt("/cycles", <CyclesPage />);
+
+      const current = screen.getByRole("region", { name: "Ciclo atual" });
+      expect(
+        await within(current).findByText(
+          "0 candidaturas · 0 ofertas · desde 1 de set.",
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      mocks.stats.current = null;
+    }
   });
 
   it("Reports, open and closed", async () => {
