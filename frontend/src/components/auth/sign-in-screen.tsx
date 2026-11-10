@@ -5,18 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
-  Briefcase,
-  Calendar,
   ChevronLeft,
   CircleAlert,
+  Link2,
   LoaderCircle,
   SquareTerminal,
 } from "lucide-react";
 
 import { ApplikaIcon } from "@/components/app-logo";
 import { LanguageToggle } from "@/components/language-toggle";
-import { PhoneNewspaperC } from "@/components/phone/phone-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Separator } from "@/components/ui/separator";
 import { PHONE_QUERY } from "@/hooks/use-is-phone";
 import { cn } from "@/lib/utils";
 
@@ -67,25 +66,49 @@ export interface SignInScreenProps {
 export const BORDERLESS_BADGE_SRC = "/borderless-logo.png";
 
 /** Option C's app icon: the Applika mark with the Borderless badge on its corner. */
-function AppIconWithBadge({ large = false }: { large?: boolean }) {
+function AppIconWithBadge() {
   const t = useTranslations("auth.signIn.optionC");
-  const badge = large ? 54 : 46;
   return (
-    <span className={large ? "ph-app-ic-lg" : "ph-app-ic"}>
-      <ApplikaIcon size={large ? 74 : 64} role="img" aria-label={t("logo")} />
-      <span
-        data-slot="sign-in-badge"
-        className={large ? "ph-c-badge-lg" : "ph-c-badge"}
-      >
+    <span className="ph-app-ic">
+      <ApplikaIcon size={64} role="img" aria-label={t("logo")} />
+      <span data-slot="sign-in-badge" className="ph-c-badge">
         <Image
           src={BORDERLESS_BADGE_SRC}
           alt={t("badge")}
-          width={badge}
-          height={badge}
+          width={46}
+          height={46}
           unoptimized
         />
       </span>
     </span>
+  );
+}
+
+/** Option A's paired tiles: Applika, the dashed link mark, Borderless. */
+function PairedTiles() {
+  const t = useTranslations("auth.signIn.optionA");
+  return (
+    <div data-slot="sign-in-tiles" className="ph-a-tiles">
+      <span className="ph-a-tile text-primary">
+        <ApplikaIcon size={46} role="img" aria-label={t("logo")} />
+      </span>
+      <span aria-hidden="true" className="ph-a-link">
+        <span className="ph-a-dash" />
+        <span className="ph-a-link-ic">
+          <Link2 size={15} strokeWidth={2.5} />
+        </span>
+        <span className="ph-a-dash" />
+      </span>
+      <span className="ph-a-tile">
+        <Image
+          src={BORDERLESS_BADGE_SRC}
+          alt={t("borderless")}
+          width={72}
+          height={72}
+          unoptimized
+        />
+      </span>
+    </div>
   );
 }
 
@@ -161,14 +184,18 @@ interface SignInCtaProps {
   leadId: string;
   pending: boolean;
   onSignIn: () => void;
+  /** The ready words; pending reads `auth.signIn.pending` in both trees. */
+  label: string;
   className: string;
 }
 
+/** Borderless's logo before the label, as A draws it; pending, the spinner takes its place. */
 function SignInCta({
   ctaRef,
   leadId,
   pending,
   onSignIn,
+  label,
   className,
 }: SignInCtaProps) {
   const t = useTranslations("auth.signIn");
@@ -184,7 +211,7 @@ function SignInCta({
         if (!pending) onSignIn();
       }}
       className={cn(
-        "ph-btn ph-pri text-[16px] aria-busy:cursor-progress aria-busy:opacity-75",
+        "ph-btn ph-pri aria-busy:cursor-progress aria-busy:opacity-75",
         className,
       )}
     >
@@ -195,8 +222,18 @@ function SignInCta({
           aria-hidden="true"
           className="ph-spin"
         />
-      ) : null}
-      {pending ? t("pending") : t("optionC.continue")}
+      ) : (
+        <Image
+          data-slot="sign-in-logo"
+          src={BORDERLESS_BADGE_SRC}
+          alt=""
+          width={22}
+          height={22}
+          unoptimized
+          className="ph-a-logo"
+        />
+      )}
+      {pending ? t("pending") : label}
     </button>
   );
 }
@@ -232,6 +269,35 @@ function AccountLink({
   );
 }
 
+/** Option A's last line: the question, then the sign-up link in a new tab. */
+function SignUpLine({ href }: { href: string }) {
+  const t = useTranslations("auth.signIn");
+  const newTabId = useId();
+  return (
+    <>
+      <p className="ph-a-foot">
+        {t.rich("optionA.noAccount", {
+          link: (chunks) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-describedby={newTabId}
+              data-slot="create-borderless-account"
+              className="ph-a-signup"
+            >
+              {chunks}
+            </a>
+          ),
+        })}
+      </p>
+      <span id={newTabId} className="sr-only">
+        {t("opensInNewTab")}
+      </span>
+    </>
+  );
+}
+
 export function SignInScreen({
   onSignIn,
   pending = false,
@@ -241,6 +307,7 @@ export function SignInScreen({
   autoFocus = true,
 }: SignInScreenProps) {
   const t = useTranslations("auth.signIn");
+  const tA = useTranslations("auth.signIn.optionA");
   const tC = useTranslations("auth.signIn.optionC");
   const phoneLeadId = useId();
   const desktopLeadId = useId();
@@ -322,69 +389,43 @@ export function SignInScreen({
             leadId={phoneLeadId}
             pending={pending}
             onSignIn={onSignIn}
-            className="h-14"
+            label={tC("continue")}
+            className="h-14 text-[16px]"
           />
           <AccountLink href={createAccountHref} />
         </div>
       </main>
 
-      {/* signin/C_Desktop, md and up. */}
+      {/* signin/A_Desktop, md and up: the mesh and dots fill the root, the card sits centred. */}
       <div
         data-slot="sign-in-desktop"
         className="hidden min-h-0 flex-1 md:flex"
       >
-        <section className="ph-c-side" aria-label={tC("about")}>
-          <div className="ph-c-side-glow" aria-hidden="true" />
-          <AppIconWithBadge large />
-          <p className="relative mt-12 mb-0 text-[14px] font-semibold tracking-[0.08em] text-primary uppercase">
-            {tC("eyebrow")}
-          </p>
-          <h2 className="ph-c-headline">{tC("headline")}</h2>
-          <div className="relative mt-9 flex flex-col gap-3.5">
-            <p className="ph-feat m-0">
-              <span aria-hidden="true">
-                <Briefcase size={18} />
-              </span>
-              {tC("featApplications")}
+        <div className="ph-a-mesh" aria-hidden="true" />
+        <div className="ph-dots" aria-hidden="true" />
+        <main className="ph-a-main">
+          <div className="ph-a-card">
+            <PairedTiles />
+            <h1 className="ph-a-h1">{t("title")}</h1>
+            <p id={desktopLeadId} className="ph-a-lead">
+              {tA("lead")}
             </p>
-            <p className="ph-feat m-0">
-              <span aria-hidden="true">
-                <Calendar size={18} />
-              </span>
-              {tC("featInterviews")}
-            </p>
-            <p className="ph-feat m-0">
-              <span aria-hidden="true">
-                <PhoneNewspaperC size={18} />
-              </span>
-              {tC("featReports")}
-            </p>
+            <SignInStates
+              errorKey={errorKey}
+              cli={cli}
+              errorRef={desktopErrorRef}
+            />
+            <SignInCta
+              ctaRef={desktopCtaRef}
+              leadId={desktopLeadId}
+              pending={pending}
+              onSignIn={onSignIn}
+              label={t("signInWithBorderless")}
+              className="ph-a-cta"
+            />
+            <Separator className="my-6" />
+            <SignUpLine href={createAccountHref} />
           </div>
-        </section>
-
-        <main className="ph-c-main">
-          <h1 className="m-0 text-[30px] font-extrabold tracking-[-0.03em]">
-            {t("title")}
-          </h1>
-          <p
-            id={desktopLeadId}
-            className="mt-2.5 mb-0 text-[16px] leading-[1.5] text-muted-foreground"
-          >
-            {tC("lead")}
-          </p>
-          <SignInStates
-            errorKey={errorKey}
-            cli={cli}
-            errorRef={desktopErrorRef}
-          />
-          <SignInCta
-            ctaRef={desktopCtaRef}
-            leadId={desktopLeadId}
-            pending={pending}
-            onSignIn={onSignIn}
-            className="mt-8 h-[52px] rounded-[14px]"
-          />
-          <AccountLink href={createAccountHref} className="mt-2" />
         </main>
       </div>
 

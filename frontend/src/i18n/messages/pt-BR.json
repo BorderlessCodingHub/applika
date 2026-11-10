@@ -42,11 +42,13 @@
         "headline": "Uma conta para toda a sua busca de emprego",
         "lead": "Entre com a Borderless. Ela confirma que é você e traz você de volta para cá.",
         "continue": "Continuar com a Borderless",
-        "noAccount": "Não tenho conta na Borderless",
-        "about": "Sobre o Applika",
-        "featApplications": "Todas as candidaturas em um só lugar",
-        "featInterviews": "Entrevistas na sua agenda",
-        "featReports": "Relatórios quinzenais para a sua comunidade Borderless"
+        "noAccount": "Não tenho conta na Borderless"
+      },
+      "optionA": {
+        "logo": "Applika",
+        "borderless": "Borderless",
+        "lead": "Use sua conta Borderless. A Borderless confirma que é você e traz você de volta para cá.",
+        "noAccount": "Ainda não tem conta na Borderless? <link>Criar uma conta na Borderless</link>"
       }
     }
   },

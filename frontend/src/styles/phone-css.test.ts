@@ -113,17 +113,6 @@ function ruleBodies(selector: string): string[] {
   return [...css.matchAll(re)].map((m) => m[1]);
 }
 
-/** A `clamp(min, Nvw, max)` length at a viewport `width`, in px. */
-function clampAt(value: string, width: number): number {
-  const match =
-    /clamp\(\s*(\d+(?:\.\d+)?)px,\s*(\d+(?:\.\d+)?)vw,\s*(\d+(?:\.\d+)?)px\s*\)/.exec(
-      value,
-    );
-  expect(match, `not a px/vw/px clamp: ${value}`).not.toBeNull();
-  const [min, vw, max] = match!.slice(1).map(Number);
-  return Math.min(max, Math.max(min, (vw * width) / 100));
-}
-
 /** One rule's declarations, whitespace folded: `{ property: value }`. */
 function declarations(body: string): Record<string, string> {
   return Object.fromEntries(
@@ -138,25 +127,33 @@ function declarations(body: string): Record<string, string> {
   );
 }
 
-// Sign-in option C (C_Mobile, C_Desktop), v2/Landing, v2/CookiePolicy,
-// v2/CliCode and v2/DeviceSignIn: each board's own <style> classes, the
-// boards' inline style blocks made classes, and what the app adds to them.
+// Sign-in option C below md (C_Mobile) and option A at md and up
+// (A_Desktop), v2/Landing, v2/CookiePolicy, v2/CliCode and v2/DeviceSignIn:
+// each board's own <style> classes, the boards' inline style blocks made
+// classes, and what the app adds to them.
 const BOARD_ONLY = [
   "ph-c-glow",
   "ph-app-ic",
   "ph-c-badge",
-  "ph-c-side",
-  "ph-c-side-glow",
-  "ph-app-ic-lg",
-  "ph-c-badge-lg",
-  "ph-feat",
+  "ph-a-mesh",
+  "ph-a-tile",
   "ph-doc",
   "ph-ck",
 ] as const;
 
 const INLINE_BLOCKS = [
-  "ph-c-main",
-  "ph-c-headline",
+  "ph-a-main",
+  "ph-a-card",
+  "ph-a-tiles",
+  "ph-a-link",
+  "ph-a-dash",
+  "ph-a-link-ic",
+  "ph-a-h1",
+  "ph-a-lead",
+  "ph-a-cta",
+  "ph-a-logo",
+  "ph-a-foot",
+  "ph-a-signup",
   "ph-signin-alert",
   "ph-signin-hint",
   "ph-landing-header",
@@ -296,53 +293,179 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     expect(ruleBody(".ph-c-badge img")).toMatch(/width:\s*100%/);
   });
 
-  it("draws C_Desktop's side panel, icon, badge and features at the board's sizes", () => {
-    const icon = ruleBody(".ph-app-ic-lg");
-    expect(icon).toMatch(/width:\s*120px/);
-    expect(icon).toMatch(/border-radius:\s*34px/);
-    const badge = ruleBody(".ph-c-badge-lg");
-    expect(badge).toMatch(/width:\s*54px/);
-    expect(badge).toMatch(/right:\s*-16px/);
-    expect(badge).toMatch(/box-shadow:\s*0 0 0 5px var\(--background\)/);
-    expect(ruleBody(".ph-c-badge-lg img")).toMatch(/height:\s*100%/);
-    expect(ruleBody(".ph-c-side")).toMatch(/border-right:\s*1px solid/);
-    expect(ruleBody(".ph-c-side-glow")).toMatch(/width:\s*520px/);
-    expect(ruleBody(".ph-feat span")).toMatch(/width:\s*36px/);
+  it("drops C_Desktop's classes: the side panel, its icon, badge, features, main and headline", () => {
+    for (const gone of [
+      "ph-c-side",
+      "ph-c-side-glow",
+      "ph-app-ic-lg",
+      "ph-c-badge-lg",
+      "ph-feat",
+      "ph-c-main",
+      "ph-c-headline",
+    ]) {
+      expect(DECLARED.has(gone), `.${gone} is still declared`).toBe(false);
+    }
+    expect(css).not.toMatch(/clamp\(/);
   });
 
   it("keeps the boards' content-box icons, the glow only in dark", () => {
-    const override = /\.ph-app-ic,\s*\.ph-app-ic-lg\s*\{([^}]*)\}/.exec(css);
-    expect(override).not.toBeNull();
-    expect(override![1]).toMatch(/box-sizing:\s*content-box/);
-    expect(override![1]).toMatch(/box-shadow:\s*var\(--shadow-elevated\);/);
+    // The app's override sits after the board's rule, at the top level (not `.dark`).
+    const override = /\n {2}\.ph-app-ic\s*\{([^}]*)\}/g;
+    const bodies = [...css.matchAll(override)].map((m) => m[1]);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toMatch(/box-sizing:\s*content-box/);
+    expect(bodies[1]).toMatch(/box-shadow:\s*var\(--shadow-elevated\);/);
     expect(css).toMatch(
-      /\.dark \.ph-app-ic,\s*\.dark \.ph-app-ic-lg\s*\{[^}]*box-shadow:\s*var\(--shadow-elevated\),\s*var\(--ph-glow\)/,
+      /\.dark \.ph-app-ic\s*\{[^}]*box-shadow:\s*var\(--shadow-elevated\),\s*var\(--ph-glow\)/,
     );
   });
 
-  it("states the board's 1440 sizes, then a fluid desktop from 768 that equals them at 1440", () => {
-    const side = ruleBodies(".ph-c-side");
-    const main = ruleBodies(".ph-c-main");
-    const headline = ruleBodies(".ph-c-headline");
-    expect(side[0]).toMatch(/padding:\s*0 96px/);
-    expect(main[0]).toMatch(/width:\s*560px/);
-    expect(main[0]).toMatch(/padding:\s*0 80px/);
-    expect(headline[0]).toMatch(/font-size:\s*44px/);
+  // signin/A_Desktop, every class and inline style the board draws, as drawn.
+  it.each([
+    [
+      ".ph-a-mesh",
+      {
+        position: "absolute",
+        inset: "0",
+        background:
+          "radial-gradient( ellipse 80% 60% at 20% 30%, oklch(0.768 0.139 174.6 / 0.1) 0%, transparent 70% ), radial-gradient( ellipse 60% 80% at 80% 70%, oklch(0.506 0.156 295.7 / 0.08) 0%, transparent 70% )",
+      },
+    ],
+    [
+      ".ph-a-tile",
+      {
+        width: "72px",
+        height: "72px",
+        "border-radius": "20px",
+        background: "var(--background)",
+        border: "1px solid var(--border)",
+        display: "flex",
+        "align-items": "center",
+        "justify-content": "center",
+        overflow: "hidden",
+        "box-sizing": "border-box",
+      },
+    ],
+    [".ph-a-tile img", { width: "100%", height: "100%", display: "block" }],
+    [
+      ".ph-a-main",
+      {
+        position: "relative",
+        flex: "1",
+        display: "flex",
+        "align-items": "center",
+        "justify-content": "center",
+      },
+    ],
+    [
+      ".ph-a-card",
+      {
+        width: "448px",
+        padding: "40px",
+        "box-sizing": "border-box",
+        "border-radius": "24px",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        "box-shadow": "var(--shadow-elevated)",
+        display: "flex",
+        "flex-direction": "column",
+        "align-items": "center",
+        "text-align": "center",
+      },
+    ],
+    [".ph-a-tiles", { display: "flex", "align-items": "center", gap: "12px" }],
+    [".ph-a-link", { display: "flex", "align-items": "center", gap: "4px" }],
+    [
+      ".ph-a-dash",
+      { width: "12px", "border-top": "2px dashed var(--border-strong)" },
+    ],
+    [
+      ".ph-a-link-ic",
+      {
+        width: "30px",
+        height: "30px",
+        "border-radius": "999px",
+        background: "var(--primary-muted)",
+        color: "var(--primary)",
+        display: "flex",
+        "align-items": "center",
+        "justify-content": "center",
+      },
+    ],
+    [
+      ".ph-a-h1",
+      {
+        margin: "24px 0 0",
+        "font-size": "26px",
+        "font-weight": "700",
+        "letter-spacing": "-0.02em",
+      },
+    ],
+    [
+      ".ph-a-lead",
+      {
+        margin: "8px 0 0",
+        "font-size": "15px",
+        "line-height": "1.5",
+        color: "var(--muted-foreground)",
+      },
+    ],
+    [
+      ".ph-btn.ph-a-cta",
+      {
+        "margin-top": "28px",
+        width: "100%",
+        height: "48px",
+        "border-radius": "12px",
+      },
+    ],
+    [".ph-a-logo", { width: "22px", height: "22px", "border-radius": "6px" }],
+    [
+      ".ph-a-foot",
+      {
+        margin: "0",
+        "font-size": "14px",
+        color: "var(--muted-foreground)",
+      },
+    ],
+    [
+      ".ph-a-signup",
+      {
+        "font-weight": "600",
+        color: "var(--foreground)",
+        "text-decoration": "underline",
+        "text-decoration-color": "var(--primary)",
+        "text-underline-offset": "4px",
+      },
+    ],
+  ] as const)("draws A_Desktop's %s as drawn", (selector, expected) => {
+    expect(ruleBodies(selector), selector).toHaveLength(1);
+    expect(declarations(ruleBody(selector))).toEqual(expected);
+  });
 
-    const sidePad = /padding:\s*0 (clamp\([^)]*\))/.exec(side.at(-1)!)![1];
-    const mainWidth = /width:\s*(clamp\([^)]*\))/.exec(main.at(-1)!)![1];
-    const mainPad = /padding:\s*0 (clamp\([^)]*\))/.exec(main.at(-1)!)![1];
-    const size = /font-size:\s*(clamp\([^)]*\))/.exec(headline.at(-1)!)![1];
-    expect(clampAt(sidePad, 1440)).toBeCloseTo(96, 0);
-    expect(clampAt(mainWidth, 1440)).toBeCloseTo(560, 0);
-    expect(clampAt(mainPad, 1440)).toBeCloseTo(80, 0);
-    expect(clampAt(size, 1440)).toBeCloseTo(44, 0);
-    // At 768 the main column and the side panel both keep room.
-    expect(clampAt(mainWidth, 768)).toBe(400);
-    expect(768 - clampAt(mainWidth, 768)).toBeGreaterThanOrEqual(320);
-    const sideContent =
-      768 - clampAt(mainWidth, 768) - 2 * clampAt(sidePad, 768);
-    expect(sideContent).toBeGreaterThanOrEqual(240);
+  it("reuses the shared .ph-dots and .ph-btn.ph-pri, equal to A_Desktop's .dots and .btn.pri", () => {
+    expect(declarations(ruleBody(".ph-dots"))).toEqual({
+      position: "absolute",
+      inset: "0",
+      opacity: "0.3",
+      "background-image":
+        "radial-gradient( circle, var(--border) 1px, transparent 1px )",
+      "background-size": "24px 24px",
+    });
+    expect(declarations(ruleBody(".ph-btn"))).toMatchObject({
+      height: "52px",
+      padding: "0 20px",
+      "font-size": "15px",
+      "font-weight": "600",
+      gap: "8px",
+    });
+    expect(declarations(ruleBody(".ph-btn.ph-pri"))).toEqual({
+      background: "var(--primary)",
+      color: "var(--primary-foreground)",
+      "box-shadow": "var(--ph-glow)",
+    });
+    // .ph-mesh is v2/SignIn's (its second gradient differs): A has its own.
+    expect(ruleBody(".ph-mesh")).toMatch(/oklch\(0\.648 0\.119 235 \/ 0\.06\)/);
   });
 
   it("draws v2/SignIn's alert and terminal hint", () => {

@@ -112,32 +112,63 @@ describe("sign-in in Portuguese", () => {
       localeSwitch: true,
     });
 
-    const lead =
+    // Below md, option C: today's words, the logo before the button's label.
+    const phoneLead =
       "Entre com a Borderless. Ela confirma que é você e traz você de volta para cá.";
-    for (const [slot, h1] of [
-      ["sign-in-desktop", "Entre no Applika"],
-      ["sign-in-phone", "Uma conta para toda a sua busca de emprego"],
-    ] as const) {
-      const view = within(tree(slot));
-      expect(
-        view.getByRole("heading", { level: 1, name: h1 }),
-      ).toBeInTheDocument();
-      expect(view.getByText(lead)).toBeInTheDocument();
-      expect(
-        view.getByRole("button", { name: "Continuar com a Borderless" }),
-      ).toHaveAccessibleDescription(lead);
-      expect(
-        view.getByRole("link", { name: "Não tenho conta na Borderless" }),
-      ).toHaveAccessibleDescription("Abre em uma nova aba.");
-      expect(
-        view.getByRole("img", { name: "com a Borderless" }),
-      ).toHaveAttribute("src", "/borderless-logo.png");
-    }
+    const phone = within(tree("sign-in-phone"));
     expect(
-      within(tree("sign-in-desktop")).getByRole("region", {
-        name: "Sobre o Applika",
+      phone.getByRole("heading", {
+        level: 1,
+        name: "Uma conta para toda a sua busca de emprego",
       }),
     ).toBeInTheDocument();
+    expect(phone.getByText(phoneLead)).toBeInTheDocument();
+    expect(
+      phone.getByRole("button", { name: "Continuar com a Borderless" }),
+    ).toHaveAccessibleDescription(phoneLead);
+    expect(
+      phone.getByRole("link", { name: "Não tenho conta na Borderless" }),
+    ).toHaveAccessibleDescription("Abre em uma nova aba.");
+    expect(
+      phone.getByRole("img", { name: "com a Borderless" }),
+    ).toHaveAttribute("src", "/borderless-logo.png");
+
+    // At md and up, option A: the paired tiles, A's lead, button and sign-up line.
+    const desktopLead =
+      "Use sua conta Borderless. A Borderless confirma que é você e traz você de volta para cá.";
+    const desktop = within(tree("sign-in-desktop"));
+    expect(
+      desktop.getByRole("heading", { level: 1, name: "Entre no Applika" }),
+    ).toBeInTheDocument();
+    expect(desktop.getByText(desktopLead)).toBeInTheDocument();
+    expect(
+      desktop.getByRole("button", { name: "Entrar com a Borderless" }),
+    ).toHaveAccessibleDescription(desktopLead);
+    expect(
+      desktop.getByText(/^Ainda não tem conta na Borderless\?/),
+    ).toHaveTextContent(
+      "Ainda não tem conta na Borderless? Criar uma conta na Borderless",
+    );
+    expect(
+      desktop.getByRole("link", { name: "Criar uma conta na Borderless" }),
+    ).toHaveAccessibleDescription("Abre em uma nova aba.");
+    expect(
+      desktop
+        .getAllByRole("img")
+        .map(
+          (img) => img.getAttribute("aria-label") ?? img.getAttribute("alt"),
+        ),
+    ).toEqual(["Applika", "Borderless"]);
+    expect(desktop.queryByRole("region")).toBeNull();
+
+    // The decorative logo in both buttons.
+    for (const slot of ["sign-in-phone", "sign-in-desktop"]) {
+      expect(
+        tree(slot).querySelector(
+          '[data-action="sign-in-borderless"] [data-slot="sign-in-logo"]',
+        ),
+      ).toHaveAttribute("alt", "");
+    }
     expect(
       screen.getByRole("link", { name: "Voltar ao início" }),
     ).toHaveAttribute("href", "/");
@@ -153,7 +184,7 @@ describe("sign-in in Portuguese", () => {
 
     await userEvent.click(
       within(tree("sign-in-desktop")).getByRole("button", {
-        name: "Continuar com a Borderless",
+        name: "Entrar com a Borderless",
       }),
     );
 

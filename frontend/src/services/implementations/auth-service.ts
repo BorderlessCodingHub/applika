@@ -11,7 +11,7 @@ export class AuthService implements IAuthService {
     return api.get("/auth/logout");
   }
   /**
-   * Where "Continue with Borderless" sends the browser, a top-level
+   * Where the sign-in page's Borderless button sends the browser, a top-level
    * navigation (ADR-0026): the API 307s to Borderless's own sign-in page and
    * its callback comes back to `/login`, signed in or with `?error=<code>`.
    * The web never sees a code, a state or a token.

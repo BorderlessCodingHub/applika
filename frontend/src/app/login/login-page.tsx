@@ -23,7 +23,8 @@ export function signedInLandingFor(
 }
 
 /**
- * `/login` (ADR-0026): one "Continue with Borderless" button. The browser
+ * `/login` (ADR-0026): one Borderless button per width ("Sign in with
+ * Borderless" at md and up, "Continue with Borderless" below). The browser
  * leaves for `GET /auth/borderless/login`, Borderless's own sign-in page,
  * and the API's callback brings it back here: signed in (the cookies are
  * set, this page moves on) or with `?error=<code>` (`&cli=1` when the

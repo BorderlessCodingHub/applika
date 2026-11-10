@@ -42,11 +42,13 @@
         "headline": "One account for your whole job search",
         "lead": "Sign in with Borderless. It confirms it's you and sends you back here.",
         "continue": "Continue with Borderless",
-        "noAccount": "I don't have a Borderless account",
-        "about": "About applika",
-        "featApplications": "Every application in one place",
-        "featInterviews": "Interviews on your agenda",
-        "featReports": "Biweekly reports for your Borderless community"
+        "noAccount": "I don't have a Borderless account"
+      },
+      "optionA": {
+        "logo": "Applika",
+        "borderless": "Borderless",
+        "lead": "Use your Borderless account. Borderless confirms it's you and sends you back here.",
+        "noAccount": "No Borderless account yet? <link>Create a Borderless account</link>"
       }
     }
   },

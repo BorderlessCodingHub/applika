@@ -13,8 +13,9 @@ import { mockPhoneViewport } from "@/test/phone";
 import { LoginPage, signedInLandingFor } from "./login-page";
 
 /**
- * The sign-in page (ADR-0026, option C): one "Continue with Borderless"
- * button that leaves for the API's `/auth/borderless/login`, the words of
+ * The sign-in page (ADR-0026; option A at md and up, option C below): one
+ * Borderless button per width ("Sign in with Borderless" / "Continue with
+ * Borderless") that leaves for the API's `/auth/borderless/login`, the words of
  * every `?error=<code>` the callback sends back (in the active language), the
  * terminal hint on `&cli=1`, and where a signed-in visit lands. No password,
  * code or token is ever asked for or held. Both widths' trees are in the DOM
@@ -54,8 +55,9 @@ function renderPage() {
   return render(<LoginPage />, { wrapper: LocaleProvider });
 }
 
+/** Option A's lead, at md and up. */
 const LEAD =
-  "Sign in with Borderless. It confirms it's you and sends you back here.";
+  "Use your Borderless account. Borderless confirms it's you and sends you back here.";
 
 /** The tree the width shows: desktop unless the test mocks a phone. */
 function shown(slot: "sign-in-desktop" | "sign-in-phone" = "sign-in-desktop") {
@@ -115,7 +117,7 @@ describe("LoginPage: the Borderless button (AC1, AC22)", () => {
     ).toBeInTheDocument();
     expect(desktop.getByText(LEAD)).toBeInTheDocument();
     expect(
-      desktop.getByRole("button", { name: "Continue with Borderless" }),
+      desktop.getByRole("button", { name: "Sign in with Borderless" }),
     ).toBe(signInButton());
     expect(signInButton()).toHaveAccessibleDescription(LEAD);
     // One CTA per width, nothing else to press.
@@ -139,7 +141,7 @@ describe("LoginPage: the Borderless button (AC1, AC22)", () => {
     renderPage();
 
     const link = within(shown()).getByRole("link", {
-      name: "I don't have a Borderless account",
+      name: "Create a Borderless account",
     });
     expect(link).toHaveAttribute(
       "href",

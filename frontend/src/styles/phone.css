@@ -646,7 +646,7 @@
     }
   }
 
-  /* Board-only classes, bodies as drawn; C_Desktop's twins of C_Mobile's names are -lg / c-side-glow. */
+  /* Board-only classes, bodies as drawn: signin/C_Mobile's, then signin/A_Desktop's (its .mesh is ph-a-mesh, its .tile ph-a-tile; its .dots is ph-dots). */
 
   .ph-c-glow {
     position: absolute;
@@ -699,89 +699,39 @@
     display: block;
   }
 
-  .ph-c-side {
-    position: relative;
-    flex: 1;
-    overflow: hidden;
-    background: linear-gradient(
-      160deg,
-      color-mix(in oklab, var(--primary) 10%, var(--background)),
-      var(--background) 60%
-    );
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 0 96px;
-  }
-
-  .ph-c-side-glow {
+  .ph-a-mesh {
     position: absolute;
-    right: -120px;
-    top: -120px;
-    width: 520px;
-    height: 520px;
-    border-radius: 999px;
-    background: radial-gradient(
-      circle,
-      oklch(0.506 0.156 295.7 / 0.16) 0%,
-      transparent 65%
-    );
+    inset: 0;
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 20% 30%,
+        oklch(0.768 0.139 174.6 / 0.1) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 80% at 80% 70%,
+        oklch(0.506 0.156 295.7 / 0.08) 0%,
+        transparent 70%
+      );
   }
 
-  .ph-app-ic-lg {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    border-radius: 34px;
-    background: linear-gradient(
-      150deg,
-      color-mix(in oklab, var(--primary) 22%, var(--surface)),
-      var(--surface)
-    );
-    border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent);
-    box-shadow: var(--shadow-elevated), var(--ph-glow);
+  .ph-a-tile {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    background: var(--background);
+    border: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--primary);
-  }
-
-  .ph-c-badge-lg {
-    position: absolute;
-    right: -16px;
-    bottom: -16px;
-    width: 54px;
-    height: 54px;
-    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 0 0 5px var(--background);
+    box-sizing: border-box;
   }
 
-  .ph-c-badge-lg img {
+  .ph-a-tile img {
     width: 100%;
     height: 100%;
     display: block;
-  }
-
-  .ph-feat {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    font-size: 16px;
-    font-weight: 500;
-  }
-
-  .ph-feat span {
-    flex: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: var(--primary-muted);
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .ph-doc h2 {
@@ -904,25 +854,98 @@
 
   /* The boards' inline style blocks made classes, bodies as drawn. */
 
-  .ph-c-main {
-    width: 560px;
-    flex: none;
+  /* signin/A_Desktop's: the main, the card, the tile row and its link mark, the h1, the lead, the button's own sizes, its logo, the sign-up line. */
+
+  .ph-a-main {
     position: relative;
+    flex: 1;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    padding: 0 80px;
-    box-sizing: border-box;
   }
 
-  .ph-c-headline {
-    position: relative;
-    margin: 12px 0 0;
-    max-width: 520px;
-    font-size: 44px;
-    line-height: 1.08;
-    font-weight: 800;
-    letter-spacing: -0.035em;
+  .ph-a-card {
+    width: 448px;
+    padding: 40px;
+    box-sizing: border-box;
+    border-radius: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .ph-a-tiles {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-a-link {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ph-a-dash {
+    width: 12px;
+    border-top: 2px dashed var(--border-strong);
+  }
+
+  .ph-a-link-ic {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-a-h1 {
+    margin: 24px 0 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-a-lead {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  .ph-btn.ph-a-cta {
+    margin-top: 28px;
+    width: 100%;
+    height: 48px;
+    border-radius: 12px;
+  }
+
+  /* The button's logo; C_Mobile's Continue with Borderless draws it too (the owner's order). */
+  .ph-a-logo {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+  }
+
+  .ph-a-foot {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-a-signup {
+    font-weight: 600;
+    color: var(--foreground);
+    text-decoration: underline;
+    text-decoration-color: var(--primary);
+    text-underline-offset: 4px;
   }
 
   .ph-signin-alert {
@@ -2790,30 +2813,13 @@
 
   /* Light `--ph-glow: none` voids the list (elevated alone); boards are content-box, no reset. */
 
-  .ph-app-ic,
-  .ph-app-ic-lg {
+  .ph-app-ic {
     box-sizing: content-box;
     box-shadow: var(--shadow-elevated);
   }
 
-  .dark .ph-app-ic,
-  .dark .ph-app-ic-lg {
+  .dark .ph-app-ic {
     box-shadow: var(--shadow-elevated), var(--ph-glow);
-  }
-
-  /* C desktop from 768 to 1920 with no second breakpoint: equal to the board at 1440. */
-
-  .ph-c-side {
-    padding: 0 clamp(32px, 6.667vw, 96px);
-  }
-
-  .ph-c-main {
-    width: clamp(400px, 38.889vw, 560px);
-    padding: 0 clamp(32px, 5.556vw, 80px);
-  }
-
-  .ph-c-headline {
-    font-size: clamp(30px, 3.056vw, 44px);
   }
 
   /* Bottom blocks clear the home indicator. */

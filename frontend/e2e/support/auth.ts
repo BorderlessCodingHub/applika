@@ -113,20 +113,20 @@ export function borderlessUrl(path = ""): string {
 }
 
 /**
- * The applika sign-in page's one button (ADR-0026, option C). Each width has
- * its own tree; the hidden one is out of role queries, so this is the
- * button the viewport shows.
+ * The applika sign-in page's one button (ADR-0026): "Sign in with
+ * Borderless" at md and up (option A), "Continue with Borderless" below
+ * (option C). Each width has its own tree; the hidden one is out of role
+ * queries, so this is the button the viewport shows.
  */
 export function signInWithBorderlessButton(page: Page) {
   return page.getByRole("button", {
-    name: "Continue with Borderless",
-    exact: true,
+    name: /^(Sign in|Continue) with Borderless$/,
   });
 }
 
 /**
- * Signs `email` in the way a person does: `/login` → "Continue with
- * Borderless" → the fake's own sign-in page → that account's one-click
+ * Signs `email` in the way a person does: `/login` → the Borderless
+ * button → the fake's own sign-in page → that account's one-click
  * button → the API's callback → back on applika, signed in (or on
  * `/login?error=<code>`). Returns once the browser is back on the web origin.
  *

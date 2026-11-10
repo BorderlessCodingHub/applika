@@ -29,19 +29,6 @@ export const PhoneFileText = createLucideIcon("phone-file-text", [
   ["path", { d: "M16 17H8", key: "phone-file-text-5" }],
 ]);
 
-// signin/C_Desktop draws Newspaper without the box lucide 1.x added.
-export const PhoneNewspaperC = createLucideIcon("phone-newspaper-c", [
-  ["path", { d: "M15 18h-5", key: "phone-newspaper-c-1" }],
-  ["path", { d: "M18 14h-8", key: "phone-newspaper-c-2" }],
-  [
-    "path",
-    {
-      d: "M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2",
-      key: "phone-newspaper-c-3",
-    },
-  ],
-]);
-
 // v2/Welcome draws lucide's outline GitHub mark, which lucide 1.x dropped.
 export const PhoneGithub = createLucideIcon("phone-github", [
   [
