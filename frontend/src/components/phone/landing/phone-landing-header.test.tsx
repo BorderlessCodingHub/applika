@@ -7,10 +7,10 @@ import { PhoneLandingHeader } from "./phone-landing-header";
 
 /**
  * The public phone header of v2/Landing and v3/Cli, in the owner's order:
- * the "applika.dev" home link, the theme toggle, then the language toggle
- * with its flags only. No Sign in or Dashboard link: the floating
- * `PhoneLandingCta` carries them. The header reads no session, so it is the
- * same signed out, signed in and while the session loads.
+ * the Applika icon as the home link, then the theme toggle, the language
+ * toggle with its flags only, and the sign-in button: "Sign in" to /login
+ * signed out (and while the session loads), "Dashboard" to /dashboard signed
+ * in, the words the desktop `LandingHeader` uses.
  */
 
 let auth = { isAuthenticated: false, isLoading: false };
@@ -34,20 +34,34 @@ function controls(header: HTMLElement) {
   );
 }
 
+const signInButton = (header: HTMLElement) =>
+  header.querySelector<HTMLElement>('[data-slot="landing-phone-sign-in"]')!;
+
+/** The words the header draws: its text without the screen-reader-only names. */
+function drawnText(header: HTMLElement) {
+  const copy = header.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll(".sr-only").forEach((node) => node.remove());
+  return copy.textContent;
+}
+
 describe("PhoneLandingHeader", () => {
-  it("is the board's header: the home link with the logo and applika.dev", () => {
+  it("is the board's header: the home link is the Applika icon alone", () => {
     renderHeader();
     const header = screen.getByRole("banner");
 
     expect(header).toHaveClass("ph-landing-header", "min-h-16", "flex-wrap");
     const home = within(header).getByRole("link", { name: "Applika.dev home" });
     expect(home).toHaveAttribute("href", "/");
-    expect(home).toHaveClass("min-h-11");
-    expect(home).toHaveTextContent("applika.dev");
-    expect(home.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(home).toHaveClass("ph-landing-home");
+    // No words: the icon, hidden from assistive tech, names nothing.
+    expect(home).toHaveTextContent(/^$/);
+    expect(home.children).toHaveLength(1);
+    expect(home.firstElementChild?.tagName.toLowerCase()).toBe("svg");
+    expect(home.firstElementChild).toHaveAttribute("aria-hidden", "true");
+    expect(drawnText(header)).not.toMatch(/applika|\.dev/i);
   });
 
-  it("orders the home link, the theme toggle, then the language toggle", () => {
+  it("orders the home link, the theme toggle, the language toggle, then Sign in", () => {
     renderHeader();
     const header = screen.getByRole("banner");
     const home = within(header).getByRole("link", { name: "Applika.dev home" });
@@ -55,17 +69,23 @@ describe("PhoneLandingHeader", () => {
     const group = within(header).getByRole("radiogroup", {
       name: "Toggle language",
     });
+    const signIn = within(header).getByRole("link", { name: "Sign in" });
 
     expect(controls(header)).toEqual([
       home,
       theme,
       within(group).getByRole("radio", { name: "English" }),
       within(group).getByRole("radio", { name: "Português" }),
+      signIn,
     ]);
-    // The theme toggle and the switcher share the 44px pair, theme first.
+    // The theme toggle and the switcher share the 44px pair, theme first;
+    // the button follows the pair on the right side.
     expect(theme.nextElementSibling).toBe(group);
     expect(group.parentElement).toBe(theme.parentElement);
-    expect(group.parentElement).toHaveClass("ph-pair", "ml-auto");
+    expect(group.parentElement).toHaveClass("ph-pair");
+    expect(group.parentElement?.nextElementSibling).toBe(signIn);
+    expect(signIn.parentElement).toHaveClass("ph-landing-actions");
+    expect(signIn.parentElement?.parentElement).toBe(header);
   });
 
   it("shows the language toggle's flags only, each radio keeping its endonym and lang", () => {
@@ -96,26 +116,58 @@ describe("PhoneLandingHeader", () => {
 
   it.each([
     ["signed out", { isAuthenticated: false, isLoading: false }],
-    ["signed in", { isAuthenticated: true, isLoading: false }],
     ["while the session loads", { isAuthenticated: true, isLoading: true }],
-  ])("%s: no Sign in or Dashboard link, only the home link", (_, state) => {
+  ])("%s: Sign in, the phone's small primary button, to /login", (_, state) => {
     auth = state;
     renderHeader();
     const header = screen.getByRole("banner");
+    const button = signInButton(header);
 
-    expect(within(header).getAllByRole("link")).toHaveLength(1);
+    expect(within(header).getAllByRole("link")).toHaveLength(2);
+    expect(button).toBe(within(header).getByRole("link", { name: "Sign in" }));
+    expect(button).toHaveAttribute("href", "/login");
+    expect(button).toHaveTextContent(/^Sign in$/);
+    expect(button).toHaveClass(
+      "ph-btn",
+      "ph-pri",
+      "ph-sm",
+      "whitespace-nowrap",
+    );
     expect(
-      within(header).queryByRole("link", { name: /sign in|dashboard/i }),
+      within(header).queryByRole("link", { name: /dashboard/i }),
     ).toBeNull();
-    expect(header).not.toHaveTextContent(/sign in|dashboard/i);
+    // The words drawn in the header are the button's alone.
+    expect(drawnText(header)).toBe("Sign in");
   });
 
-  it("renders the same markup whatever the session", () => {
+  it("signed in: Dashboard, to /dashboard, in the same place", () => {
+    auth = { isAuthenticated: true, isLoading: false };
+    renderHeader();
+    const header = screen.getByRole("banner");
+    const button = signInButton(header);
+
+    expect(within(header).getAllByRole("link")).toHaveLength(2);
+    expect(button).toBe(
+      within(header).getByRole("link", { name: "Dashboard" }),
+    );
+    expect(button).toHaveAttribute("href", "/dashboard");
+    expect(button).toHaveClass("ph-btn", "ph-pri", "ph-sm");
+    expect(controls(header).at(-1)).toBe(button);
+    expect(within(header).queryByRole("link", { name: /sign in/i })).toBeNull();
+    expect(drawnText(header)).toBe("Dashboard");
+  });
+
+  it("changes only the button between signed out and signed in", () => {
     const first = renderHeader();
     const signedOut = first.container.innerHTML;
     first.unmount();
     auth = { isAuthenticated: true, isLoading: false };
     const signedIn = renderHeader().container.innerHTML;
-    expect(signedIn).toBe(signedOut);
+    expect(signedIn).not.toBe(signedOut);
+    expect(
+      signedIn
+        .replace('href="/dashboard"', 'href="/login"')
+        .replace(">Dashboard<", ">Sign in<"),
+    ).toBe(signedOut);
   });
 });

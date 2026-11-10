@@ -4,13 +4,12 @@ import Link from "next/link";
 import { ArrowUpRight, Calendar, ChartLine } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
-import { PhoneLandingCta } from "@/components/phone/landing/phone-landing-cta";
 import { PhoneLandingHeader } from "@/components/phone/landing/phone-landing-header";
 import { PhoneKanban } from "@/components/phone/phone-icons";
 import { APP_CONFIG } from "@/config";
 import { cn } from "@/lib/utils";
 
-const GITHUB_URL = "https://github.com/applikadev";
+const GITHUB_URL = "https://github.com/BorderlessCodingHub/applika";
 
 // People's names stay as written (the desktop testimonials do the same).
 const QUOTE_NAME = "Matheus Oliveira";
@@ -26,7 +25,7 @@ const STEPS = ["signIn", "add", "analyze"] as const;
 /** The preview card's progress: three stages done of four. */
 const PREVIEW_DONE = 3;
 
-/** v2/Landing below md; signed in, the floating action leads to the dashboard as on desktop. */
+/** v2/Landing below md, under the public phone header (Sign in, or Dashboard once signed in, as on desktop). */
 export function PhoneLanding() {
   const t = useTranslations("phone.landing");
   const tLanding = useTranslations("landing");
@@ -227,8 +226,6 @@ export function PhoneLanding() {
           {t("copyright", { name: APP_CONFIG.name })}
         </span>
       </footer>
-
-      <PhoneLandingCta />
     </div>
   );
 }

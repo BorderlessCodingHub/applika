@@ -371,6 +371,24 @@ describe("AccountScreen", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("puts Theme before Language, between the Account rows and Send feedback", () => {
+    mockPhoneViewport();
+    renderAccount();
+
+    const sections = [
+      accountGroup(),
+      screen.getByRole("radiogroup", { name: "Theme" }).closest("section")!,
+      screen.getByRole("radiogroup", { name: "Language" }).closest("section")!,
+      screen.getByRole("button", { name: "Send feedback" }).closest("section")!,
+    ];
+    expect(sections[1]).toHaveAccessibleName("Theme");
+    expect(sections[2]).toHaveAccessibleName("Language");
+    // Siblings, in this order: the two choices moved, nothing else did.
+    for (let i = 1; i < sections.length; i++) {
+      expect(sections[i - 1].nextElementSibling).toBe(sections[i]);
+    }
+  });
+
   it("switches the theme from the Theme choice", async () => {
     mockPhoneViewport();
     const user = userEvent.setup();

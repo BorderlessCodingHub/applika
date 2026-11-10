@@ -33,10 +33,10 @@ export function CliCodeScreen({ code, state }: CliCodeScreenProps) {
 
   return (
     <div className="relative min-h-viewport bg-background">
-      {/* One language + theme pair, top-right at both widths. */}
+      {/* One theme + language pair, top-right at both widths. */}
       <div className="ph-pair absolute top-4 right-4 z-10 flex items-center gap-2">
-        <LanguageToggle variant="default" />
         <ThemeToggle />
+        <LanguageToggle variant="default" />
       </div>
 
       <div

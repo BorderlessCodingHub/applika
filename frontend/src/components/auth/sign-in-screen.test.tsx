@@ -20,8 +20,8 @@ import {
  * md and up (signin/A_Desktop: the paired tiles, the card, the sign-up line),
  * with v2/SignIn's states inside each. Both trees are in the DOM and CSS
  * shows one (jsdom applies no stylesheet), so every query is scoped to a tree
- * by its `data-slot`; the language + theme pair sits outside both, mounted
- * once.
+ * by its `data-slot`; the theme + language pair sits outside both, mounted
+ * once, theme first.
  */
 
 const SIGN_UP = "https://borderless.example/sign-up";
@@ -418,7 +418,7 @@ describe("SignInScreen: both widths", () => {
     }
   });
 
-  it("mounts exactly one language + theme pair, outside both trees", () => {
+  it("mounts exactly one theme + language pair, theme first, outside both trees", () => {
     renderScreen({ autoFocus: false });
 
     const groups = screen.getAllByRole("radiogroup", {
@@ -427,7 +427,8 @@ describe("SignInScreen: both widths", () => {
     expect(groups).toHaveLength(1);
     const themes = screen.getAllByRole("button", { name: /toggle theme/i });
     expect(themes).toHaveLength(1);
-    expect(groups[0].nextElementSibling).toBe(themes[0]);
+    expect(themes[0].nextElementSibling).toBe(groups[0]);
+    expect(groups[0].nextElementSibling).toBeNull();
     const bar = document.querySelector('[data-slot="sign-in-bar"]');
     expect(bar).toContainElement(groups[0]);
     expect(tree("sign-in-phone")).not.toContainElement(groups[0]);

@@ -993,6 +993,37 @@
     justify-content: space-between;
   }
 
+  /* PhoneLandingHeader's home link: the 30px icon drawn on the gutter, in a 44px box that reaches 7px into it. */
+  .ph-landing-home {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    margin-inline-start: -7px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Its right side: the theme + language pair, then Sign in / Dashboard. */
+  .ph-landing-actions {
+    margin-inline-start: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* One row at 320: 16 + 44 - 7 + 3 + 44 + 94 + 4 + 106 ("Dashboard") + 16 = 320. */
+  @media (max-width: 22.49rem) {
+    .ph-landing-header {
+      padding-inline: 16px;
+    }
+
+    .ph-landing-actions {
+      gap: 4px;
+    }
+  }
+
   .ph-landing-hero {
     padding: 32px 20px 0;
   }
@@ -1118,32 +1149,10 @@
 
   .ph-landing-footer {
     margin-top: 40px;
-    padding: 0 20px 140px;
+    padding: 0 20px calc(48px + env(safe-area-inset-bottom, 0px));
     display: flex;
     gap: 20px;
     font-size: 13px;
-  }
-
-  .ph-landing-cta {
-    position: sticky;
-    bottom: 0;
-    margin-top: auto;
-    padding: 12px 20px 28px;
-    background: linear-gradient(to top, var(--background) 70%, transparent);
-  }
-
-  .ph-landing-cta-btn {
-    height: 54px;
-    border-radius: 16px;
-    background: var(--primary);
-    color: var(--primary-foreground);
-    box-shadow: 0 0 24px -4px oklch(0.768 0.139 174.6 / 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-size: 16px;
-    font-weight: 600;
   }
 
   .ph-cli-code {
@@ -2831,10 +2840,6 @@
 
   /* Bottom blocks clear the home indicator. */
 
-  .ph-landing-cta {
-    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-  }
-
   .ph-safe-bottom {
     padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
   }
@@ -4191,7 +4196,7 @@
     outline: none;
   }
 
-  /* The language + theme pair in the boards' chip slot: 44px boxes below md, its classes untouched. */
+  /* The theme + language pair in the boards' chip slot: 44px boxes below md, its classes untouched. */
 
   @media (max-width: 47.99rem) {
     .ph-pair [role="radio"] {
@@ -4207,14 +4212,6 @@
     .ph-pair [data-flags-only] [role="radio"] {
       min-width: 44px;
       justify-content: center;
-    }
-
-    /* Focus scrolling stops above the floating Sign in / Dashboard of / and /cli (12 + 54 + 28). */
-    html:has(.ph-landing-cta) {
-      scroll-padding-bottom: calc(
-        94px + env(safe-area-inset-bottom, 0px) +
-          var(--cookie-notice-height, 0px)
-      );
     }
   }
 
@@ -6821,10 +6818,6 @@
     min-height: 44px;
     align-items: center;
     font-weight: 600;
-  }
-
-  .ph-landing-footer.ph-clp-footer {
-    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
   }
 
   /* v3/CVNew (its main is v2/CVEditor's .ph-ce, its rows PhoneCvSections' .ph-acc in .ph-group.ph-ce-list, its bar .ph-bar with .ph-dr-lead-btn / .ph-dr-go-btn); bodies as drawn. */

@@ -340,7 +340,7 @@ export function SignInScreen({
     >
       <div className="ph-c-glow md:hidden" aria-hidden="true" />
 
-      {/* One language + theme pair: the phone top bar, else top 20 right 24 at md and up. */}
+      {/* One theme + language pair: the phone top bar, else top 20 right 24 at md and up. */}
       <div
         data-slot="sign-in-bar"
         className="ph-top relative px-3 md:absolute md:top-5 md:right-6 md:z-10 md:h-auto md:p-0"
@@ -353,8 +353,8 @@ export function SignInScreen({
           <ChevronLeft size={22} aria-hidden="true" />
         </Link>
         <div className="ph-pair flex items-center gap-2">
-          <LanguageToggle variant="default" />
           <ThemeToggle />
+          <LanguageToggle variant="default" />
         </div>
       </div>
 

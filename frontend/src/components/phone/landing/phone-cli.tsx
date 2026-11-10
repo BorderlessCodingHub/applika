@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { PhoneLandingCta } from "@/components/phone/landing/phone-landing-cta";
 import { PhoneLandingHeader } from "@/components/phone/landing/phone-landing-header";
 import { APP_CONFIG } from "@/config";
 
@@ -38,7 +37,7 @@ const code = (chunks: ReactNode) => (
 );
 const strong = (chunks: ReactNode) => <strong>{chunks}</strong>;
 
-/** v3/Cli below md: today's words and commands in the board's layout, with v2/Landing's floating action. */
+/** v3/Cli below md: today's words and commands in the board's layout, under v2/Landing's public phone header. */
 export function PhoneCli({ commands, copiedMs }: PhoneCliProps) {
   const t = useTranslations("cliPage");
   const tSignIn = useTranslations("auth.signIn");
@@ -145,7 +144,7 @@ export function PhoneCli({ commands, copiedMs }: PhoneCliProps) {
         </p>
       </main>
 
-      <footer className="ph-landing-footer ph-clp-footer">
+      <footer className="ph-landing-footer">
         <Link
           href="/cookie-policy"
           className="flex min-h-11 items-center text-muted-foreground"
@@ -156,8 +155,6 @@ export function PhoneCli({ commands, copiedMs }: PhoneCliProps) {
           {tLanding("copyright", { name: APP_CONFIG.name })}
         </span>
       </footer>
-
-      <PhoneLandingCta />
     </div>
   );
 }

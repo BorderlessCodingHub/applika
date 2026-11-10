@@ -21,8 +21,8 @@ export function PhonePublicBar({ className }: { className?: string }) {
         {t("home")}
       </Link>
       <div className="ph-pair flex items-center gap-2">
-        <LanguageToggle variant="default" />
         <ThemeToggle />
+        <LanguageToggle variant="default" />
       </div>
     </header>
   );

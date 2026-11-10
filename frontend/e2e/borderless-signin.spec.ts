@@ -1065,7 +1065,7 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     await expect(account).toHaveAttribute("rel", "noopener noreferrer");
     await expect(account).toHaveAccessibleDescription("Opens in a new tab.");
 
-    // The language + theme pair at top 20, right 24, in today's order.
+    // The theme + language pair at top 20, right 24, theme first.
     const pair = page.locator('[data-slot="sign-in-bar"] .ph-pair');
     const group = page.getByRole("radiogroup", { name: "Toggle language" });
     await expect(group).toHaveCount(1);
@@ -1076,8 +1076,8 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     const pairBox = (await pair.boundingBox())!;
     expect(pairBox.y).toBeCloseTo(20, 0);
     expect(DESKTOP.width - (pairBox.x + pairBox.width)).toBeCloseTo(24, 0);
-    expect((await group.boundingBox())!.x).toBeLessThan(
-      (await theme.boundingBox())!.x,
+    expect((await theme.boundingBox())!.x).toBeLessThan(
+      (await group.boundingBox())!.x,
     );
     await expect(
       page.getByRole("link", { name: "Back to home", exact: true }),

@@ -289,12 +289,19 @@ answers, then the fake's page), then Back brings the page back ready.
 **`e2e/headers.spec.ts`** (serial): the phone header of `/` and `/cli` from
 320 to 430 wide, signed out (the page) and signed in (a second context with
 `loginAs`), English dark then Portuguese light switched from the flags: one
-row, the order home, theme, flags, the floors (7 on `/`, 13 on `/cli`), no
-sideways scroll, and the floating button's words and target; a Tab walk at
-390 with nothing under the floating button; at 1280 the public header's order
-on `/`, `/cli` and `/cookie-policy` (logo, theme, language, Sign in or
-Dashboard) and the signed-in app header's (the cycle selector at the left;
-the agenda, the theme and the language at the right).
+row, the order home (the icon, named "Applika.dev home", no words), theme,
+English, Português, then the button ("Sign in" / "Entrar" → `/login`,
+"Dashboard" / "Painel" → `/dashboard`), the button's words the only ones
+drawn (no "applika.dev", "EN" or "BR"), every box 44×44 inside the
+viewport, the floors (7 on `/`, 13 on `/cli`), no sideways scroll at 320,
+the header's button the page's one Sign in or Dashboard link, and both
+targets clicked; the pair of `/login` and `/cli/code` at 390 and 1280 and
+of `/cookie-policy`'s phone bar at 390 (theme, then language, in the DOM and
+on screen; the back link at its left below md; `/login`'s at top 20 / right
+24 at md and up); at 1280 the public header's order on `/`, `/cli` and
+`/cookie-policy` (logo, theme, language, Sign in or Dashboard) and the
+signed-in app header's (the cycle selector at the left; the agenda, the
+theme and the language at the right).
 `e2e/admin-report-webhooks.spec.ts`
 (serial): add with BASE + PSP (both chips), masked row, the token never in
 `page.content()`, narrow to PSP without resending the URL, delete as its own
@@ -312,11 +319,13 @@ board reuses at their desktop size, never a loose filter) and
 which scrolls itself: its `overflow-y: auto` makes x scroll too, which the
 document never sees). `e2e/phone.spec.ts` at 390×844: the public screens
 (signed out, read-only; `/cli` is the v3 board, its Copy says "Copied", and
-a refused clipboard says nothing; the header of `/` and `/cli` holds only the
-home link, the theme toggle and the flags, and both offer the floating Sign
-in); as `e2e-user`, Today → Add → the quick add → the
+a refused clipboard says nothing; the header of `/` and `/cli` holds the
+home link, the theme toggle, the flags and Sign in, the page's one sign-in
+link; on every public screen the theme toggle sits left of the language
+toggle); as `e2e-user`, Today → Add → the quick add → the
 Application screen → the row under Applied on the Pipeline, the Agenda,
-Insights, then the initials → the Account hub (Jobs and CVs, no Admin), Light
+Insights, then the initials → the Account hub (Jobs and CVs, no Admin, Theme
+above Language), Light
 (held on `/cycles`) and back to Dark, Português (BR) (the hub, the tab bar's
 "Hoje"/"Funil", `/cycles`' "Ciclos") and back to English, then 44px and no
 sideways scroll at 360 and 320; one read-only check per account-area, job and
@@ -652,9 +661,8 @@ SameSite=Lax` (not HttpOnly; JS writes it).
 - **Where it mounts: six files, `variant="default"` in all of them**, in
   both themes, no portal (it renders inline in its host's layer of the
   **Stacking contract**), one mount per file and ONE switcher on screen at
-  any width. The theme toggle comes first, then the language, in the
-  headers (the owner's order); the sign-in page, `/cli/code` and the phone
-  cookie-policy bar keep language, then theme:
+  any width. Every mount reads the theme toggle first, then the language
+  (the owner's order), with no exception:
   - the signed-in `Header` (right after `ThemeToggle`, so every protected
     page at md and up, `/welcome` and `/device` included; below md a
     signed-in page has no header and the Account hub's "Language" radiogroup
@@ -665,15 +673,16 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   - below md, `PhoneLandingHeader`, the public phone header of `/`
     (`PhoneLanding`) and `/cli` (`PhoneCli`), in
     `components/phone/landing/phone-landing-header.tsx`, after the theme
-    toggle and with `flagsOnly` (the only mount that passes it), and
+    toggle, before Sign in / Dashboard, and with `flagsOnly` (the only
+    mount that passes it), and
     `PhonePublicBar`, the "Home" back bar of `/cookie-policy`, in
-    `components/phone/phone-public-bar.tsx`, before the theme toggle;
+    `components/phone/phone-public-bar.tsx`, after the theme toggle;
   - `SignInScreen` (`/login`) and `CliCodeScreen` (`/cli/code`): one mount
-    laid out for both widths, outside both trees and outside `<main>`. On
-    `/login` it is `[data-slot="sign-in-bar"]`: below md the C_Mobile top
-    bar (back "Back to home" → `/` on the left, the pair on the right), at md
-    and up `absolute top-5 right-6 z-10`; on `/cli/code` the
-    `absolute top-4 right-4 z-10` box at both widths.
+    laid out for both widths, outside both trees and outside `<main>`,
+    after the theme toggle. On `/login` it is `[data-slot="sign-in-bar"]`:
+    below md the C_Mobile top bar (back "Back to home" → `/` on the left,
+    the pair on the right), at md and up `absolute top-5 right-6 z-10`; on
+    `/cli/code` the `absolute top-4 right-4 z-10` box at both widths.
 
   Below md the pair sits in a `.ph-pair` wrapper: `phone.css` gives its
   radios a 44px height and the theme button a 44×44 box under
@@ -2053,7 +2062,7 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
   1440×900. Gone with C_Desktop: `AppIconWithBadge large`, `.ph-c-side*`,
   `.ph-feat`, `.ph-c-main`, `.ph-c-headline`, the `clamp()` block,
   `optionC.about` / `feat*` and `PhoneNewspaperC`. `ph-` classes style both
-  trees (`.ph-app` on the root); the language + theme pair is mounted once
+  trees (`.ph-app` on the root); the theme + language pair is mounted once
   outside both (see **i18n**). The Applika mark is `role="img"` "Applika";
   the Borderless images are `public/borderless-logo.png`
   (`BORDERLESS_BADGE_SRC`, a copy of the design file's asset) through
@@ -3009,11 +3018,11 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   Reports badge and `is_admin` decide exactly as on desktop and a feature
   taken away drops its row on the next load; metas from today's hooks
   (`useReports` only while the badge is held, `useSessions`, `useCycles` +
-  the viewed cycle), nothing while loading or failed; Language (`radiogroup`
-  "Language", `useLocaleSwitch`) and Theme (`radiogroup` "Theme", Light /
-  Dark, next-themes); Send feedback (the shell's dialog); "Sign in again"
+  the viewed cycle), nothing while loading or failed; Theme (`radiogroup`
+  "Theme", Light / Dark, next-themes), then Language (`radiogroup`
+  "Language", `useLocaleSwitch`); Send feedback (the shell's dialog); "Sign in again"
   while a badge waits for a sign-in (`logout("/login")`); Logout; the cookie
-  policy. This is where the language and theme controls live on a signed-in
+  policy. This is where the theme and language controls live on a signed-in
   phone page: below md there is no header.
 - **The pattern sheet** is `src/styles/phone.css` (imported by `globals.css`):
   the V2 boards' shared classes ported whole with the `ph-` prefix, then the
@@ -3338,8 +3347,7 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
   step and `?code=` survive a crossing of md.
 - **Public screens switch by CSS**, one tree per width with a `data-slot`
   per tree, so the static HTML hydrates as is: `/` (`PhoneLanding`
-  `[data-slot="landing-phone"]`, v2/Landing, with its sticky
-  `[data-slot="landing-phone-cta"]`; today's sections in
+  `[data-slot="landing-phone"]`, v2/Landing; today's sections in
   `[data-slot="landing-desktop"]`), `/cookie-policy` (`PhoneCookiePolicy`
   `[data-slot="cookie-policy-phone"]`, today's words in the board's cards
   `li[data-slot="cookie-row"][data-cookie]`; today's page in
@@ -3353,13 +3361,19 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
   `/cli/code` (`[data-slot="cli-code-phone"]` /
   `[data-slot="cli-code-desktop"]`) and `/login` (above). `/` and `/cli`
   share `PhoneLandingHeader`
-  (`components/phone/landing/phone-landing-header.tsx`: the "applika.dev"
-  home link, the theme toggle and the flags-only language toggle, on one row
-  from 320 to 430; it reads no auth) and `PhoneLandingCta`
-  (`components/phone/landing/phone-landing-cta.tsx`, the floating
-  `[data-slot="landing-phone-cta"]` `.ph-landing-cta`: Sign in signed out,
-  Go to Dashboard signed in); `html:has(.ph-landing-cta)` gets
-  `scroll-padding-bottom` below md, so a focused control is never under it.
+  (`components/phone/landing/phone-landing-header.tsx`, on one row from 320
+  to 430): at the left the home link, the Applika icon alone
+  (`.ph-landing-home`, a 44px box reaching 7px into the gutter so the 30px
+  icon sits on it, named `header.home`); at the right
+  (`.ph-landing-actions`) the theme toggle, the flags-only language toggle,
+  then `[data-slot="landing-phone-sign-in"]`, a `Link` styled
+  `ph-btn ph-pri ph-sm`: `landing.signIn` to `/login`, or `landing.dashboard`
+  to `/dashboard` once `useAuth()` is settled and authenticated (the desktop
+  `LandingHeader`'s words). Below 360px (`@media (max-width: 22.49rem)`)
+  the header's gutter is 16px and the button sits 4px from the flags, so
+  "Dashboard" (106px) still fits at 320. The shared `.ph-landing-footer`
+  ends both pages, `calc(48px + env(safe-area-inset-bottom, 0px))` below
+  it.
   `PhonePublicBar` (`components/phone/phone-public-bar.tsx`,
   `header[data-slot="phone-public-bar"]`, sticky: back "Home" → `/` and the
   pair) is `/cookie-policy`'s alone. The md-and-up trees

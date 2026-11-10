@@ -10,11 +10,12 @@ import { CliPage, INSTALL, SIGN_IN, SKILL, TRACK } from "./cli-page";
 
 /**
  * `/cli` mounts both widths' trees and CSS shows one: v3/Cli below md
- * (`[data-slot="cli-phone"]`, whose header holds the theme + language pair)
- * and today's page at md and up (`[data-slot="cli-desktop"]`). jsdom applies
- * no CSS, so every query is scoped by the tree's `data-slot`. Without an auth
- * provider the phone tree's floating button reads the context default
- * (signed out): "Sign in with Borderless".
+ * (`[data-slot="cli-phone"]`, whose header holds the theme + language pair
+ * and the sign-in button) and today's page at md and up
+ * (`[data-slot="cli-desktop"]`). jsdom applies no CSS, so every query is
+ * scoped by the tree's `data-slot`. Without an auth provider the phone
+ * header's button reads the context default (loading, so signed out): "Sign
+ * in".
  */
 
 // The phone tree's header holds the language switcher: it needs a `LocaleProvider`.
@@ -75,7 +76,7 @@ describe("CliPage, desktop tree (md and up)", () => {
 });
 
 describe("CliPage, phone tree (below md, v3/Cli)", () => {
-  it("comes first, phone-only, with the one theme + language pair in its header and the floating Sign in", () => {
+  it("comes first, phone-only, with the one theme + language pair and Sign in in its header", () => {
     renderPage();
 
     expect(tree("cli-phone")).toHaveClass("ph-app", "md:hidden");
@@ -92,13 +93,14 @@ describe("CliPage, phone tree (below md, v3/Cli)", () => {
     });
     const theme = within(header).getByRole("button", { name: /toggle theme/i });
     expect(theme.nextElementSibling).toBe(group);
-    expect(
-      within(header).getByRole("link", { name: "Applika.dev home" }),
-    ).toHaveAttribute("href", "/");
-    expect(within(header).getAllByRole("link")).toHaveLength(1);
-    expect(
-      phone().getByRole("link", { name: "Sign in with Borderless" }),
-    ).toHaveAttribute("href", "/login");
+    const home = within(header).getByRole("link", { name: "Applika.dev home" });
+    expect(home).toHaveAttribute("href", "/");
+    const signIn = within(header).getByRole("link", { name: "Sign in" });
+    expect(signIn).toHaveAttribute("href", "/login");
+    expect(within(header).getAllByRole("link")).toEqual([home, signIn]);
+    expect(phone().getAllByRole("link", { name: /sign in/i })).toEqual([
+      signIn,
+    ]);
   });
 
   it("shows the board's sections with today's commands", () => {

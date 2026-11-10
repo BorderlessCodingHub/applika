@@ -32,10 +32,10 @@ import {
  * tree; Playwright leaves `display: none` out of role queries): below md
  * `/` is v2/Landing, `/cookie-policy` v2/CookiePolicy, `/cli/code`
  * v2/CliCode, and `/cli` v3/Cli (PRD 0022: the landing's phone header, the
- * four command blocks with Copy, its own footer, the landing's floating
- * Sign in). The landing header and footer are md-and-up only. The phone
- * header of `/` and `/cli` (home, theme, flags) is walked from 320 to 430
- * in `headers.spec.ts`. `/login`
+ * four command blocks with Copy, its own footer). The landing header and
+ * footer are md-and-up only. The phone header of `/` and `/cli` (home,
+ * theme, flags, then Sign in or Dashboard) is walked from 320 to 430 in
+ * `headers.spec.ts`. `/login`
  * (option C) is walked in `borderless-signin.spec.ts`, `/device` in
  * `devices.spec.ts`, the signed-in shell in `shell-responsive.spec.ts`.
  *
@@ -83,7 +83,7 @@ import {
 
 test.use({ viewport: PHONE });
 
-/** The language + theme pair: one visible switcher on every public screen. */
+/** The theme + language pair: one visible switcher on every public screen. */
 async function expectThePair(page: Page) {
   const group = page.getByRole("radiogroup", { name: "Toggle language" });
   await expect(group).toHaveCount(1);
@@ -102,7 +102,7 @@ async function expectHomeBackLink(page: Page) {
 }
 
 test.describe("public screens below md", () => {
-  test("/ is the Landing board, with a sign-in action in reach from top to bottom", async ({
+  test("/ is the Landing board: Sign in in its header, the footer at the end", async ({
     page,
   }) => {
     await page.goto("/");
@@ -123,38 +123,40 @@ test.describe("public screens below md", () => {
       page.getByText("Free & open-source job tracker"),
     ).toBeVisible();
     await expectThePair(page);
-    // The header holds the home link alone: Sign in floats at the bottom.
-    await expect(phone.getByRole("banner").getByRole("link")).toHaveCount(1);
+    // The header: the home link, the pair, then Sign in, the page's one
+    // sign-in link.
+    const header = phone.getByRole("banner");
+    await expect(header.getByRole("link")).toHaveCount(2);
+    const signIn = header.getByRole("link", { name: "Sign in", exact: true });
+    await expect(signIn).toBeInViewport();
+    await expect(signIn).toHaveAttribute("href", "/login");
     await expect(
-      phone
-        .getByRole("banner")
-        .getByRole("link", { name: "Sign in", exact: true }),
-    ).toHaveCount(0);
+      phone.getByRole("link", { name: /sign in|dashboard/i }),
+    ).toHaveCount(1);
 
-    // The sticky CTA is on screen at the top, halfway and at the bottom.
-    const cta = phone
-      .locator('[data-slot="landing-phone-cta"]')
-      .getByRole("link", { name: "Sign in with Borderless", exact: true });
-    await expect(cta).toBeInViewport();
-    await page.evaluate(() =>
-      window.scrollTo(0, document.documentElement.scrollHeight / 2),
-    );
-    await expect(cta).toBeInViewport();
+    // The footer ends the page: at the bottom it is on screen, uncovered.
     await page.evaluate(() =>
       window.scrollTo(0, document.documentElement.scrollHeight),
     );
-    await expect(
-      page.getByRole("link", { name: "Cookie policy", exact: true }),
-    ).toBeInViewport();
-    await expect(cta).toBeInViewport();
-    const box = await cta.boundingBox();
-    expect(box!.y + box!.height).toBeLessThanOrEqual(PHONE.height);
+    const cookie = page.getByRole("link", {
+      name: "Cookie policy",
+      exact: true,
+    });
+    await expect(cookie).toBeInViewport();
+    const box = (await cookie.boundingBox())!;
+    expect(
+      await page.evaluate(
+        ({ x, y }) => document.elementFromPoint(x, y)?.textContent ?? "",
+        { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+      ),
+    ).toBe("Cookie policy");
 
-    // home, theme, English, Português, View on GitHub, Cookie policy, the CTA.
+    // home, theme, English, Português, Sign in, View on GitHub, Cookie policy.
     await expectPhoneTargets(page, 7);
     await expectNoSidewaysScroll(page);
 
-    await cta.click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await signIn.click();
     await page.waitForURL("**/login");
   });
 
@@ -197,7 +199,7 @@ test.describe("public screens below md", () => {
     await page.waitForURL((url) => url.pathname === "/");
   });
 
-  test("/cli is the Cli board: the header with the pair, the four command blocks with Copy, the footer, the floating Sign in", async ({
+  test("/cli is the Cli board: the header with the pair and Sign in, the four command blocks with Copy, the footer", async ({
     page,
     context,
   }) => {
@@ -216,15 +218,13 @@ test.describe("public screens below md", () => {
       header.getByRole("link", { name: "Applika.dev home", exact: true }),
     ).toHaveAttribute("href", "/");
     await expectThePair(page);
+    // Sign in sits in the header, as on the landing: the page's one.
+    const signIn = header.getByRole("link", { name: "Sign in", exact: true });
+    await expect(signIn).toBeInViewport();
+    await expect(signIn).toHaveAttribute("href", "/login");
     await expect(
-      header.getByRole("link", { name: "Sign in", exact: true }),
-    ).toHaveCount(0);
-    // Sign in floats at the bottom, as on the landing.
-    const cta = phone
-      .locator('[data-slot="landing-phone-cta"]')
-      .getByRole("link", { name: "Sign in with Borderless", exact: true });
-    await expect(cta).toBeInViewport();
-    await expect(cta).toHaveAttribute("href", "/login");
+      phone.getByRole("link", { name: /sign in|dashboard/i }),
+    ).toHaveCount(1);
 
     await expect(
       phone.getByText("Command line", { exact: true }),
@@ -271,8 +271,8 @@ test.describe("public screens below md", () => {
     ).toHaveAttribute("href", "/cookie-policy");
     await expect(footer).toContainText("© Applika.dev");
 
-    // home, theme, the two radios, two PyPI, four Copy, home page, Cookie
-    // policy, the floating Sign in.
+    // home, theme, the two radios, Sign in, two PyPI, four Copy, home page,
+    // Cookie policy.
     await expectPhoneTargets(page, 13);
     await expectNoSidewaysScroll(page);
     // The long Track command scrolls inside its own block.
@@ -389,13 +389,29 @@ test.describe("public screens below md", () => {
     );
   });
 
-  test("each public screen switches light and dark, and the language, from its own pair", async ({
+  test("each public screen switches light and dark, and the language, from its own pair, theme first", async ({
     page,
   }) => {
     const html = page.locator("html");
     for (const path of ["/", "/cookie-policy", "/cli", "/cli/code", "/login"]) {
       await page.goto(path);
       await expect(html, path).toHaveClass(/\bdark\b/);
+      // The theme toggle sits left of the language toggle, on one row.
+      const themeBox = (await page
+        .getByRole("button", { name: "Toggle theme", exact: true })
+        .boundingBox())!;
+      const groupBox = (await page
+        .getByRole("radiogroup", { name: "Toggle language" })
+        .boundingBox())!;
+      expect(themeBox.x + themeBox.width, path).toBeLessThanOrEqual(
+        groupBox.x + 0.5,
+      );
+      expect(
+        Math.abs(
+          themeBox.y + themeBox.height / 2 - (groupBox.y + groupBox.height / 2),
+        ),
+        path,
+      ).toBeLessThanOrEqual(2);
       await page
         .getByRole("button", { name: "Toggle theme", exact: true })
         .click();
@@ -414,7 +430,9 @@ test.describe("public screens below md", () => {
       .click();
     await expect(html).toHaveAttribute("lang", "pt-BR");
     await expect(
-      page.getByRole("link", { name: "Entrar com a Borderless", exact: true }),
+      page
+        .getByRole("banner")
+        .getByRole("link", { name: "Entrar", exact: true }),
     ).toBeInViewport();
     await page.goto("/cookie-policy");
     await expect(
@@ -800,7 +818,7 @@ test.describe("signed-in core screens below md", () => {
     await expect(sheet).toHaveCount(0);
   });
 
-  test("the initials open the Account hub: Jobs and CVs, no Admin; Light and back; Português (BR) and back", async ({
+  test("the initials open the Account hub: Jobs and CVs, no Admin; Theme above Language; Light and back; Português (BR) and back", async ({
     page,
   }) => {
     await loginAs(page, "user");
@@ -826,6 +844,20 @@ test.describe("signed-in core screens below md", () => {
     ).toHaveCount(0);
     await expectPhoneTargets(page, 15);
     await expectNoSidewaysScroll(page);
+
+    // Theme comes before Language, both after the Account rows.
+    const themeTop = (await page
+      .getByRole("radiogroup", { name: "Theme" })
+      .boundingBox())!.y;
+    const languageTop = (await page
+      .getByRole("radiogroup", { name: "Language" })
+      .boundingBox())!.y;
+    expect(themeTop).toBeLessThan(languageTop);
+    expect(
+      (await page
+        .getByRole("region", { name: "Account", exact: true })
+        .boundingBox())!.y,
+    ).toBeLessThan(themeTop);
 
     // The theme: Light holds on the next phone screen, then Dark again.
     const html = page.locator("html");
@@ -1785,26 +1817,24 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expectNoSidewaysScroll(page);
   });
 
-  test("/cli signed in: the Cli board's floating button offers Go to Dashboard; the header no link but home", async ({
+  test("/cli signed in: the Cli board's header offers Dashboard; no Sign in", async ({
     page,
   }) => {
     await loginAs(page, "user");
     await page.goto("/cli");
 
     const phone = page.locator('[data-slot="cli-phone"]');
-    const dashboard = phone
-      .locator('[data-slot="landing-phone-cta"]')
-      .getByRole("link", { name: "Go to Dashboard", exact: true });
+    const header = phone.getByRole("banner");
+    const dashboard = header.getByRole("link", {
+      name: "Dashboard",
+      exact: true,
+    });
     await expect(dashboard).toBeInViewport();
     await expect(dashboard).toHaveAttribute("href", "/dashboard");
-    const header = phone.getByRole("banner");
-    await expect(header.getByRole("link")).toHaveCount(1);
+    await expect(header.getByRole("link")).toHaveCount(2);
     await expect(
-      header.getByRole("link", { name: "Dashboard", exact: true }),
-    ).toHaveCount(0);
-    await expect(
-      phone.getByRole("link", { name: "Sign in with Borderless", exact: true }),
-    ).toHaveCount(0);
+      phone.getByRole("link", { name: /sign in|dashboard/i }),
+    ).toHaveCount(1);
     await expectThePair(page);
     await expectPhoneTargets(page, 13);
     await expectNoSidewaysScroll(page);

@@ -167,7 +167,9 @@ describe("CliCodePage, both widths", () => {
     expect(phone).toHaveAttribute("data-state", "ready");
   });
 
-  it("mounts one language + theme pair for both trees", () => {
+  // The pair's order (theme, then language) is pinned with the real theme
+  // toggle in `language-toggle-mounts.test.tsx`; here it is mocked away.
+  it("mounts one theme + language pair for both trees", () => {
     searchParams = new URLSearchParams("code=abc123&state=xyz789");
     setup();
 

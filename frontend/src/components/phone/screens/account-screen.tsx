@@ -150,6 +150,21 @@ export function AccountScreenView({
         </section>
       ) : null}
 
+      <section aria-labelledby={themeId}>
+        <h2 id={themeId} className="ph-gh">
+          {t("theme")}
+        </h2>
+        <PhoneSegmented<PhoneTheme>
+          labelledBy={themeId}
+          segments={[
+            { value: "light", label: t("light") },
+            { value: "dark", label: t("dark") },
+          ]}
+          value={theme}
+          onValueChange={onThemeChange}
+        />
+      </section>
+
       <section aria-labelledby={languageId}>
         <h2 id={languageId} className="ph-gh">
           {t("language")}
@@ -163,21 +178,6 @@ export function AccountScreenView({
           value={language}
           onValueChange={onLanguageChange}
           busy={languagePending}
-        />
-      </section>
-
-      <section aria-labelledby={themeId}>
-        <h2 id={themeId} className="ph-gh">
-          {t("theme")}
-        </h2>
-        <PhoneSegmented<PhoneTheme>
-          labelledBy={themeId}
-          segments={[
-            { value: "light", label: t("light") },
-            { value: "dark", label: t("dark") },
-          ]}
-          value={theme}
-          onValueChange={onThemeChange}
         />
       </section>
 

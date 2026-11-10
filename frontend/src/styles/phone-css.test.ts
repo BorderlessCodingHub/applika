@@ -173,8 +173,8 @@ const INLINE_BLOCKS = [
   "ph-landing-quote",
   "ph-landing-open",
   "ph-landing-footer",
-  "ph-landing-cta",
-  "ph-landing-cta-btn",
+  "ph-landing-home",
+  "ph-landing-actions",
   "ph-cli-code",
   "ph-device-code",
   "ph-device-note",
@@ -496,17 +496,55 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     expect(hint).toMatch(/background:\s*var\(--muted\)/);
   });
 
-  it("keeps the landing's sign-in action stuck to the bottom, clear of the home indicator", () => {
-    const cta = ruleBodies(".ph-landing-cta");
-    expect(cta[0]).toMatch(/position:\s*sticky/);
-    expect(cta[0]).toMatch(/bottom:\s*0/);
-    expect(cta.at(-1)).toMatch(
-      /padding-bottom:\s*calc\(28px \+ env\(safe-area-inset-bottom, 0px\)\)/,
-    );
-    expect(ruleBody(".ph-landing-cta-btn")).toMatch(/height:\s*54px/);
+  it("ends the landing and /cli footer clear of the home indicator, in one shared rule", () => {
+    expect(ruleBodies(".ph-landing-footer")).toHaveLength(1);
+    expect(declarations(ruleBody(".ph-landing-footer"))).toEqual({
+      "margin-top": "40px",
+      padding: "0 20px calc(48px + env(safe-area-inset-bottom, 0px))",
+      display: "flex",
+      gap: "20px",
+      "font-size": "13px",
+    });
+    // One footer for both pages: no page variant of it, no scroll padding.
+    expect(css).not.toMatch(/\.ph-landing-footer\.[a-z]/);
+    expect(css).not.toMatch(/scroll-padding/);
     expect(ruleBody(".ph-safe-bottom")).toMatch(
       /padding-bottom:\s*calc\(36px \+ env\(safe-area-inset-bottom, 0px\)\)/,
     );
+  });
+
+  it("draws the public phone header on one row: the home icon on the gutter, then the pair and Sign in", () => {
+    expect(declarations(ruleBody(".ph-landing-header"))).toMatchObject({
+      height: "64px",
+      padding: "0 20px",
+      display: "flex",
+    });
+    // The 30px icon sits on the gutter: its 44px box reaches 7px into it,
+    // its focus ring rounded like the button's.
+    expect(declarations(ruleBody(".ph-landing-home"))).toMatchObject({
+      width: "44px",
+      height: "44px",
+      "margin-inline-start": "-7px",
+      "border-radius": "12px",
+      display: "flex",
+      "justify-content": "center",
+    });
+    expect(declarations(ruleBody(".ph-landing-actions"))).toMatchObject({
+      "margin-inline-start": "auto",
+      display: "flex",
+      gap: "6px",
+    });
+    // Below 360px the gutter is 16 and the button 4px from the flags, so
+    // "Dashboard" (106px) still fits beside the 44 + 44 + 94 at 320.
+    const narrow =
+      /@media \(max-width: 22\.49rem\)\s*\{([\s\S]*?)\n {2}\}/.exec(css);
+    expect(narrow).not.toBeNull();
+    expect(
+      declarations(/\.ph-landing-header\s*\{([^}]*)\}/.exec(narrow![1])![1]),
+    ).toEqual({ "padding-inline": "16px" });
+    expect(
+      declarations(/\.ph-landing-actions\s*\{([^}]*)\}/.exec(narrow![1])![1]),
+    ).toEqual({ gap: "4px" });
   });
 
   it("draws the CLI code, the device code input and the device warning", () => {
@@ -522,7 +560,7 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     );
   });
 
-  it("gives the language + theme pair 44px boxes below md only", () => {
+  it("gives the theme + language pair 44px boxes below md only", () => {
     const media = /@media \(max-width: 47\.99rem\)\s*\{([\s\S]*?)\n {2}\}/.exec(
       css,
     );
@@ -541,24 +579,6 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     const outside = css.replace(media![0], "");
     expect(outside).not.toMatch(/\.ph-pair\b/);
     expect(outside).not.toMatch(/data-flags-only/);
-  });
-
-  it("stops focus scrolling above the floating Sign in / Dashboard of / and /cli, below md only", () => {
-    const media = /@media \(max-width: 47\.99rem\)\s*\{([\s\S]*?)\n {2}\}/.exec(
-      css,
-    );
-    const rule = /html:has\(\.ph-landing-cta\)\s*\{([^}]*)\}/.exec(media![1]);
-    expect(rule).not.toBeNull();
-    // 12 + 54 + 28: the block's top padding, the button, its bottom padding.
-    expect(declarations(rule![1])).toEqual({
-      "scroll-padding-bottom":
-        "calc( 94px + env(safe-area-inset-bottom, 0px) + var(--cookie-notice-height, 0px) )",
-    });
-    const cta = declarations(ruleBodies(".ph-landing-cta")[0]);
-    const btn = declarations(ruleBody(".ph-landing-cta-btn"));
-    expect(cta.padding).toBe("12px 20px 28px");
-    expect(btn.height).toBe("54px");
-    expect(css.replace(media![0], "")).not.toMatch(/scroll-padding/);
   });
 });
 
@@ -2107,7 +2127,6 @@ const V3_CLI = [
   "ph-clp-more-a",
   "ph-clp-back",
   "ph-clp-back-a",
-  "ph-clp-footer",
 ] as const;
 
 const V3_CV_NEW = [
@@ -2272,9 +2291,6 @@ describe("phone.css: v3 Cli and CVNew", () => {
     expect(backA).toMatch(/display:\s*inline-flex/);
     expect(backA).toMatch(/min-height:\s*44px/);
     expect(backA).toMatch(/font-weight:\s*600/);
-    expect(ruleBody(".ph-landing-footer.ph-clp-footer")).toMatch(
-      /padding-bottom:\s*calc\(48px \+ env\(safe-area-inset-bottom, 0px\)\)/,
-    );
   });
 
   it("draws v3/CVNew's limit card at the board's sizes", () => {

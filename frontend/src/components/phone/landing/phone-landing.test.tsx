@@ -6,9 +6,10 @@ import { LocaleProvider } from "@/i18n/locale-provider";
 import { PhoneLanding } from "./phone-landing";
 
 /**
- * v2/Landing below md: the board's sections and words, the theme + language
- * pair in its header (once, flags only, no Sign in link) and the sticky CTA
- * to /login; signed in, the CTA leads to the dashboard as the desktop does.
+ * v2/Landing below md: the board's sections and words under the public phone
+ * header (the home icon, the theme + language pair once, flags only, then
+ * Sign in to /login); signed in, the header's button leads to the dashboard
+ * as the desktop does. The footer ends the page.
  */
 
 let auth = { isAuthenticated: false, isLoading: false };
@@ -23,8 +24,6 @@ function renderLanding() {
 
 const root = () =>
   document.querySelector<HTMLElement>('[data-slot="landing-phone"]')!;
-const cta = () =>
-  document.querySelector<HTMLElement>('[data-slot="landing-phone-cta"]')!;
 
 beforeEach(() => {
   auth = { isAuthenticated: false, isLoading: false };
@@ -69,7 +68,7 @@ describe("PhoneLanding", () => {
     );
     expect(
       within(main).getByRole("link", { name: "View on GitHub" }),
-    ).toHaveAttribute("href", "https://github.com/applikadev");
+    ).toHaveAttribute("href", "https://github.com/BorderlessCodingHub/applika");
   });
 
   it("hides the preview card from screen readers: it is a picture of the app", () => {
@@ -78,7 +77,7 @@ describe("PhoneLanding", () => {
     expect(preview.firstElementChild).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("holds one theme + language pair, in the header, and no Sign in there", () => {
+  it("holds one theme + language pair in the header, then Sign in to /login", () => {
     renderLanding();
     const header = screen.getByRole("banner");
 
@@ -96,20 +95,19 @@ describe("PhoneLanding", () => {
     expect(
       home.compareDocumentPosition(theme) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(within(header).getAllByRole("link")).toEqual([home]);
+    const signIn = within(header).getByRole("link", { name: "Sign in" });
+    expect(signIn).toHaveAttribute("href", "/login");
+    expect(within(header).getAllByRole("link")).toEqual([home, signIn]);
+    // The header's button is the page's one sign-in action.
+    expect(screen.getAllByRole("link", { name: /sign in/i })).toEqual([signIn]);
   });
 
-  it("keeps a sign-in action in reach: the sticky CTA to /login", () => {
+  it("ends the page with the footer, the root's last child", () => {
     renderLanding();
+    const footer = screen.getByRole("contentinfo");
 
-    expect(cta()).toHaveClass("ph-landing-cta");
-    const link = within(cta()).getByRole("link", {
-      name: "Sign in with Borderless",
-    });
-    expect(link).toHaveAttribute("href", "/login");
-    expect(link).toHaveClass("ph-landing-cta-btn");
-    // The CTA is the root's last child, so `sticky bottom-0` holds it in view.
-    expect(root().lastElementChild).toBe(cta());
+    expect(root().lastElementChild).toBe(footer);
+    expect(footer).toHaveClass("ph-landing-footer");
   });
 
   it("links the footer to the cookie policy", () => {
@@ -122,30 +120,25 @@ describe("PhoneLanding", () => {
     expect(footer).toHaveTextContent("© Applika.dev");
   });
 
-  it("signed in: Go to Dashboard below, to /dashboard; the header has no Dashboard", () => {
+  it("signed in: Dashboard in the header, to /dashboard; no Sign in anywhere", () => {
     auth = { isAuthenticated: true, isLoading: false };
     renderLanding();
+    const header = screen.getByRole("banner");
 
-    expect(
-      within(cta()).getByRole("link", { name: "Go to Dashboard" }),
-    ).toHaveAttribute("href", "/dashboard");
-    expect(root().lastElementChild).toBe(cta());
-    expect(
-      within(screen.getByRole("banner")).queryByRole("link", {
-        name: /dashboard/i,
-      }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("link", { name: /sign in with borderless/i }),
-    ).toBeNull();
+    const dashboard = within(header).getByRole("link", { name: "Dashboard" });
+    expect(dashboard).toHaveAttribute("href", "/dashboard");
+    expect(screen.getAllByRole("link", { name: /dashboard/i })).toEqual([
+      dashboard,
+    ]);
+    expect(screen.queryByRole("link", { name: /sign in/i })).toBeNull();
   });
 
-  it("while the session loads it offers the signed-out CTA", () => {
+  it("while the session loads it offers Sign in", () => {
     auth = { isAuthenticated: true, isLoading: true };
     renderLanding();
 
     expect(
-      within(cta()).getByRole("link", { name: "Sign in with Borderless" }),
+      within(screen.getByRole("banner")).getByRole("link", { name: "Sign in" }),
     ).toHaveAttribute("href", "/login");
     expect(screen.queryByRole("link", { name: /dashboard/i })).toBeNull();
   });

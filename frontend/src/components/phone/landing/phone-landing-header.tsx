@@ -6,32 +6,41 @@ import { useTranslations } from "next-intl";
 import { ApplikaIcon } from "@/components/app-logo";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAuth } from "@/contexts/auth-context";
 
 /**
- * The public phone header of v2/Landing and v3/Cli: the home link, then the
- * theme toggle and the language toggle with flags only. Sign in and Dashboard
- * live in the floating `PhoneLandingCta`.
+ * The public phone header of v2/Landing and v3/Cli, on one row: the Applika
+ * icon as the home link at the left; at the right the theme toggle, the
+ * language toggle with flags only, then Sign in to `/login`, or Dashboard to
+ * `/dashboard` once signed in (the desktop `LandingHeader`'s words).
  */
 export function PhoneLandingHeader() {
   const tHeader = useTranslations("header");
+  const tLanding = useTranslations("landing");
+  const { isAuthenticated, isLoading } = useAuth();
+  const signedIn = !isLoading && isAuthenticated;
 
   return (
-    <header className="ph-landing-header h-auto min-h-16 flex-wrap gap-x-1 gap-y-1 py-[7px]">
+    <header className="ph-landing-header h-auto min-h-16 flex-wrap gap-y-1 py-[7px]">
       <Link
         href="/"
         aria-label={tHeader("home")}
-        className="flex min-h-11 items-center gap-1.5 text-foreground"
+        className="ph-landing-home text-foreground"
       >
         <ApplikaIcon size={30} aria-hidden="true" className="text-primary" />
-        <span className="text-[16px] font-bold tracking-[-0.01em]">
-          <span>applika</span>
-          <span>.dev</span>
-        </span>
       </Link>
-      {/* Link 126 + 4 + theme 44 + 4 + flags 94 = 272: one row from 312px wide. */}
-      <div className="ph-pair ml-auto flex items-center gap-1">
-        <ThemeToggle />
-        <LanguageToggle variant="default" flagsOnly />
+      <div className="ph-landing-actions">
+        <div className="ph-pair flex items-center">
+          <ThemeToggle />
+          <LanguageToggle variant="default" flagsOnly />
+        </div>
+        <Link
+          href={signedIn ? "/dashboard" : "/login"}
+          data-slot="landing-phone-sign-in"
+          className="ph-btn ph-pri ph-sm shrink-0 whitespace-nowrap"
+        >
+          {signedIn ? tLanding("dashboard") : tLanding("signIn")}
+        </Link>
       </div>
     </header>
   );

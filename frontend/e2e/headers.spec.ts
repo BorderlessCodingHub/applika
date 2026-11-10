@@ -17,13 +17,17 @@ import {
 /**
  * The headers on the real stack, in the owner's order.
  *
- * Below md, `/` and `/cli` share one public phone header: the "applika.dev"
- * home link, the theme toggle, then the language toggle with its flags only
- * (each radio still named English / Português). It holds no Sign in or
- * Dashboard link: the floating button at the bottom of both pages carries
- * them ("Sign in with Borderless" to /login, "Go to Dashboard" to /dashboard
- * once signed in). The header stays on one row from 320 to 430 px wide,
- * signed out and signed in, in English and Portuguese, light and dark.
+ * Below md, `/` and `/cli` share one public phone header: the Applika icon
+ * as the home link (no words), then the theme toggle, the language toggle
+ * with its flags only (each radio still named English / Português), and the
+ * sign-in button: "Sign in" to /login, "Dashboard" to /dashboard once signed
+ * in ("Entrar" / "Painel" in Portuguese), the page's one sign-in link. The
+ * header stays on one row from 320 to 430 px wide, signed out and signed in,
+ * in English and Portuguese, light and dark.
+ *
+ * Every pair reads theme, then language: `/login` (the phone top bar's right
+ * side below md, top 20 / right 24 at md and up), `/cli/code` (top right at
+ * both widths) and `/cookie-policy`'s phone bar.
  *
  * At md and up the public header (`/`, `/cli`, `/cookie-policy`) reads the
  * logo, the theme toggle, the language switcher, then Sign in or Dashboard;
@@ -42,19 +46,30 @@ const DESKTOP = { width: 1280, height: 800 } as const;
 
 /** The phone trees whose header is `PhoneLandingHeader`, and their 44px floors. */
 const PHONE_PAGES = [
-  // home, theme, English, Português, View on GitHub, Cookie policy, the CTA.
+  // home, theme, English, Português, Sign in, View on GitHub, Cookie policy.
   { path: "/", tree: "landing-phone", targets: 7 },
-  // home, theme, English, Português, two PyPI, four Copy, home page,
-  // Cookie policy, the CTA.
+  // home, theme, English, Português, Sign in, two PyPI, four Copy, home
+  // page, Cookie policy.
   { path: "/cli", tree: "cli-phone", targets: 13 },
 ] as const;
 
-const CTA_WORDS = {
-  en: { out: "Sign in with Borderless", in: "Go to Dashboard" },
-  pt: { out: "Entrar com a Borderless", in: "Ir para o painel" },
+/** The header's words by language: the home link's name, the button's words. */
+const WORDS = {
+  en: {
+    home: "Applika.dev home",
+    theme: "Toggle theme",
+    out: "Sign in",
+    in: "Dashboard",
+  },
+  pt: {
+    home: "Página inicial do Applika.dev",
+    theme: "Alternar tema",
+    out: "Entrar",
+    in: "Painel",
+  },
 } as const;
 
-type Lang = keyof typeof CTA_WORDS;
+type Lang = keyof typeof WORDS;
 type Box = { x: number; y: number; width: number; height: number };
 
 function tree(page: Page, slot: string): Locator {
@@ -96,7 +111,7 @@ async function pickTheme(page: Page, dark: boolean) {
   await expect(html).toHaveClass(dark ? /\bdark\b/ : /^(?!.*\bdark\b)/);
 }
 
-/** The phone header's four controls and its height, read from the page. */
+/** The phone header's five controls and its height, read from the page. */
 async function measureHeader(page: Page, slot: string) {
   const header = tree(page, slot).getByRole("banner");
   const controls = header.locator("a, button, [role='radio']");
@@ -126,13 +141,30 @@ async function measureHeader(page: Page, slot: string) {
 }
 
 /**
- * One row, in order: home, theme, English, Português, each at least 44×44,
- * their middles on one line; the header 64 tall (its one-row height).
+ * One row, in order: home, theme, English, Português, the button, each at
+ * least 44×44, their middles on one line, inside the viewport; the header 64
+ * tall (its one-row height). The only drawn words are the button's.
  */
-async function expectOneRowHeader(page: Page, slot: string, label: string) {
+async function expectOneRowHeader(
+  page: Page,
+  slot: string,
+  lang: Lang,
+  state: "out" | "in",
+  label: string,
+) {
+  const words = WORDS[lang];
   const header = tree(page, slot).getByRole("banner");
-  await expect(header.getByRole("link"), label).toHaveCount(1);
-  await expect(header.locator('a[href="/"]'), label).toHaveCount(1);
+  await expect(header.getByRole("link"), label).toHaveCount(2);
+  const home = header.locator('a[href="/"]');
+  await expect(home, label).toHaveCount(1);
+  await expect(home, label).toHaveAccessibleName(words.home);
+  await expect(home, label).toHaveText("");
+  const button = header.getByRole("link", { name: words[state], exact: true });
+  await expect(button, label).toHaveText(words[state]);
+  await expect(button, label).toHaveAttribute(
+    "href",
+    state === "in" ? "/dashboard" : "/login",
+  );
   const english = header.getByRole("radio", { name: "English", exact: true });
   const portuguese = header.getByRole("radio", {
     name: "Português",
@@ -143,59 +175,48 @@ async function expectOneRowHeader(page: Page, slot: string, label: string) {
   await expect(english, label).toHaveText("");
   await expect(portuguese, label).toHaveText("");
 
+  // Widths are read in the page's own font, never its fallback.
+  await page.evaluate(() => document.fonts.ready);
   const measured = await measureHeader(page, slot);
   expect(measured.names, label).toEqual([
-    expect.stringMatching(/^a::/),
-    expect.stringMatching(/^button::(Toggle theme|Alternar tema)$/),
+    `a::${words.home}`,
+    `button::${words.theme}`,
     "button:radio:English",
     "button:radio:Português",
+    `a::${words[state]}`,
   ]);
-  // Only the home link's words: no Sign in, Dashboard, EN or BR.
-  expect(measured.text, label).toBe("applika.dev");
+  // Only the button's words: no applika.dev, EN or BR.
+  expect(measured.text, label).toBe(words[state]);
   await expect(header, label).not.toContainText(
-    /Sign in|Dashboard|Entrar|Painel|\bEN\b|\bBR\b/,
+    /[Aa]pplika|\.dev|\bEN\b|\bBR\b/,
   );
-  const [home, theme, en, pt] = measured.boxes;
-  // Left to right, as in the DOM.
-  expect(home.x, label).toBeLessThan(theme.x);
+  const [homeBox, theme, en, pt, action] = measured.boxes;
+  // Left to right, as in the DOM, with no overlap.
+  expect(homeBox.x, label).toBeGreaterThanOrEqual(0);
+  expect(homeBox.x + homeBox.width, label).toBeLessThanOrEqual(theme.x + 0.5);
   expect(theme.x + theme.width, label).toBeLessThanOrEqual(en.x + 0.5);
   expect(en.x + en.width, label).toBeLessThanOrEqual(pt.x + 0.5);
+  expect(pt.x + pt.width, label).toBeLessThanOrEqual(action.x + 0.5);
   // One row: every middle within 2px of the home link's.
   const middle = (box: Box) => box.y + box.height / 2;
-  for (const box of [theme, en, pt]) {
-    expect(Math.abs(middle(box) - middle(home)), label).toBeLessThanOrEqual(2);
+  for (const box of [theme, en, pt, action]) {
+    expect(Math.abs(middle(box) - middle(homeBox)), label).toBeLessThanOrEqual(
+      2,
+    );
   }
   for (const box of measured.boxes) {
     expect(box.width, label).toBeGreaterThanOrEqual(44 - 0.5);
     expect(box.height, label).toBeGreaterThanOrEqual(44 - 0.5);
   }
-  // Inside the viewport, the last flag clear of the right edge.
+  // Inside the viewport: the button clear of the right edge.
   const viewport = page.viewportSize()!;
-  expect(pt.x + pt.width, label).toBeLessThanOrEqual(viewport.width);
+  expect(action.x + action.width, label).toBeLessThanOrEqual(viewport.width);
   expect(measured.header.height, label).toBeCloseTo(64, 0);
   return measured.header.height;
 }
 
-/** The floating button: on screen, its words and its target. */
-async function expectFloatingButton(
-  page: Page,
-  slot: string,
-  words: string,
-  href: string,
-  label: string,
-) {
-  const block = tree(page, slot).locator('[data-slot="landing-phone-cta"]');
-  const links = block.getByRole("link");
-  await expect(links, label).toHaveCount(1);
-  const link = links.first();
-  await expect(link, label).toHaveAccessibleName(words);
-  await expect(link, label).toHaveText(words);
-  await expect(link, label).toHaveAttribute("href", href);
-  await expect(link, label).toBeInViewport();
-}
-
 for (const { path, tree: slot, targets } of PHONE_PAGES) {
-  test(`${path} below md: the header is home, theme, flags on one row from 320 to 430, signed out and in, EN (dark) and PT (light); the floating button carries Sign in or Dashboard`, async ({
+  test(`${path} below md: the header is home, theme, flags, then Sign in or Dashboard on one row from 320 to 430, signed out and in, EN (dark) and PT (light)`, async ({
     browser,
   }) => {
     test.setTimeout(240_000);
@@ -218,36 +239,39 @@ for (const { path, tree: slot, targets } of PHONE_PAGES) {
               await pickLanguage(page, slot, lang);
               await pickTheme(page, lang === "en");
             }
-            await expectFloatingButton(
-              page,
-              slot,
-              CTA_WORDS[lang][state],
-              state === "in" ? "/dashboard" : "/login",
-              label,
+            heights.push(
+              await expectOneRowHeader(page, slot, lang, state, label),
             );
-            heights.push(await expectOneRowHeader(page, slot, label));
+            // The header's button is the page's one Sign in or Dashboard.
+            await expect(
+              tree(page, slot).getByRole("link", {
+                name: /sign in|dashboard|entrar|painel/i,
+              }),
+              label,
+            ).toHaveCount(1);
             await expectPhoneTargets(page, targets);
             if (width === 320) await expectNoSidewaysScroll(page);
           }
-          // Signing in changes nothing in the header.
+          // Signing in only swaps the button's words: the row keeps its height.
           expect(heights[1], `${path} ${width}px ${lang}`).toBe(heights[0]);
         }
       }
 
-      // The floating button leads where it says.
+      // The button leads where it says.
       await out.page.setViewportSize(PHONE);
       await out.page.goto(path);
       await pickLanguage(out.page, slot, "en");
       await tree(out.page, slot)
-        .locator('[data-slot="landing-phone-cta"]')
-        .getByRole("link")
+        .getByRole("banner")
+        .getByRole("link", { name: "Sign in", exact: true })
         .click();
       await out.page.waitForURL("**/login");
       await inn.page.setViewportSize(PHONE);
       await inn.page.goto(path);
+      await pickLanguage(inn.page, slot, "en");
       await tree(inn.page, slot)
-        .locator('[data-slot="landing-phone-cta"]')
-        .getByRole("link")
+        .getByRole("banner")
+        .getByRole("link", { name: "Dashboard", exact: true })
         .click();
       await inn.page.waitForURL("**/dashboard");
     } finally {
@@ -255,88 +279,115 @@ for (const { path, tree: slot, targets } of PHONE_PAGES) {
       await inn.context.close();
     }
   });
+}
 
-  test(`${path} below md: nothing ends under the floating button, and Tab never parks focus under it`, async ({
+/**
+ * The public screens whose pair sits outside a header, and the box that
+ * holds it at each width: `/login`'s bar, `/cli/code`'s top-right box, and
+ * `/cookie-policy`'s phone bar (at md and up it is `LandingHeader`'s, below).
+ */
+const PAIR_SCREENS = [
+  {
+    path: "/login",
+    pair: '[data-slot="sign-in-bar"] .ph-pair',
+    widths: [PHONE, DESKTOP],
+    back: "Back to home",
+    // Back to home, theme, English, Português, Continue with Borderless.
+    targets: 5,
+  },
+  {
+    path: "/cli/code?code=e2e-code&state=e2e-state",
+    pair: ".ph-pair",
+    widths: [PHONE, DESKTOP],
+    back: null,
+    // theme, English, Português, Copy.
+    targets: 4,
+  },
+  {
+    path: "/cookie-policy",
+    pair: '[data-slot="phone-public-bar"] .ph-pair',
+    widths: [PHONE],
+    back: "Home",
+    // Home, theme, English, Português.
+    targets: 4,
+  },
+] as const;
+
+for (const {
+  path,
+  pair: pairSelector,
+  widths,
+  back,
+  targets,
+} of PAIR_SCREENS) {
+  const name = path.split("?")[0];
+  test(`${name} holds the theme toggle, then the language toggle, at ${widths.map((w) => w.width).join(" and ")}`, async ({
     page,
   }) => {
-    await page.setViewportSize(PHONE);
-    await page.goto(path);
-    const root = tree(page, slot);
-    await expect(root).toBeVisible();
-    const button = root.locator(".ph-landing-cta-btn");
-    await expect(button).toBeInViewport();
-
-    /** Is the focused control drawn under the floating button? */
-    const coveredFocus = () =>
-      page.evaluate(() => {
-        const active = document.activeElement as HTMLElement | null;
-        const cta = document.querySelector<HTMLElement>(
-          '[data-slot="landing-phone-cta"]',
-        );
-        if (!active || !cta || cta.contains(active)) return null;
-        const btn = cta.querySelector<HTMLElement>(".ph-landing-cta-btn")!;
-        const a = active.getBoundingClientRect();
-        const b = btn.getBoundingClientRect();
-        const overlaps =
-          a.bottom > b.top &&
-          a.top < b.bottom &&
-          a.right > b.left &&
-          a.left < b.right;
-        return overlaps
-          ? `${active.textContent?.trim() || active.getAttribute("aria-label")}`
-          : null;
+    for (const viewport of widths) {
+      const label = `${name} ${viewport.width}px`;
+      await page.setViewportSize(viewport);
+      await page.goto(path);
+      const pair = page.locator(pairSelector).filter({ visible: true });
+      await expect(pair, label).toHaveCount(1);
+      const theme = page.getByRole("button", {
+        name: "Toggle theme",
+        exact: true,
       });
+      const group = page.getByRole("radiogroup", { name: "Toggle language" });
+      await expect(theme, label).toHaveCount(1);
+      await expect(group, label).toHaveCount(1);
+      await expect(group, label).toBeVisible();
 
-    // Tab from the top to the floating button: every stop stays clear of it.
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.locator("body").click({ position: { x: 1, y: 1 } });
-    let reached = false;
-    for (let step = 0; step < 40 && !reached; step++) {
-      await page.keyboard.press("Tab");
-      expect(await coveredFocus(), `Tab stop ${step}`).toBeNull();
-      reached = await page.evaluate(() =>
-        Boolean(
-          document
-            .querySelector('[data-slot="landing-phone-cta"]')
-            ?.contains(document.activeElement),
+      // In the DOM: the pair's first child is the theme toggle, its second
+      // the language toggle (EN, then BR).
+      expect(
+        await pair.evaluate((node) =>
+          Array.from(node.children).map(
+            (child) =>
+              child.getAttribute("role") ??
+              child.querySelector(".sr-only")?.textContent ??
+              "",
+          ),
         ),
+        label,
+      ).toEqual(["Toggle theme", "radiogroup"]);
+      await expect(group.getByRole("radio"), label).toHaveText(["EN", "BR"]);
+
+      // On screen: theme left of the switcher, on one row, inside the page.
+      const themeBox = (await theme.boundingBox())!;
+      const groupBox = (await group.boundingBox())!;
+      expect(themeBox.x + themeBox.width, label).toBeLessThanOrEqual(
+        groupBox.x + 0.5,
       );
-    }
-    expect(reached, "Tab reaches the floating button").toBe(true);
-
-    // At full scroll every control is above the floating button, uncovered.
-    await page.evaluate(() =>
-      window.scrollTo(0, document.documentElement.scrollHeight),
-    );
-    const covered = await page.evaluate((selector) => {
-      const cta = document.querySelector<HTMLElement>(
-        '[data-slot="landing-phone-cta"]',
-      )!;
-      return Array.from(
-        document.querySelectorAll<HTMLElement>(
-          `${selector} a[href], ${selector} button`,
+      expect(
+        Math.abs(
+          themeBox.y + themeBox.height / 2 - (groupBox.y + groupBox.height / 2),
         ),
-      )
-        .filter((node) => !cta.contains(node))
-        .filter((node) => {
-          const r = node.getBoundingClientRect();
-          return (
-            r.width > 1 && r.height > 1 && r.bottom > 0 && r.top < innerHeight
-          );
-        })
-        .filter((node) => {
-          const r = node.getBoundingClientRect();
-          const hit = document.elementFromPoint(
-            r.left + r.width / 2,
-            r.top + r.height / 2,
-          );
-          return !(hit && (node === hit || node.contains(hit)));
-        })
-        .map(
-          (node) => node.textContent?.trim() || node.getAttribute("aria-label"),
+        label,
+      ).toBeLessThanOrEqual(2);
+      expect(groupBox.x + groupBox.width, label).toBeLessThanOrEqual(
+        viewport.width,
+      );
+      if (viewport === PHONE) {
+        // Below md: the back link at the left of the same bar.
+        if (back) {
+          const link = page.getByRole("link", { name: back, exact: true });
+          await expect(link, label).toBeVisible();
+          expect((await link.boundingBox())!.x, label).toBeLessThan(themeBox.x);
+        }
+        await expectPhoneTargets(page, targets);
+        await expectNoSidewaysScroll(page);
+      } else if (name === "/login") {
+        // At md and up: top 20, right 24.
+        const pairBox = (await pair.boundingBox())!;
+        expect(pairBox.y, label).toBeCloseTo(20, 0);
+        expect(viewport.width - (pairBox.x + pairBox.width), label).toBeCloseTo(
+          24,
+          0,
         );
-    }, `[data-slot="${slot}"]`);
-    expect(covered).toEqual([]);
+      }
+    }
   });
 }
 
