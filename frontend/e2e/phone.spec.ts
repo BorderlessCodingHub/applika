@@ -4,6 +4,7 @@ import {
   expect,
   test,
   type APIRequestContext,
+  type Locator,
   type Page,
 } from "@playwright/test";
 
@@ -446,6 +447,37 @@ test.describe("public screens below md", () => {
 /** The bottom tab bar: below md the only "Primary" navigation. */
 const tabBar = (page: Page) =>
   page.getByRole("navigation", { name: "Primary" });
+
+/**
+ * Today's `CvKeywordsInput` chips inside a skill category, desktop sized
+ * inside the board's row (P80): the only part of an added CV list item the
+ * 44px checks leave out. The item's move and remove buttons are measured.
+ */
+const KEYWORD_CHIPS = '[data-slot="cv-keywords-input"]';
+
+/**
+ * v2/CVEditor's list sections keep today's 32px "Add …" control (an open
+ * list section; v3/CVNew and v3/ApplicationCV draw their own 44px one).
+ */
+const EDITOR_ADD =
+  '.ph-ce-panel > div > [data-slot="button"][data-variant="outline"][data-size="sm"]';
+
+/**
+ * Every move and remove button of the CV list items under `scope` is a
+ * 44×44 box (phone.css `.ph-ce-panel`), and there are at least `atLeast`.
+ */
+async function expectItemActions44(scope: Locator, atLeast: number) {
+  const boxes = await scope
+    .locator('[data-slot="cv-item-actions"] > button')
+    .evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const rect = button.getBoundingClientRect();
+        return `${button.getAttribute("aria-label")} ${Math.round(rect.width)}x${Math.round(rect.height)}`;
+      }),
+    );
+  expect(boxes.length, "item buttons measured").toBeGreaterThanOrEqual(atLeast);
+  for (const box of boxes) expect(box).toMatch(/ 44x44$/);
+}
 
 function apiHeaders() {
   return { Cookie: authCookieHeader("user") };
@@ -1294,6 +1326,22 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expect(page.locator('[data-slot="cv-acc"][data-open]')).toHaveCount(
       1,
     );
+    // The seeded category's move up, move down and remove: 44px boxes.
+    await expectItemActions44(skills, 3);
+    await expectPhoneTargets(page, 17, [KEYWORD_CHIPS, EDITOR_ADD]);
+    await expectNoSidewaysScroll(page);
+
+    // A link added (never saved): its buttons and fields are measured.
+    const links = page.locator('[data-slot="cv-acc"][data-section="links"]');
+    await links.getByRole("button", { name: "Links", exact: true }).click();
+    await expect(links).toHaveAttribute("data-open", "true");
+    await links.getByRole("button", { name: "Add link", exact: true }).click();
+    await expect(links.locator('[data-slot="cv-repeatable-item"]')).toHaveCount(
+      1,
+    );
+    await expectItemActions44(links, 3);
+    await expectPhoneTargets(page, 18, [EDITOR_ADD]);
+    await expectNoSidewaysScroll(page);
 
     // The PDF the server typesets from the stored CV: a read.
     const started = page.waitForEvent("download");
@@ -1380,6 +1428,15 @@ test.describe("the account area, jobs and CVs below md", () => {
       links.getByRole("button", { name: "Add link", exact: true }),
     ).toBeVisible();
     await expectPhoneTargets(page, 12);
+
+    // A link added: its move and remove buttons are 44px, nothing excluded.
+    await links.getByRole("button", { name: "Add link", exact: true }).click();
+    await expect(links.locator('[data-slot="cv-repeatable-item"]')).toHaveCount(
+      1,
+    );
+    await expectItemActions44(links, 3);
+    await expectPhoneTargets(page, 18);
+    await expectNoSidewaysScroll(page);
 
     await bar.getByRole("link", { name: "Cancel", exact: true }).click();
     await page.waitForURL((url) => url.pathname === "/cvs");
@@ -1545,14 +1602,12 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expectPhoneTargets(page, 20);
     await expectNoSidewaysScroll(page);
 
-    // Skills open: a category's row keeps today's 32px move and remove
-    // buttons (P80, as on the CV editor); the rest of the panel is measured.
+    // Skills open: a category's move and remove buttons are 44px boxes;
+    // only its keyword chips keep today's size (P80).
     await skillsToggle.click();
     await expect(skills).toHaveAttribute("data-open", "true");
-    await expectPhoneTargets(page, 17, [
-      // Today's CvRepeatableSection item, desktop sized inside the board's row.
-      '[data-slot="cv-repeatable-item"]',
-    ]);
+    await expectItemActions44(skills, 3);
+    await expectPhoneTargets(page, 23, [KEYWORD_CHIPS]);
     await expectNoSidewaysScroll(page);
 
     // The copy's PDF, typeset by the server: a read.

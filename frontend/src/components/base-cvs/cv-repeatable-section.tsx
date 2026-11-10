@@ -296,7 +296,11 @@ export function CvRepeatableSection<T extends { id: string }>({
                     </span>
                   )}
                   {collapsibleItems && hasBadge ? badge : null}
-                  <div className="flex shrink-0 items-center gap-1">
+                  {/* `cv-item-actions`: the phone CV rows give these 44px boxes (phone.css). */}
+                  <div
+                    data-slot="cv-item-actions"
+                    className="flex shrink-0 items-center gap-1"
+                  >
                     {reorderable ? (
                       <>
                         <Button

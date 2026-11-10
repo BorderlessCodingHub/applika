@@ -1868,6 +1868,20 @@ test("the whole section header toggles it, and a collapsed section offers no add
   const lastRow = sectionCard(page, "Experience")
     .locator('[data-slot="cv-repeatable-item"]')
     .last();
+  // At md and up a row's move and remove buttons keep their 32px: the
+  // phone's 44px boxes come from `.ph-ce-panel`, which renders below md only.
+  await expect
+    .poll(() =>
+      lastRow
+        .locator('[data-slot="cv-item-actions"] > button')
+        .evaluateAll((buttons) =>
+          buttons.map((button) => {
+            const rect = button.getBoundingClientRect();
+            return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+          }),
+        ),
+    )
+    .toEqual(["32x32", "32x32", "32x32"]);
   const rowBox = await lastRow.boundingBox();
   const addBox = await add.boundingBox();
   expect(rowBox && addBox).toBeTruthy();

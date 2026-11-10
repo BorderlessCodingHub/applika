@@ -5422,6 +5422,13 @@
     border-color: var(--destructive-text) !important;
   }
 
+  /* An added item's move and remove buttons (CvRepeatableSection, 32px on desktop): 44px wide, so the three never overlap, and 44px tall through negative margins, so the item's header row keeps its height. */
+  .ph-ce-panel [data-slot="cv-item-actions"] > [data-slot="button"] {
+    width: 44px !important;
+    height: 44px !important;
+    margin-block: -6px;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .ph-acc .ph-chev {
       transition: none;

@@ -1414,6 +1414,22 @@ describe("phone.css: Jobs, JobDetail, StartApplication, Draft, CVs, CVEditor", (
       /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.ph-acc \.ph-chev\s*\{\s*transition:\s*none;/,
     );
   });
+
+  it("gives an added list item's move and remove buttons 44px boxes on the CV editor, the new CV and the CV copy, with the row's height kept", () => {
+    const actions =
+      '.ph-ce-panel [data-slot="cv-item-actions"] > [data-slot="button"]';
+    const body = ruleBody(actions);
+    expect(body).toMatch(/width:\s*44px !important/);
+    expect(body).toMatch(/height:\s*44px !important/);
+    // 44 - 12 = 32: the header row stays at the buttons' desktop 32px.
+    expect(body).toMatch(/margin-block:\s*-6px/);
+    // One rule, inside the phone tree only: `.ph-ce-panel` renders below md.
+    expect(
+      ALL_SELECTORS.filter((selector) =>
+        selector.includes('[data-slot="cv-item-actions"]'),
+      ),
+    ).toEqual([actions]);
+  });
 });
 
 // v3 (PRD 0022): the boards' shared modifiers, the pages control, and the
