@@ -1605,3 +1605,29 @@ def test_rich_output_stays_plain_and_wide_under_forced_colour(
     assert result.exit_code == exit_code
     assert '\x1b[' not in result.output
     assert '--device-name' in result.output
+
+
+@pytest.mark.parametrize(
+    'args',
+    [
+        ['whoami'],
+        ['logout'],
+        ['applications', 'list'],
+        ['applications', 'timeline', 'list', '1'],
+        ['cvs', 'list'],
+        ['applications', 'cv', 'get', '1'],
+    ],
+)
+def test_signed_out_prints_the_login_hint_without_a_traceback(
+    monkeypatch, runner, args
+):
+    store = FakeStore(None)
+    monkeypatch.setattr(cli_app, 'SessionStore', lambda: store)
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == 1
+    assert result.stderr == 'Please run `applika login` first.\n'
+    assert result.stdout == ''
+    # A clean exit, not an uncaught AuthError (which printed a traceback).
+    assert isinstance(result.exception, SystemExit)
