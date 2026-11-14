@@ -54,8 +54,8 @@ There is no Vault, Doppler or Vercel. Secrets live in two places:
 ### 3.1 GitHub Secrets (Settings → Secrets and variables → Actions of the main repository)
 
 One secret and six variables. Images go to GHCR with the workflow's own `GITHUB_TOKEN`
-(`packages: write`), and the CLI publishes to PyPI through Trusted Publishing (OIDC), so neither
-needs a stored credential.
+(`packages: write`), so they need no stored credential. Nothing publishes `applika-cli` to PyPI
+since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md).
 
 | Name | Kind | Purpose | Used in |
 |---|---|---|---|
@@ -121,7 +121,7 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | Item | Status |
 |---|---|
 | Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli` |
-| Publishing | `cli-cd.yaml` with `uv publish --trusted-publishing always` in environment `pypi`: the PyPI project trusts this repository, workflow `cli-cd.yaml` and environment `pypi`; no token |
+| Publishing | None since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed, so no `applika-cli` version is published or supported, 0.1.x included |
 | Authors in the package | Luis Eduardo Soares, David Alecrim (`cli/pyproject.toml`) |
 | PyPI owner | **Luis** (personal). **to transfer**: create a Borderless organisation or account on PyPI and add it as owner |
 | Recommendation | Replace the token with PyPI Trusted Publishing pointing at the new repository |

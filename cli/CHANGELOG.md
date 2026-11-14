@@ -26,6 +26,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - cvs *, applications cv * and drafts answer 404 without the "cvs" beta feature.
 - on an unhandled server error (500) the API answers JSON, so every version prints "Internal Server Error" where it printed "API request failed with status 500".
 
+### Deprecated
+
+- applika-cli is retired for Applika's hosted MCP server (ADR-0028): no version is published or supported, 0.1.x included, and a later release removes the routes only the CLI calls.
+
 ### Removed
 
 - GET /users/me no longer returns `discord` and `discord_linked` (Discord linking is removed).
