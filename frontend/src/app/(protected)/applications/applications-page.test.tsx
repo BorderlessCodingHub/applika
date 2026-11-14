@@ -119,11 +119,13 @@ vi.mock("sonner", () => ({
 // PRD 0015: CVs and drafts live behind `cvs`. The cases written before it run
 // with `cvs`; `hasCvs = false` is a user without it.
 let hasCvs = true;
+/** The user's features are still on their way (`useHasFeature` loading). */
+let featuresLoading = false;
 vi.mock("@/hooks/use-features", () => ({
   useHasFeature: (key: string) => ({
-    has: key === "cvs" ? hasCvs : false,
-    stage: key === "cvs" && hasCvs ? "beta" : null,
-    isLoading: false,
+    has: !featuresLoading && key === "cvs" ? hasCvs : false,
+    stage: !featuresLoading && key === "cvs" && hasCvs ? "beta" : null,
+    isLoading: featuresLoading,
   }),
 }));
 
@@ -754,6 +756,39 @@ describe("ApplicationsPage without the cvs feature (PRD 0015)", () => {
     );
     expect(useDraftsCalls.every((enabled) => enabled === true)).toBe(true);
     expect(listDrafts).toHaveBeenCalled();
+  });
+});
+
+describe("ApplicationsPage while the features load", () => {
+  afterEach(() => {
+    featuresLoading = false;
+    hasCvs = true;
+  });
+
+  // `cvs` decides whether the toolbar sits inside the Tabs: rendering it
+  // before the features arrive and moving it after remounts the search box,
+  // which drops what was typed and the focus.
+  it("holds the toolbar until the features load, then mounts it once in the tabs", () => {
+    featuresLoading = true;
+    setHookState({ filtered: [focusApplication()] });
+
+    const { rerenderPage } = renderWithQueryClient();
+
+    expect(
+      screen.queryByRole("textbox", { name: /search/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Loading applications")).toHaveAttribute(
+      "aria-busy",
+    );
+
+    featuresLoading = false;
+    rerenderPage();
+
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /search/i }),
+    ).toBeInTheDocument();
   });
 });
 

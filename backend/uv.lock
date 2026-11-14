@@ -184,7 +184,6 @@ dependencies = [
     { name = "pyjwt" },
     { name = "redis", extra = ["hiredis"] },
     { name = "rendercv" },
-    { name = "snowflake-id" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "taskiq" },
     { name = "taskiq-redis" },
@@ -220,7 +219,6 @@ requires-dist = [
     { name = "pyjwt", specifier = "==2.12.1" },
     { name = "redis", extras = ["hiredis"], specifier = ">=7.4.0" },
     { name = "rendercv", specifier = "==2.8" },
-    { name = "snowflake-id", specifier = ">=1.0.2" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "taskiq", specifier = "==0.13.0" },
     { name = "taskiq-redis", specifier = "==1.2.4" },
@@ -1558,15 +1556,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
-]
-
-[[package]]
-name = "snowflake-id"
-version = "1.0.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7a/d0/91bd3d2e54ea849e8c4e73681ef75c1c93f37a8c9f0627b1553522267e08/snowflake_id-1.0.2.tar.gz", hash = "sha256:4a4cd49508599aaa16488311f4b9121e9ac3bac57edff3e9f71b1d79086dbfe8", size = 4497, upload-time = "2024-04-17T13:36:05.552Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/a4/ee0bdba1d1e98db21166381559d0061d752bbf66af2dd1cbbe4c2afdc4fa/snowflake_id-1.0.2-py3-none-any.whl", hash = "sha256:c3142752ed334b9d4632739a704461d13e97aa6fa71b65d5329829b4b5cc058c", size = 4795, upload-time = "2024-04-17T13:36:03.898Z" },
 ]
 
 [[package]]

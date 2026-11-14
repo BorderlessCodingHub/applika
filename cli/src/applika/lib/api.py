@@ -5,6 +5,7 @@ from http.cookiejar import CookieJar, DefaultCookiePolicy
 from typing import Any
 
 import httpx
+import typer
 
 from applika.commands.version import installed_version
 from applika.lib.session import SessionData, SessionStore
@@ -28,9 +29,15 @@ class AuthError(ApiError):
 
 
 def require_session(store: SessionStore) -> SessionData:
+    """The stored session, or the login hint on stderr and exit 1.
+
+    Every command calls this before its ``try``: an ``AuthError`` raised
+    here escaped as an uncaught exception and printed a traceback.
+    """
     session = store.try_load()
     if not session:
-        raise AuthError('Please run `applika login` first.')
+        typer.echo('Please run `applika login` first.', err=True)
+        raise typer.Exit(1)
     return session
 
 

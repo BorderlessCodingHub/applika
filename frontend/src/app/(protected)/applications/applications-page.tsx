@@ -202,7 +202,7 @@ function ApplicationsDesktopPage() {
   const reopenApplication = useReopenApplication();
   // CVs and drafts live behind `cvs`: without it no CV link, no Drafts tab,
   // no "New with CV" and no drafts request (the archived-cycle shape).
-  const { has: hasCvs } = useHasFeature("cvs");
+  const { has: hasCvs, isLoading: featuresLoading } = useHasFeature("cvs");
   // Subscribes: the copy objects below read the active language.
   const t = useTranslations("applications");
 
@@ -627,7 +627,12 @@ function ApplicationsDesktopPage() {
         )}
       </div>
 
-      {isViewingPastCycle || !hasCvs ? (
+      {/* Held until the features load: `cvs` decides whether the toolbar sits
+          inside the Tabs, and moving it later remounts the search box,
+          dropping what was typed and the focus. */}
+      {featuresLoading && !isViewingPastCycle ? (
+        <ApplicationsPageFallback />
+      ) : isViewingPastCycle || !hasCvs ? (
         <div className="flex flex-col gap-4">
           {toolbarAndFilters}
           {applicationsList}

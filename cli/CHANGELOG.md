@@ -33,6 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Every command run signed out prints ``Please run `applika login` first.``
+  on stderr and exits 1, instead of an uncaught `AuthError` traceback.
 - README: the `--api-base-url` example points at a local API instead of a staging host that does not exist, and a duplicated `steps delete` example is gone.
 - `applika applications cv --help`: the description no longer shows an internal reference.
 

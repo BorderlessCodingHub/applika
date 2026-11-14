@@ -500,6 +500,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- a create could answer 500 (`null value in column "id"`): the
+  `snowflake-id` generator returns `None` when the wall clock steps back
+  (an NTP or VM clock sync) or a millisecond's 4096 ids run out.
+  `app/lib/types.py` has its own generator, same bit layout and epoch, that
+  keeps issuing from the last timestamp it used and is thread-safe; the
+  `snowflake-id` dependency is gone. Regression tests:
+  `tests/unit/test_snowflake_generator.py`.
 - KODI-050 a draft started from a job (`POST /applications/drafts/from-job`)
   is dated with the caller's local calendar day: the body takes an optional
   `application_date` (`YYYY-MM-DD`) and stores it; absent, the draft keeps

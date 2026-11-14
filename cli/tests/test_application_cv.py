@@ -513,7 +513,7 @@ def test_cv_requires_a_session(monkeypatch, runner, args):
     monkeypatch.setattr(cv_commands, 'ApiClient', FakeCvClient)
     result = runner.invoke(app, args)
     assert result.exit_code != 0
-    assert 'applika login' in str(result.exception)
+    assert result.stderr == 'Please run `applika login` first.\n'
 
 
 # --- backend-qa round 1 -------------------------------------------------
