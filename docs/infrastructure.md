@@ -220,7 +220,7 @@ flowchart LR
 | `applika-redis` | Standalone Redis, `redis:7.2` | `dkfscsf1yewx2fwr3c5lsscb` | Not public; ACL user `applika` (below) |
 
 The UUIDs are what the CD workflows deploy (`COOLIFY_API_UUID`, `COOLIFY_FRONTEND_UUID`, section
-6.1). A deploy is `GET <COOLIFY_URL>/api/v1/deploy?uuid=<uuid>&force=false` with a Coolify API token
+6.1). A deploy is `POST <COOLIFY_URL>/api/v1/deploy?uuid=<uuid>&force=false` with a Coolify API token
 that has the `deploy` permission as a Bearer header.
 
 **API environment.** The API's runtime variables are the ones in section 6.2, set on `applika-api`

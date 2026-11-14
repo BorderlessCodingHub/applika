@@ -88,7 +88,7 @@ jobs:
           COOLIFY_UUID: ${{ vars.COOLIFY_API_UUID }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --request POST \
             --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
             "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"
 
@@ -104,7 +104,7 @@ jobs:
           COOLIFY_UUID: ${{ vars.COOLIFY_WORKER_UUID }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --request POST \
             --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
             "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"
 
@@ -120,6 +120,6 @@ jobs:
           COOLIFY_UUID: ${{ vars.COOLIFY_SCHEDULER_UUID }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --request POST \
             --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
             "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"
