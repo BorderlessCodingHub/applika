@@ -99,3 +99,8 @@ def test_the_token_request_refuses_a_name_over_100_characters():
     McpTokenCreate.model_validate({'name': 'x' * 100, 'scope': ['read']})
     with pytest.raises(ValidationError):
         McpTokenCreate.model_validate({'name': 'x' * 101, 'scope': ['read']})
+
+
+def test_an_explicit_null_name_is_the_default_name():
+    body = McpTokenCreate.model_validate({'name': None, 'scope': ['read']})
+    assert body.name is None

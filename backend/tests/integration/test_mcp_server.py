@@ -1146,6 +1146,35 @@ async def test_an_expired_token_is_401(
     _assert_token_refused(await rpc(mcp, mcp_token_read.token, 'tools/list'))
 
 
+async def test_a_token_whose_user_is_gone_is_401_and_ends(
+    mcp: AsyncClient, mcp_token_read, async_engine, redis_client
+):
+    """A user row gone under a live token (its row went by CASCADE, its
+    keys did not): 401 AUTH-1014 and the keys end."""
+    await _execute(
+        async_engine,
+        delete(UserSessionModel).where(
+            UserSessionModel.id == mcp_token_read.session_id
+        ),
+    )
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    async with maker() as session:
+        from app.domain.models import UserModel
+
+        user = await session.get(UserModel, USER.id)
+        assert user is not None
+        await session.delete(user)
+        await session.commit()
+    response = await rpc(mcp, mcp_token_read.token, 'tools/list')
+    assert response.status_code == 401
+    assert response.json() == {'detail': 'User not found', 'code': 'AUTH-1014'}
+    assert response.headers['www-authenticate'] == 'Bearer'
+    assert not await redis_client.exists(id_key(mcp_token_read.session_id))
+    assert not await redis_client.exists(
+        mcp_key(mcp_token_hash(mcp_token_read.token))
+    )
+
+
 async def test_redis_down_is_503_retry_after_5(mcp: AsyncClient, mcp_token_read):
     down = redis.from_url(
         'redis://127.0.0.1:1/0',

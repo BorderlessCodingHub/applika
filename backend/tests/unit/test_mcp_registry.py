@@ -264,3 +264,49 @@ def test_instructions_carry_no_personal_data():
     assert 'user@user.com' not in text
     assert 'username=' not in text
     assert build_instructions(None).startswith('# Applika MCP server')
+
+
+class _Request:
+    def __init__(self, state: object) -> None:
+        self.state = state
+
+
+class _Context:
+    def __init__(self, request: object) -> None:
+        self.request = request
+
+
+class _Server:
+    def __init__(self, request: object) -> None:
+        self.request_context = _Context(request)
+
+
+def test_a_request_without_a_caller_is_an_error():
+    from types import SimpleNamespace
+
+    from app.presentation.mcp.server import request_caller
+
+    with pytest.raises(RuntimeError, match='without a caller'):
+        request_caller(_Server(_Request(SimpleNamespace())))  # ty: ignore[invalid-argument-type]
+    with pytest.raises(RuntimeError, match='without a caller'):
+        request_caller(_Server(None))  # ty: ignore[invalid-argument-type]
+    good = caller()
+    found = request_caller(
+        _Server(_Request(SimpleNamespace(mcp_principal=good)))  # ty: ignore[invalid-argument-type]
+    )
+    assert found is good
+
+
+async def test_the_route_refuses_while_the_session_manager_is_not_running():
+    from app.presentation.mcp.server import McpRuntime, mcp_server
+
+    runtime = McpRuntime(mcp_server)
+
+    async def _receive():  # pragma: no cover - never awaited
+        return {}
+
+    async def _send(message):  # pragma: no cover - never awaited
+        return None
+
+    with pytest.raises(RuntimeError, match='not running'):
+        await runtime.handle({'type': 'http'}, _receive, _send)
