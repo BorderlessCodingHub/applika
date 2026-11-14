@@ -403,7 +403,7 @@ test.describe("devices", () => {
     await expect(
       outcome.getByRole("link", { name: "See your devices" }),
     ).toHaveAttribute("href", "/profile?tab=devices");
-    // Back and See your devices (the applika-cli banner shows on Today only).
+    // Back and See your devices (the Applika MCP banner shows on Today only).
     await expectPhoneTargets(page, 2);
   });
 });

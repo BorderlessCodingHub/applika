@@ -69,10 +69,11 @@ const PAGES: PageCase[] = [
     assert: heading("Cookie Policy", 1),
   },
   {
-    path: "/cli",
+    path: "/mcp",
     visitors: ["anon", "user"],
     // Public, under the `(public)` layout; the rail links here when signed in.
-    assert: heading("applika-cli", 1),
+    // It replaced the applika-cli page (`/cli` forwards here, tested below).
+    assert: heading("Applika in your AI assistant", 1),
   },
 
   // ---- signed-in -------------------------------------------------------
@@ -278,6 +279,19 @@ test("/admin/discord-webhooks redirects to /admin/report-webhooks", async ({
   ).toBeVisible();
 });
 
+test("/cli forwards to /mcp, the page that replaced it", async ({ page }) => {
+  await page.goto("/cli");
+  await page.waitForURL("**/mcp");
+  await expect(
+    page.getByRole("heading", {
+      name: "Applika in your AI assistant",
+      level: 1,
+    }),
+  ).toBeVisible();
+  // `replace`: Back does not land on `/cli` again.
+  expect(new URL(page.url()).pathname).toBe("/mcp");
+});
+
 test("the suite covers every page named in the acceptance criteria", () => {
   // Guards the table itself, because the suite is only as good as this list: a
   // route silently dropped from PAGES would leave the suite green while
@@ -289,8 +303,10 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // `/admin/jobs` (Plan corrections 23); 20 since PRD 0013 added
   // `/admin/features`; 22 since PRD 0014 added `/device` and `/cli/code`;
   // 23 since Borderless sign-in added `/welcome` (`/admin/report-webhooks`
-  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page;
-  // 26 since the phone shell added `/insights` and `/account`.
+  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page
+  // (`/mcp` since PRD 0023, which replaced it; `/cli` forwards there, tested
+  // apart like the admin redirects); 26 since the phone shell added
+  // `/insights` and `/account`.
   expect(PAGES).toHaveLength(26);
 
   // A row with no visitors generates no tests at all, which the length check

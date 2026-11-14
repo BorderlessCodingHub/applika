@@ -32,11 +32,11 @@ import {
  * The public screens switch by CSS (one tree per width, `data-slot` per
  * tree; Playwright leaves `display: none` out of role queries): below md
  * `/` is v2/Landing, `/cookie-policy` v2/CookiePolicy, `/cli/code`
- * v2/CliCode, and `/cli` v3/Cli (PRD 0022: the landing's phone header, the
- * four command blocks with Copy, its own footer). The landing header and
- * footer are md-and-up only. The phone header of `/` and `/cli` (home,
- * theme, flags, then Sign in or Dashboard) is walked from 320 to 430 in
- * `headers.spec.ts`. `/login`
+ * v2/CliCode, and `/mcp` 0023/McpPage (PRD 0023: the landing's phone header,
+ * the steps, the server address with Copy, its own footer; `/cli` forwards
+ * to it). The landing header and footer are md-and-up only. The phone header
+ * of `/` and `/mcp` (home, theme, flags, then Sign in or Dashboard) is walked
+ * from 320 to 430 in `headers.spec.ts`. `/login`
  * (option C) is walked in `borderless-signin.spec.ts`, `/device` in
  * `devices.spec.ts`, the signed-in shell in `shell-responsive.spec.ts`.
  *
@@ -200,16 +200,16 @@ test.describe("public screens below md", () => {
     await page.waitForURL((url) => url.pathname === "/");
   });
 
-  test("/cli is the Cli board: the header with the pair and Sign in, the four command blocks with Copy, the footer", async ({
+  test("/mcp is the McpPage board: the header with the pair and Sign in, the steps, the address with Copy, the footer", async ({
     page,
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.goto("/cli");
+    await page.goto("/mcp");
 
-    const phone = page.locator('[data-slot="cli-phone"]');
+    const phone = page.locator('[data-slot="mcp-phone"]');
     await expect(phone).toBeVisible();
-    await expect(page.locator('[data-slot="cli-desktop"]')).toBeHidden();
+    await expect(page.locator('[data-slot="mcp-desktop"]')).toBeHidden();
     // The phone tree's own header and footer; the landing's are md and up.
     await expect(page.getByRole("banner")).toHaveCount(1);
     await expect(page.getByRole("contentinfo")).toHaveCount(1);
@@ -223,89 +223,95 @@ test.describe("public screens below md", () => {
     const signIn = header.getByRole("link", { name: "Sign in", exact: true });
     await expect(signIn).toBeInViewport();
     await expect(signIn).toHaveAttribute("href", "/login");
-    await expect(
-      phone.getByRole("link", { name: /sign in|dashboard/i }),
-    ).toHaveCount(1);
 
+    await expect(phone.getByText("MCP server", { exact: true })).toBeVisible();
     await expect(
-      phone.getByText("Command line", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { level: 1, name: "applika-cli" }),
-    ).toBeVisible();
-    await expect(
-      phone.getByRole("link", {
-        name: "View on PyPI Opens in a new tab.",
-        exact: true,
+      page.getByRole("heading", {
+        level: 1,
+        name: "Applika in your AI assistant",
       }),
-    ).toHaveCount(2);
+    ).toBeVisible();
+    const cta = phone.getByRole("link", {
+      name: "Create a token",
+      exact: true,
+    });
+    await expect(cta).toHaveAttribute("href", "/profile?tab=mcp");
+    await expect(cta).toBeInViewport();
     for (const name of [
-      "Install",
-      "Sign in",
-      "Track from your terminal",
-      "Teach your AI assistant",
-      "Everything else",
+      "Connect in three steps",
+      "Server address",
+      "Works with",
+      "What your assistant can do",
+      "You choose its reach",
+      "You stay in control",
     ]) {
       await expect(
         page.getByRole("heading", { level: 2, name, exact: true }),
       ).toBeVisible();
     }
-    await expect(phone.locator('[data-slot="cli-phone-modes"] li')).toHaveCount(
-      3,
-    );
-    const terms = phone.locator('[data-slot="cli-phone-term"]');
-    await expect(terms).toHaveCount(4);
-    await expect(
-      terms.first().locator('[data-slot="cli-phone-commands"]'),
-    ).toHaveText("$ uv tool install applika-cli\n$ pipx install applika-cli");
-    await expect(
-      phone.getByRole("button", { name: "Copy command", exact: true }),
-    ).toHaveCount(4);
+    await expect(phone.locator(".ph-mcp-step")).toHaveCount(3);
+    await expect(phone.locator(".ph-mcp-app")).toHaveText([
+      "Claude Code",
+      "Claude Desktop",
+      "Cursor",
+      "VS Code",
+      "Codex CLI",
+      "Gemini CLI",
+    ]);
+    // The address comes from the build's API base URL, never a fixed host.
+    const address = phone.locator('[data-slot="mcp-phone-address"]');
+    await expect(address.locator("pre")).toHaveText(apiUrl("/mcp"));
 
-    // The footer: the line back home, then Cookie policy and the ©.
-    await expect(
-      phone.getByRole("link", { name: "home page", exact: true }),
-    ).toHaveAttribute("href", "/");
+    // The footer: Home, Cookie policy and the ©.
     const footer = page.getByRole("contentinfo");
+    await expect(
+      footer.getByRole("link", { name: "Home", exact: true }),
+    ).toHaveAttribute("href", "/");
     await expect(
       footer.getByRole("link", { name: "Cookie policy", exact: true }),
     ).toHaveAttribute("href", "/cookie-policy");
     await expect(footer).toContainText("© Applika.dev");
 
-    // home, theme, the two radios, Sign in, two PyPI, four Copy, home page,
+    // home, theme, the two radios, Sign in, Create a token, Copy, Home,
     // Cookie policy.
-    await expectPhoneTargets(page, 13);
+    await expectPhoneTargets(page, 9);
     await expectNoSidewaysScroll(page);
-    // The long Track command scrolls inside its own block.
-    const track = terms.nth(2).locator('[data-slot="cli-phone-commands"]');
-    expect(
-      await track.evaluate((pre) => pre.scrollWidth > pre.clientWidth),
-    ).toBe(true);
 
-    // Copy writes today's commands (no "$ ") and says Copied.
-    await terms
-      .first()
-      .getByRole("button", { name: "Copy command", exact: true })
+    // Copy writes the address and says so.
+    await address
+      .getByRole("button", { name: "Copy the server address", exact: true })
       .click();
     await expect(
-      terms.first().getByRole("button", { name: "Copied", exact: true }),
+      address.getByRole("button", {
+        name: "Server address copied",
+        exact: true,
+      }),
     ).toBeVisible();
-    await expect(
-      phone.locator('[data-slot="cli-phone-copy-status"]').first(),
-    ).toHaveText("Copied");
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      "uv tool install applika-cli\npipx install applika-cli",
+      apiUrl("/mcp"),
     );
     await expect(
-      terms.first().getByRole("button", { name: "Copy command", exact: true }),
+      address.getByRole("button", {
+        name: "Copy the server address",
+        exact: true,
+      }),
     ).toBeVisible({ timeout: 5_000 });
+
+    // Create a token: signed out, sign in first (the round trip keeps the tab).
+    await cta.click();
+    await page.waitForURL("**/login");
+    expect(
+      await page.evaluate(() =>
+        window.sessionStorage.getItem("applika:return-to"),
+      ),
+    ).toBe("/profile?tab=mcp");
   });
 
-  test("/cli with the clipboard refused: no Copied, and the commands stay selectable", async ({
+  test("/mcp with the clipboard refused: no Copied; the address is selected to copy by hand, and the status says so", async ({
     page,
     context,
   }) => {
-    await page.goto("/cli");
+    await page.goto("/mcp");
     // The browser itself refuses the write (no stub of the page's code).
     const cdp = await context.newCDPSession(page);
     await cdp.send("Browser.setPermission", {
@@ -313,11 +319,6 @@ test.describe("public screens below md", () => {
       permission: { name: "clipboard-write" },
       setting: "denied",
     });
-
-    const phone = page.locator('[data-slot="cli-phone"]');
-    const install = phone.locator(
-      '[data-slot="cli-phone-term"][data-block="install"]',
-    );
     expect(
       await page.evaluate(() =>
         navigator.clipboard.writeText("probe").then(
@@ -327,31 +328,27 @@ test.describe("public screens below md", () => {
       ),
     ).toBe("refused");
 
-    await install
-      .getByRole("button", { name: "Copy command", exact: true })
+    const address = page.locator('[data-slot="mcp-phone-address"]');
+    await address
+      .getByRole("button", { name: "Copy the server address", exact: true })
       .click();
     await page.waitForTimeout(300);
     await expect(
-      install.getByRole("button", { name: "Copy command", exact: true }),
+      address.getByRole("button", {
+        name: "Copy the server address",
+        exact: true,
+      }),
     ).toBeVisible();
-    await expect(phone.getByRole("button", { name: "Copied" })).toHaveCount(0);
     await expect(
-      phone.locator('[data-slot="cli-phone-copy-status"]').first(),
-    ).toHaveText("");
-
-    // Selectable by hand: the commands; the "$ " prompts never are.
-    const commands = install.locator('[data-slot="cli-phone-commands"]');
-    await expect(commands).toHaveCSS("user-select", "auto");
-    await expect(commands.locator(".ph-clp-p").first()).toHaveCSS(
-      "user-select",
-      "none",
+      page.getByRole("button", { name: "Server address copied" }),
+    ).toHaveCount(0);
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(
+      apiUrl("/mcp"),
     );
-    await commands.selectText();
-    const selected = await page.evaluate(() =>
-      window.getSelection()?.toString(),
+    // Said, not only done: the copy button's status names the selection.
+    await expect(address.getByRole("status")).toHaveText(
+      "Copying is blocked here. The text is selected: copy it by hand.",
     );
-    expect(selected).toContain("uv tool install applika-cli");
-    expect(selected).toContain("pipx install applika-cli");
   });
 
   test("/cli/code is the CliCode board: the code, Copy that says Copied, the expiry", async ({
@@ -394,7 +391,7 @@ test.describe("public screens below md", () => {
     page,
   }) => {
     const html = page.locator("html");
-    for (const path of ["/", "/cookie-policy", "/cli", "/cli/code", "/login"]) {
+    for (const path of ["/", "/cookie-policy", "/mcp", "/cli/code", "/login"]) {
       await page.goto(path);
       await expect(html, path).toHaveClass(/\bdark\b/);
       // The theme toggle sits left of the language toggle, on one row.
@@ -443,6 +440,16 @@ test.describe("public screens below md", () => {
       page
         .locator('[data-slot="phone-public-bar"]')
         .getByRole("link", { name: "Início", exact: true }),
+    ).toBeVisible();
+    await page.goto("/mcp");
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "O Applika no seu assistente de IA",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Criar um token", exact: true }),
     ).toBeVisible();
     await page
       .getByRole("radiogroup", { name: "Alternar idioma" })
@@ -1091,7 +1098,11 @@ test.describe("the account area, jobs and CVs below md", () => {
     const sections = page.getByRole("navigation", {
       name: "Profile sections",
     });
-    await expect(sections.getByRole("link")).toHaveText(["Profile", "Devices"]);
+    await expect(sections.getByRole("link")).toHaveText([
+      "Profile",
+      "MCP",
+      "Devices",
+    ]);
     await expect(
       sections.getByRole("link", { name: "Profile", exact: true }),
     ).toHaveAttribute("aria-current", "page");
@@ -1101,7 +1112,7 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expect(page.locator('[data-slot="github-restore-card"]')).toHaveCount(
       0,
     );
-    // No applika-cli banner here: below md it shows on Today only.
+    // No Applika MCP banner here: below md it shows on Today only.
     await expectPhoneTargets(page, 5);
     await expectNoSidewaysScroll(page);
 
@@ -1143,7 +1154,7 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Ended" }),
     ).toBeVisible();
-    // After devices.spec.ts, this device alone; the applika-cli banner shows
+    // After devices.spec.ts, this device alone; the Applika MCP banner shows
     // on Today only.
     await expectPhoneTargets(page, 4);
     await expectNoSidewaysScroll(page);
@@ -1180,7 +1191,7 @@ test.describe("the account area, jobs and CVs below md", () => {
         .locator('[data-slot="cycles-empty"]')
         .or(page.locator('li[data-slot="cycle-row"]').first()),
     ).toBeVisible();
-    // New cycle (the applika-cli banner shows on Today only).
+    // New cycle (the Applika MCP banner shows on Today only).
     await expectPhoneTargets(page, 1);
     await expectNoSidewaysScroll(page);
     await expectDocumentScrolls(page);
@@ -1825,13 +1836,13 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expectNoSidewaysScroll(page);
   });
 
-  test("/cli signed in: the Cli board's header offers Dashboard; no Sign in", async ({
+  test("/mcp signed in: the McpPage board's header offers Dashboard; no Sign in", async ({
     page,
   }) => {
     await loginAs(page, "user");
-    await page.goto("/cli");
+    await page.goto("/mcp");
 
-    const phone = page.locator('[data-slot="cli-phone"]');
+    const phone = page.locator('[data-slot="mcp-phone"]');
     const header = phone.getByRole("banner");
     const dashboard = header.getByRole("link", {
       name: "Dashboard",
@@ -1844,8 +1855,21 @@ test.describe("the account area, jobs and CVs below md", () => {
       phone.getByRole("link", { name: /sign in|dashboard/i }),
     ).toHaveCount(1);
     await expectThePair(page);
-    await expectPhoneTargets(page, 13);
+    // home, theme, the two radios, Dashboard, Create a token, Copy, Home,
+    // Cookie policy.
+    await expectPhoneTargets(page, 9);
     await expectNoSidewaysScroll(page);
+
+    // Signed in, Create a token opens Profile › MCP straight away.
+    await phone
+      .getByRole("link", { name: "Create a token", exact: true })
+      .click();
+    await page.waitForURL(/\/profile\?tab=mcp$/);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Profile sections" })
+        .getByRole("link", { name: "MCP", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   test("Admin is an administrator's only: the address sends e2e-user back to Today", async ({
