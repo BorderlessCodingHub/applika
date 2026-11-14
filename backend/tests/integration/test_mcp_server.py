@@ -1343,6 +1343,9 @@ async def test_redis_decides_an_mcp_token_whose_row_lags_behind(
     )
     assert others.json() == {'revoked': 1}
     _assert_token_refused(await rpc(mcp, mcp_token_full.token, 'tools/list'))
+    assert (await _row(async_engine, mcp_token_full.session_id)).end_reason == (
+        'revoked'
+    )
 
 
 async def test_sign_out_everywhere_else_ends_the_mcp_token(

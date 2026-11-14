@@ -33,10 +33,12 @@ Each request adds one to a counter chosen by bucket, subject and window.
   separate: using up one does not touch the others. A `root_path` prefix such as `/api` is
   stripped first, so `/api/auth/refresh` lands in the auth bucket and `/api/mcp` in the mcp
   bucket.
-- **Subject.** A request whose `Authorization: Bearer` is an MCP token (it starts
-  `applika_mcp_`) counts against that token: `mcp:<first 32 hex characters of its sha256>`. The
-  limiter only hashes it, never looks it up, and the token never appears in a Redis key; two AI
-  apps sharing one token share its count. Otherwise a request with a valid, unexpired session
+- **Subject.** On `/mcp` (bucket `mcp`) only, a request whose `Authorization: Bearer` is an MCP
+  token (it starts `applika_mcp_`) counts against that token: `mcp:<first 32 hex characters of
+  its sha256>`. The limiter only hashes it, never looks it up, and the token never appears in a
+  Redis key; two AI apps sharing one token share its count. On every other route an
+  `applika_mcp_` Bearer is no valid session token, so it counts like any invalid Bearer: against
+  the IP (or a valid cookie's user). Otherwise a request with a valid, unexpired session
   token (`Authorization: Bearer`, else the `__access` cookie) counts against that user. Anything
   else (no token, expired, forged) counts against the client IP. Two signed-in users on one IP
   keep separate counts.
