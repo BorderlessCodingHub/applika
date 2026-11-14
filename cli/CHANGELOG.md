@@ -32,6 +32,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- the routes only applika-cli called: `/auth/cli/start`, `/auth/cli/login/{login_id}`, `/auth/cli/exchange`, `/auth/cli/authorize`, `/auth/token`, `/auth/revoke`, `/auth/device/code`, `/auth/device/verify`, `/auth/device/approve`, `/auth/device/deny`, `/applications/{id}/steps` and `/applications/{id}/steps/{sid}`. Each answers 404 `{"detail": "Not Found", "code": "GEN-1001"}`, like any unknown route, with no message.
+- the fields only applika-cli read: `steps` and `feedbacks` from GET /supports (it answers `platforms` only), and `feedback` and `salary_offer` from every application answer (`finalized`, `finalized_at` and `last_step` stay).
+- the legacy finalize body: POST /applications/{id}/finalize with `step_id` / `feedback_id` answers 422 GEN-1003 and closes nothing; no body, `{}`, `null` and the outcome body are unchanged.
+- the CLI sign-in flows: the legacy hand-off (0.1.x `applika login`), browser authorization with PKCE (`applika login`, `--manual`) and the device code (`applika login --device`), with the web pages `/device` and `/cli/code`. The REST API no longer accepts `Authorization: Bearer <access token>` (the web's session cookie only), and POST /auth/refresh ends and refuses a CLI session (401 AUTH-1016), so a signed-in copy stops within 15 minutes.
+- applika-cli is no longer supported (0.1.x included) and is not published; this is the file's last entry: the CLI leaves the repository (ADR-0028).
 - GET /users/me no longer returns `discord` and `discord_linked` (Discord linking is removed).
 - applications timeline add and edit no longer take --type note or --type feedback; existing ones read as interview with interview_type unknown.
 
