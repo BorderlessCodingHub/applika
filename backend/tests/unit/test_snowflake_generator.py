@@ -5,9 +5,15 @@ import pytest
 from app.lib.types import SnowflakeGenerator
 
 
-def _fixed_clock(gen: SnowflakeGenerator, values: list[int]) -> None:
-    ticks = iter(values)
-    gen._now = lambda: next(ticks)  # noqa: SLF001
+class _FixedClockGenerator(SnowflakeGenerator):
+    """Reads its milliseconds from ``values`` instead of the wall clock."""
+
+    def __init__(self, values: list[int]):
+        super().__init__(instance=1)
+        self._ticks = iter(values)
+
+    def _now(self) -> int:
+        return next(self._ticks)
 
 
 def _ts(snowflake_id: int) -> int:
@@ -24,8 +30,7 @@ def test_ids_carry_the_instance_bits():
 
 
 def test_same_millisecond_increments_the_sequence():
-    gen = SnowflakeGenerator(instance=1)
-    _fixed_clock(gen, [1000, 1000, 1000])
+    gen = _FixedClockGenerator([1000, 1000, 1000])
     ids = [next(gen) for _ in range(3)]
     assert [_ts(i) for i in ids] == [1000, 1000, 1000]
     assert [_seq(i) for i in ids] == [0, 1, 2]
@@ -33,8 +38,7 @@ def test_same_millisecond_increments_the_sequence():
 
 def test_clock_stepping_back_never_returns_none():
     # The snowflake-id package returned None here: a NULL primary key.
-    gen = SnowflakeGenerator(instance=1)
-    _fixed_clock(gen, [1000, 990, 995, 1001])
+    gen = _FixedClockGenerator([1000, 990, 995, 1001])
     ids = [next(gen) for _ in range(4)]
     assert all(isinstance(i, int) for i in ids)
     assert ids == sorted(set(ids))
@@ -42,8 +46,7 @@ def test_clock_stepping_back_never_returns_none():
 
 
 def test_exhausted_sequence_borrows_the_next_millisecond():
-    gen = SnowflakeGenerator(instance=1)
-    _fixed_clock(gen, [1000] * 4097)
+    gen = _FixedClockGenerator([1000] * 4097)
     ids = [next(gen) for _ in range(4097)]
     assert len(set(ids)) == 4097
     assert _ts(ids[-1]) == 1001
@@ -58,5 +61,5 @@ def test_ids_are_unique_across_threads():
 
 
 def test_instance_out_of_range_is_refused():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='instance must be in'):
         SnowflakeGenerator(instance=1024)
