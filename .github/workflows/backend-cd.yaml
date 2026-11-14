@@ -74,7 +74,8 @@ jobs:
   # (ADR-0016) the taskiq worker and scheduler, each with its own start
   # command. A job runs only when its UUID variable is set, so a stack
   # without one of them still deploys. Coolify pulls `latest` again and
-  # restarts the resource. Migrations stay manual.
+  # restarts the resource. Migrations run through the API resource's
+  # post-deployment command in Coolify (`alembic upgrade head`), never here.
   deploy-api:
     needs: build-and-push
     if: vars.COOLIFY_API_UUID != ''
