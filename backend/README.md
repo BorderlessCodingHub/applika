@@ -88,9 +88,10 @@ Read from the environment or a `.env` file (`app/config/settings.py`).
 | `REDIS_URL` | `redis://localhost:6379/0` | Sessions, rate limiter, task queue |
 | `JWT_SECRET` | a placeholder | Set a long random value outside development |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `7` | A session ends this long after its last use |
+| `MCP_TOKEN_IDLE_DAYS` | `90` | An MCP token ends this long after its last use on `/mcp` |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | unset | Only for the one-time "restore data from GitHub" |
 | `DISCORD_FEEDBACK_WEBHOOK` | unset | Where in-app feedback is posted |
-| `RATE_LIMIT_ENABLED`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_AUTH` | `True`, `120`, `10` | Requests per minute |
+| `RATE_LIMIT_ENABLED`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_AUTH`, `RATE_LIMIT_MCP` | `True`, `120`, `10`, `120` | Requests per minute; `RATE_LIMIT_MCP` per MCP token on `/mcp` |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` | The trusted proxy (Traefik in production) |
 | `JOBS_INGEST_CRON` | `0 * * * *` | When the worker collects job postings (UTC) |
 | `JOBS_SCRAPERS` | `himalayas,remoteok` | Where it collects them from |
@@ -105,7 +106,8 @@ Everything lives under `/api`; the OpenAPI document is at `/api/docs`
 | Area | Routes |
 |---|---|
 | Sign-in | `/auth/borderless/*`, `/auth/refresh`, `/auth/logout`; for the CLI `/auth/cli/authorize`, `/auth/token`, `/auth/revoke`, `/auth/device/*` |
-| Account | `/users/me`, `/users/me/agenda`, `/users/me/features`, `/users/me/sessions` (devices) |
+| Account | `/users/me`, `/users/me/agenda`, `/users/me/features`, `/users/me/sessions` (devices), `/users/me/mcp-tokens` (create an MCP token) |
+| MCP server | `POST /mcp` — streamable HTTP, stateless, JSON; answers only an MCP token (`Authorization: Bearer applika_mcp_…`) and offers the CLI's commands as tools, by the token's scope (`read`, `write`, `delete`) and the `cvs` feature (ADR-0028). Not beta-gated |
 | Applications | `/applications`, their `/timeline`, `/finalize`, `/reopen`, `/applications/statistics*` |
 | Cycles, companies, platforms | `/cycles`, `/companies`, `/platforms`, `/supports` |
 | Reports | `/reports` — for Borderless BASE and PSP members |
