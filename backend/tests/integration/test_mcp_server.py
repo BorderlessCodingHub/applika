@@ -1294,6 +1294,57 @@ async def test_one_token_in_two_apps_is_one_device_with_the_latest_use(
     assert mcp_token_read.token not in listed.text
 
 
+async def test_redis_decides_an_mcp_token_whose_row_lags_behind(
+    mcp: AsyncClient,
+    real_client: AsyncClient,
+    mcp_token_read,
+    mcp_token_full,
+    async_engine,
+    redis_client,
+):
+    """Postgres follows the 90-day slide at most once a day, so a live
+    token's row can read past its ``expires_at``. Redis is the truth: the
+    list shows it active, revoking it ends it at once, and so does sign
+    out everywhere else."""
+    past = datetime.now(UTC) - timedelta(hours=1)
+    for token in (mcp_token_read, mcp_token_full):
+        await _execute(
+            async_engine,
+            update(UserSessionModel)
+            .where(UserSessionModel.id == token.session_id)
+            .values(expires_at=past),
+        )
+    assert (await rpc(mcp, mcp_token_read.token, 'tools/list')).is_success
+    # That call slid Postgres again; put it back in the lag window.
+    await _execute(
+        async_engine,
+        update(UserSessionModel)
+        .where(UserSessionModel.id == mcp_token_read.session_id)
+        .values(expires_at=past),
+    )
+    web = await open_session(async_engine, redis_client, USER.id)
+    headers = {'Authorization': f'Bearer {web.access_token}'}
+    listed = (await real_client.get('/users/me/sessions', headers=headers)).json()
+    statuses = {row['id']: row['status'] for row in listed}
+    assert statuses[str(mcp_token_read.session_id)] == 'active'
+    assert statuses[str(mcp_token_full.session_id)] == 'active'
+
+    revoked = await real_client.delete(
+        f'/users/me/sessions/{mcp_token_read.session_id}', headers=headers
+    )
+    assert revoked.status_code == 204
+    _assert_token_refused(await rpc(mcp, mcp_token_read.token, 'tools/list'))
+    assert (await _row(async_engine, mcp_token_read.session_id)).end_reason == (
+        'revoked'
+    )
+
+    others = await real_client.post(
+        '/users/me/sessions/revoke-others', headers=headers
+    )
+    assert others.json() == {'revoked': 1}
+    _assert_token_refused(await rpc(mcp, mcp_token_full.token, 'tools/list'))
+
+
 async def test_sign_out_everywhere_else_ends_the_mcp_token(
     mcp: AsyncClient,
     real_client: AsyncClient,

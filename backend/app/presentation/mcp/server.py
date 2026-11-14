@@ -117,7 +117,10 @@ def build_server(registry: ToolRegistry) -> ApplikaMcpServer:
 
     # Input is validated by each tool's own model (the REST schema), after
     # the scope and ``cvs`` checks, so a refusal never depends on the
-    # arguments.
+    # arguments. Keep the SDK's validation off: its ``_tool_cache`` is one
+    # per server, refreshed by whichever caller listed last, so it could
+    # validate against another caller's listing. A returned
+    # ``CallToolResult`` skips the SDK's output validation too.
     @server.call_tool(validate_input=False)
     async def call_tool(
         name: str, arguments: dict[str, Any]

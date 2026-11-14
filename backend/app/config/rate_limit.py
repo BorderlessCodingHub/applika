@@ -60,7 +60,9 @@ class RateLimitMiddleware:
         client_host = client[0] if client else None
 
         bucket = bucket_for(path)
-        subject = subject_for(request.headers, request.cookies, client_host)
+        subject = subject_for(
+            request.headers, request.cookies, client_host, bucket
+        )
         limit = {
             'auth': envs.RATE_LIMIT_AUTH,
             'mcp': envs.RATE_LIMIT_MCP,

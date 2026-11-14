@@ -74,6 +74,7 @@ def exception_error(exc: Exception, tool_name: str) -> types.CallToolResult:
         return tool_error(answer.body)
     logger.error(
         'MCP tool failed',
+        exc_info=exc,
         extra={
             'extra_data': {
                 'event': 'mcp_tool_failed',

@@ -554,3 +554,26 @@ async def test_mcp_counts_per_token_in_its_own_bucket_with_or_without_prefix(
     assert all(len(key.split(':')[4]) == 32 for key in keys)
     # The REST bucket was never touched by /mcp.
     assert await redis_client.keys('applika:ratelimit:default:*') == []
+
+
+async def test_a_fresh_mcp_bearer_per_request_does_not_escape_the_ip_cap(
+    async_client, redis_client, monkeypatch
+):
+    """Off ``/mcp`` an ``applika_mcp_…`` Bearer is no valid JWT: an
+    anonymous caller changing it on every ``/auth/*`` request still counts
+    against its IP and is refused at the auth limit."""
+    _enable_limiter(monkeypatch, auth=2)
+    statuses = []
+    for n in range(3):
+        response = await async_client.get(
+            '/auth/refresh',
+            headers={
+                'Authorization': f'Bearer applika_mcp_fake_{n}' + '0' * 37
+            },
+        )
+        statuses.append(response.status_code)
+    assert statuses[-1] == 429
+    assert 429 not in statuses[:2]
+    keys = await redis_client.keys('applika:ratelimit:auth:*')
+    assert len(keys) == 1
+    assert ':ip:' in keys[0]

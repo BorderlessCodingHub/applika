@@ -26,7 +26,7 @@ from urllib.parse import quote
 
 import redis.asyncio as redis
 from mcp import types
-from pydantic import BaseModel, ValidationError
+from pydantic import AnyUrl, BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.mcp_scopes import McpScope
@@ -146,7 +146,7 @@ def pdf_result(content: bytes, filename: str) -> types.CallToolResult:
             types.EmbeddedResource(
                 type='resource',
                 resource=types.BlobResourceContents(
-                    uri=f'applika://files/{quote(filename)}',  # ty: ignore[invalid-argument-type]
+                    uri=AnyUrl(f'applika://files/{quote(filename)}'),
                     mimeType='application/pdf',
                     blob=base64.b64encode(content).decode('ascii'),
                 ),

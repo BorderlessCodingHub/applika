@@ -98,6 +98,8 @@ This user has Applika's CV feature.
 ### An application's CV copy
 
 - `create_application_cv` copies a master CV (`base_cv_id`) onto an application; one copy per application.
+  `tailoring` is `copy` (default, the verbatim copy) or `keywords` (reordered by job match; needs the jobs feature
+  and a job description, else it is refused).
 - `get_application_cv` reads it; `edit_application_cv` changes only the fields sent (the master CV is never
   touched); `download_application_cv` answers Markdown or a PDF.
 - `diff_application_cv` shows what changed between the copy and the master CV it came from.

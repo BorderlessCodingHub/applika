@@ -25,18 +25,21 @@ def derive_status(
     expires_at: datetime,
     alive: bool,
     now: datetime,
+    redis_only: bool = False,
 ) -> SessionStatus:
     """``logout``/``replaced`` -> signed_out, ``revoked``/``github_revoked``/
     ``borderless_revoked`` -> revoked, ``expired`` -> expired; an open row is expired when its key
     is gone or it is past ``expires_at``, else active. Derived on read; the
-    list never writes."""
+    list never writes. ``redis_only`` (an MCP token, ADR-0028): its row's
+    ``expires_at`` follows Redis at most once a day, so the key alone
+    decides."""
     if end_reason in _SIGNED_OUT:
         return 'signed_out'
     if end_reason in _REVOKED:
         return 'revoked'
     if end_reason is not None:
         return 'expired'
-    if not alive or expires_at <= now:
+    if not alive or (not redis_only and expires_at <= now):
         return 'expired'
     return 'active'
 
@@ -68,7 +71,11 @@ class ListMySessionsUseCase:
         for row in rows:
             state = live.get(row.id, _DEAD)
             status = derive_status(
-                row.end_reason, row.expires_at, state.alive, now
+                row.end_reason,
+                row.expires_at,
+                state.alive,
+                now,
+                redis_only=row.client_type == 'mcp',
             )
             last_used_at = row.last_used_at
             last_ip = row.last_ip

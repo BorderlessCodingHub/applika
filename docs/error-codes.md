@@ -53,7 +53,7 @@ is written `<name>`, and `<name>` is a key of `params`.
 | AUTH-1011 | 401 | `Token expired` | — | The access token is past its expiry. | `GetCurrentUserUseCase` |
 | AUTH-1012 | 401 | `Invalid token` | — | The access token is not a valid JWT for this API. | `GetCurrentUserUseCase` |
 | AUTH-1013 | 401 | `Invalid token payload` | — | The access token carries no subject. | `GetCurrentUserUseCase` |
-| AUTH-1014 | 401 | `User not found` | — | The session is live but its user no longer exists. | `GetCurrentUserUseCase`; `GET /auth/refresh` |
+| AUTH-1014 | 401 | `User not found` | — | The session is live but its user no longer exists. | `GetCurrentUserUseCase`; `GET /auth/refresh`; `POST /mcp` (`AuthenticateMcpTokenUseCase`) |
 | AUTH-1015 | 401 | `Invalid or expired refresh token` | — | The refresh value names no live session. | `GET /auth/refresh` |
 | AUTH-1016 | 401 | `Sign in again with Borderless` | — | The session predates the Borderless sign-in or the user has no Borderless link; it cannot slide on. | `GET /auth/refresh` |
 | AUTH-1017 | 503 | `Borderless is unavailable, try again later` | — | Borderless did not answer or answered unexpectedly (its discovery document, the code exchange). Since ADR-0026 sent as `?error=AUTH-1017` (plus `&cli=1` on a CLI sign-in). | `GET /auth/borderless/login`, `GET /auth/cli/authorize`, `GET /auth/cli/login/{login_id}`, `GET /auth/borderless/callback` (all `?error=`) |

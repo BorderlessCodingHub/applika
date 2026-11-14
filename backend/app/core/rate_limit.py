@@ -7,9 +7,9 @@ request pipeline.
 - ``bucket_for``: an ``/auth/*`` route counts against ``RATE_LIMIT_AUTH``,
   ``/mcp`` against ``RATE_LIMIT_MCP`` (ADR-0028), every other route against
   ``RATE_LIMIT_DEFAULT`` (R-017).
-- ``subject_for``: a Bearer that is an MCP token (``applika_mcp_…``) is
-  counted against ``mcp:<first 32 hex of its sha256>``, with no lookup
-  (ADR-0028). Else a request whose ``Authorization: Bearer`` header, else
+- ``subject_for``: on ``/mcp`` (bucket ``mcp``), a Bearer that is an MCP
+  token (``applika_mcp_…``) is counted against ``mcp:<first 32 hex of its
+  sha256>``, with no lookup (ADR-0028). Else a request whose ``Authorization: Bearer`` header, else
   whose ``__access`` cookie, holds a valid, unexpired access token is
   counted against that token's subject (the user); any other request is
   counted against the client IP (R-016; Bearer first since device sessions,
@@ -86,14 +86,21 @@ def subject_for(
     headers: Mapping[str, str],
     cookies: Mapping[str, str],
     client_host: str | None,
+    bucket: str = 'default',
 ) -> str:
-    """``mcp:<sha256 prefix>`` for an MCP token, else ``user:<sub>`` from a
-    valid Bearer token, else from a valid ``__access`` cookie, else
-    ``ip:<host>``. Only the JWT is read and the MCP token only hashed: the
-    session check is ``get_current_user``'s and ``McpAuthGuard``'s, the
-    limiter stays a single Redis call and fails open."""
+    """In the ``mcp`` bucket, ``mcp:<sha256 prefix>`` for an MCP token.
+    Else ``user:<sub>`` from a valid Bearer token, else from a valid
+    ``__access`` cookie, else ``ip:<host>``. Only the JWT is read and the
+    MCP token only hashed: the session check is ``get_current_user``'s and
+    ``McpAuthGuard``'s, the limiter stays a single Redis call and fails
+    open.
+
+    The MCP subject is the ``mcp`` bucket's only: anyone can send a fresh
+    ``applika_mcp_…`` string per request, so on ``/auth/*`` and every REST
+    route such a Bearer is no valid JWT and counts against the IP, as any
+    other invalid Bearer does."""
     bearer = _bearer_token(headers)
-    if bearer and bearer.startswith(MCP_TOKEN_PREFIX):
+    if bucket == 'mcp' and bearer and bearer.startswith(MCP_TOKEN_PREFIX):
         digest = hashlib.sha256(bearer.encode()).hexdigest()
         return f'mcp:{digest[:MCP_SUBJECT_HEX]}'
     subject = _token_subject(bearer) or _token_subject(
