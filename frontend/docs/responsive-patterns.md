@@ -20,7 +20,7 @@ Use exactly one of these per screen.
 | Kind of screen                                                        | Switch                                                                  | Why                                                               |
 | --------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Signed-in (behind auth)                                               | `useIsPhone()` in the page, after every hook                            | Rendered after auth, so nothing flashes; hook order never changes |
-| Public, static (`/`, `/login`, `/cli`, `/cli/code`, `/cookie-policy`) | CSS: two trees, `md:hidden` and `hidden md:flex` / `hidden md:contents` | The static HTML hydrates as is: no mismatch                       |
+| Public, static (`/`, `/login`, `/mcp`, `/cli/code`, `/cookie-policy`) | CSS: two trees, `md:hidden` and `hidden md:flex` / `hidden md:contents` | The static HTML hydrates as is: no mismatch                       |
 
 **`useIsPhone()`** (`hooks/use-is-phone.ts`) reads
 `matchMedia(PHONE_QUERY)` (`"(max-width: 47.99rem)"`); its server snapshot
