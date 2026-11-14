@@ -174,6 +174,7 @@ export interface AccountHubRow {
     | "reports"
     | "cycles"
     | "profile"
+    | "mcp"
     | "devices"
     | "device"
     | "admin";
@@ -195,9 +196,9 @@ const WORKSPACE_ORDER = [
  * (`navItemsFor` in the protected layout): a row shows only when its entry is
  * there, so the feature keys, the Reports badge and `is_admin` decide exactly
  * as they do for the desktop rail, and a feature taken away drops its row on
- * the next load. Devices & CLI and Sign in a device are open to every signed-in
- * user today (the profile's Devices tab, `/device`). Labels are read now: call
- * it during render.
+ * the next load. MCP, Devices & CLI and Sign in a device are open to every
+ * signed-in user, with no beta gate (the profile's MCP and Devices tabs,
+ * `/device`; ADR-0028). Labels are read now: call it during render.
  */
 export function accountRows(navItems: readonly NavItem[]): {
   workspace: AccountHubRow[];
@@ -224,6 +225,11 @@ export function accountRows(navItems: readonly NavItem[]): {
     account.push({ key: "profile", href: "/profile", label: profile.label });
   }
   account.push(
+    {
+      key: "mcp",
+      href: "/profile?tab=mcp",
+      label: word("phone.account.mcp"),
+    },
     {
       key: "devices",
       href: "/profile?tab=devices",

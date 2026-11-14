@@ -52,6 +52,7 @@ vi.mock("@/services/services", () => ({
       list: vi.fn().mockResolvedValue([]),
       revoke: vi.fn(),
       revokeOthers: vi.fn(),
+      createMcpToken: vi.fn(),
     },
   },
 }));
@@ -176,16 +177,21 @@ describe("ProfilePage GitHub restore notices", () => {
 });
 
 /**
- * PRD 0014 (AC2, AC8): "Profile" (today's content) and "Devices" tabs, side
- * by side, for every user — no feature gate. `?tab=devices` (the `/device`
- * page's "See your devices") opens Devices.
+ * PRD 0014 (AC2, AC8) and PRD 0023: "Profile" (today's content), "MCP" and
+ * "Devices" tabs, side by side in that order, for every user — no feature
+ * gate. `?tab=devices` (the `/device` page's "See your devices") opens
+ * Devices; `?tab=mcp` (`/mcp`'s "Create a token") opens MCP.
  */
 describe("ProfilePage tabs", () => {
-  it("shows Profile and Devices tabs, Profile selected with today's content", () => {
+  it("shows Profile, MCP and Devices tabs, Profile selected with today's content", () => {
     renderPage();
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["Profile", "Devices"]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      "Profile",
+      "MCP",
+      "Devices",
+    ]);
     expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -194,6 +200,40 @@ describe("ProfilePage tabs", () => {
     expect(
       document.querySelector('[data-slot="devices-tab"]'),
     ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="mcp-tab"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("the MCP tab shows the MCP connections, fetched once it opens", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("tab", { name: "MCP" }));
+
+    expect(screen.getByRole("tab", { name: "MCP" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.queryByText("Profile View")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="mcp-tab"]')).toHaveAttribute(
+        "data-state",
+        "ready",
+      ),
+    );
+    expect(screen.getByText("No MCP connections yet")).toBeInTheDocument();
+  });
+
+  it("?tab=mcp opens the MCP tab", () => {
+    searchParams = new URLSearchParams("tab=mcp");
+    renderPage();
+
+    expect(screen.getByRole("tab", { name: "MCP" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(document.querySelector('[data-slot="mcp-tab"]')).toBeInTheDocument();
   });
 
   it("the Devices tab shows the device list", async () => {

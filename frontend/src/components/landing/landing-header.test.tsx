@@ -6,7 +6,7 @@ import { LocaleProvider } from "@/i18n/locale-provider";
 import { renderInPortuguese } from "@/test/portuguese";
 
 /**
- * The public header at md and up (`/`, `/cli`, `/cookie-policy`), in the
+ * The public header at md and up (`/`, `/mcp`, `/cookie-policy`), in the
  * owner's order: the logo, then the theme toggle, the language switcher and
  * Sign in, or Dashboard once signed in.
  */

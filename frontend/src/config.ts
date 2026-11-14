@@ -11,11 +11,11 @@ export const APP_CONFIG = {
     /** The Borderless community's home. */
     homeUrl: "https://borderlesscoding.com",
   },
-  cli: {
-    /** The applika-cli page on PyPI, linked from the CLI promo banner. */
-    url:
-      process.env.NEXT_PUBLIC_APPLIKA_CLI ||
-      "https://pypi.org/project/applika-cli/",
+  mcp: {
+    /** The public page that explains the MCP server. */
+    page: "/mcp",
+    /** The MCP server address the configs and the pages print. */
+    endpoint: `${(process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/+$/, "")}/mcp`,
   },
   name: "Applika.dev",
   shortName: "Applika.dev",

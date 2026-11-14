@@ -1,6 +1,8 @@
 import { api } from "@/lib/api-client";
 import type { ISessionService } from "@/services/interfaces/i-session-service";
 import type {
+  McpTokenCreate,
+  McpTokenCreated,
   RevokeOthersResult,
   UserSession,
 } from "@/services/types/sessions";
@@ -22,6 +24,16 @@ export class SessionService implements ISessionService {
   revokeOthers(): Promise<RevokeOthersResult> {
     return api
       .post<RevokeOthersResult>("/users/me/sessions/revoke-others")
+      .then((r) => r.data);
+  }
+
+  /**
+   * A new MCP connection (ADR-0028): 201 carries the token, the only answer
+   * that ever does. It is handed to the caller and kept nowhere else.
+   */
+  createMcpToken(body: McpTokenCreate): Promise<McpTokenCreated> {
+    return api
+      .post<McpTokenCreated>("/users/me/mcp-tokens", body)
       .then((r) => r.data);
   }
 }

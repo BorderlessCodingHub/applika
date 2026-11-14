@@ -76,6 +76,7 @@ vi.mock("@/services/services", () => ({
             ended_at: null,
             status: "active",
             current: true,
+            scope: null,
           },
           {
             id: "s2",
@@ -91,6 +92,7 @@ vi.mock("@/services/services", () => ({
             ended_at: null,
             status: "active",
             current: false,
+            scope: null,
           },
         ]),
     },

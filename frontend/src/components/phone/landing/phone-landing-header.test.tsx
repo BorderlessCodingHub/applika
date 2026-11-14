@@ -6,7 +6,7 @@ import { LocaleProvider } from "@/i18n/locale-provider";
 import { PhoneLandingHeader } from "./phone-landing-header";
 
 /**
- * The public phone header of v2/Landing and v3/Cli, in the owner's order:
+ * The public phone header of v2/Landing and `/mcp`, in the owner's order:
  * the Applika icon as the home link, then the theme toggle, the language
  * toggle with its flags only, and the sign-in button: "Sign in" to /login
  * signed out (and while the session loads), "Dashboard" to /dashboard signed

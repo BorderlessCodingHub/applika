@@ -593,7 +593,7 @@
     "profile": "Perfil",
     "admin": "Admin",
     "system": "Sistema",
-    "cli": "Applika CLI"
+    "mcp": "Applika MCP"
   },
   "userMenu": {
     "open": "Abrir menu da conta",
@@ -626,34 +626,165 @@
     "title": "Ops! Página não encontrada",
     "home": "Voltar ao início"
   },
-  "cliBanner": {
-    "region": "Aviso do applika-cli",
-    "title": "Experimente a ferramenta de linha de comando <mono>applika-cli</mono>",
-    "body": "Uma CLI para registrar candidaturas pelo terminal. Vem com uma skill pronta para ferramentas de IA como Claude e Codex. Veja no PyPI como instalar e todos os detalhes.",
-    "cta": "Ver no PyPI",
-    "dismiss": "Dispensar aviso"
-  },
-  "cliPage": {
-    "eyebrow": "Linha de comando",
-    "title": "applika-cli",
-    "lead": "Registre, filtre e atualize suas candidaturas sem sair do terminal. Vem com uma skill que ensina assistentes de IA como Claude, Codex e Gemini a usá-la.",
-    "pypi": "Ver no PyPI",
-    "copy": "Copiar comando",
+  "mcpCopy": {
+    "copy": "Copiar",
     "copied": "Copiado",
-    "installTitle": "Instalação",
-    "installBody": "Requer Python 3.10 ou mais recente. Instale com <code>uv</code> (recomendado) ou <code>pipx</code>; os dois disponibilizam o comando global <code>applika</code>.",
-    "signInTitle": "Entrar",
-    "signInBody": "A CLI entra com sua conta Borderless e recebe uma sessão própria, listada como um dispositivo na aba Dispositivos do seu perfil, onde você pode revogá-la quando quiser.",
-    "signInBrowser": "<strong>Padrão:</strong> seu navegador abre e o login volta sozinho para o terminal.",
-    "signInManual": "<strong>Navegador em outra máquina:</strong> <code>--manual</code> mostra um código no navegador para você colar no terminal.",
-    "signInDevice": "<strong>Sem navegador</strong> (SSH, contêineres): <code>--device</code> mostra um código curto para aprovar em qualquer navegador conectado.",
-    "trackTitle": "Acompanhe pelo terminal",
-    "trackBody": "Liste e filtre seu funil, adicione candidaturas, registre entrevistas e ofertas na linha do tempo e encerre candidaturas quando terminarem. Use <code>--output-format json</code> para enviar os resultados a outras ferramentas.",
-    "skillTitle": "Ensine seu assistente de IA",
-    "skillBody": "<code>applika skill</code> instala a skill incluída para Claude Code, Codex, Gemini ou OpenCode. Seu assistente passa a conhecer todos os comandos, verifica sua sessão antes e monta candidaturas válidas para você, então basta dizer \"registre minha candidatura na Stripe\".",
-    "moreTitle": "Todo o resto",
-    "moreBody": "Linhas do tempo, encerramento de candidaturas e todas as opções estão documentados na página do pacote.",
-    "footer": "Voltar para a <link>página inicial</link>."
+    "refused": "A cópia está bloqueada aqui. O texto está selecionado: copie manualmente."
+  },
+  "mcpScope": {
+    "legend": "O que ele pode fazer?",
+    "recommended": "Recomendado",
+    "fixed": "O escopo não pode mudar depois. Para mais acesso, crie um novo token. As ferramentas de CV só aparecem se você tiver o recurso de CVs.",
+    "read": {
+      "title": "Somente leitura",
+      "body": "Consultar e ler candidaturas, eventos da linha do tempo, CVs, plataformas e empresas."
+    },
+    "read_write": {
+      "title": "Leitura e escrita",
+      "body": "Também criar, editar, encerrar e reabrir candidaturas, adicionar e editar eventos da linha do tempo e escrever CVs."
+    },
+    "full": {
+      "title": "Acesso total",
+      "body": "Também excluir eventos da linha do tempo, CVs principais e CVs das candidaturas. A exclusão não pode ser desfeita."
+    }
+  },
+  "mcpCreate": {
+    "title": "Novo token MCP",
+    "lead": "Seu app de IA o envia em cada chamada para agir como você.",
+    "nameLabel": "Nome",
+    "defaultName": "Conexão MCP",
+    "nameHintPhone": "Aparece em Dispositivos e nesta aba.",
+    "nameHintDesktop": "Aparece em Dispositivos e na aba MCP.",
+    "cancel": "Cancelar",
+    "create": "Criar token",
+    "failed": "Não foi possível criar o token. Tente novamente."
+  },
+  "mcpToken": {
+    "title": "Seu token está pronto",
+    "summary": "{name} · {scope} · termina 90 dias após o último uso",
+    "warning": "Copie agora. O Applika mostra o token uma única vez. Perdeu? Crie um novo token e revogue este.",
+    "tokenLabel": "Token",
+    "copyToken": "Copiar o token",
+    "tokenCopied": "Token copiado",
+    "addTitle": "Adicione ao seu app",
+    "appGroup": "App de IA",
+    "copyConfig": "Copiar a configuração",
+    "configCopied": "Configuração copiada",
+    "keep": "Guarde nas suas próprias configurações, nunca em um arquivo de projeto que você versiona. Reinicie o app e peça: <ask>“Liste minhas candidaturas em aberto.”</ask>",
+    "done": "Pronto"
+  },
+  "mcpConfig": {
+    "other": "Outro",
+    "otherAddress": "Endereço",
+    "otherHeader": "Cabeçalho",
+    "where": {
+      "claude_code": "Rode no terminal. --scope user adiciona às configurações do seu usuário, não a um projeto.",
+      "claude_desktop": "Settings › Developer › Edit config, em claude_desktop_config.json. Precisa do Node.js.",
+      "cursor": "Em ~/.cursor/mcp.json, o seu arquivo de usuário.",
+      "vscode": "Na Command Palette, MCP: Open User Configuration (mcp.json).",
+      "codex": "Em ~/.codex/config.toml.",
+      "gemini": "Em ~/.gemini/settings.json, o seu arquivo de usuário.",
+      "other": "Qualquer app que se conecte a um servidor MCP por HTTP com streaming e envie um cabeçalho."
+    }
+  },
+  "mcpTab": {
+    "title": "Conexões MCP",
+    "lead": "Tokens que permitem ao seu app de IA usar o Applika pelo servidor MCP. Cada um também aparece em Dispositivos.",
+    "deskLead": "Tokens que permitem ao seu app de IA usar o Applika pelo servidor MCP. Cada um também aparece em Dispositivos. Um token termina 90 dias após o último uso. <link>Como o MCP funciona</link>",
+    "serverAddress": "Endereço do servidor",
+    "copyAddress": "Copiar o endereço do servidor",
+    "addressCopied": "Endereço do servidor copiado",
+    "newToken": "Novo token",
+    "activeTitle": "Ativos",
+    "loading": "Carregando conexões MCP",
+    "loadErrorTitle": "Não foi possível carregar suas conexões MCP",
+    "loadErrorBody": "Verifique sua conexão e tente novamente.",
+    "retry": "Tentar de novo",
+    "terms": {
+      "created": "Criado",
+      "lastUsed": "Último uso",
+      "ip": "Endereço IP",
+      "ends": "Termina",
+      "endsIfUnused": "Termina se não for usado"
+    },
+    "endsValue": "{date} se não for usado",
+    "never": "Nunca",
+    "notRecorded": "Não registrado",
+    "revoke": "Revogar",
+    "revokeLabel": "Revogar o token {name}",
+    "revokeTitle": "Revogar o token {name}?",
+    "revokeBody": "Os apps que o usam perdem o acesso na próxima chamada. Para conectar de novo, crie um novo token.",
+    "revokeConfirm": "Revogar token",
+    "cancel": "Cancelar",
+    "emptyTitle": "Nenhuma conexão MCP ainda",
+    "emptyBody": "Conecte o Claude Code, o Cursor, o VS Code ou outro app de IA e peça para ele registrar candidaturas, atualizar a linha do tempo ou adaptar um CV para você.",
+    "step1": "<strong>Crie um token</strong> e escolha o que ele pode fazer.",
+    "step2": "<strong>Copie a configuração</strong> para o seu app. Ela contém o token.",
+    "step3": "<strong>Cole</strong> no seu app e reinicie-o.",
+    "createToken": "Criar token",
+    "whatIsMcp": "O que é MCP?",
+    "deskEmptyBody": "Crie um token, copie a configuração para o seu app, cole e reinicie o app.",
+    "footHint": "Um token termina 90 dias após o último uso. Precisa de mais acesso? Crie um novo token com um escopo maior e revogue o antigo; o escopo nunca muda. <link>Como o MCP funciona</link>",
+    "deskFootHint": "Precisa de mais acesso? Crie um novo token com um escopo maior e revogue o antigo; o escopo nunca muda."
+  },
+  "mcpPage": {
+    "eyebrow": "Servidor MCP",
+    "title": "O Applika no seu assistente de IA",
+    "lead": "Conecte o Claude Code, o Cursor, o VS Code e outros apps de IA à sua conta do Applika. Peça para eles registrarem uma candidatura, adicionarem uma entrevista à linha do tempo ou adaptarem um CV. Nada para instalar.",
+    "cta": "Criar um token",
+    "ctaNote": "Você entra primeiro e chega em Perfil › MCP.",
+    "exampleLabel": "Exemplo de conversa",
+    "exampleAsk": "Adicione minha entrevista com a Acme amanhã às 10:00 e mantenha a candidatura aberta.",
+    "exampleReply": "Pronto. <strong>Acme — Backend engineer</strong> agora tem uma entrevista em 15 de nov. às 10:00. Ela continua aberta.",
+    "stepsTitle": "Conecte em três passos",
+    "steps": {
+      "create": {
+        "title": "Crie um token",
+        "body": "Em Perfil › MCP, dê um nome e escolha o que ele pode fazer: somente leitura, leitura e escrita ou acesso total."
+      },
+      "copy": {
+        "title": "Copie a configuração",
+        "body": "O Applika a escreve para o seu app com o token já dentro. Copie agora: o token aparece uma única vez."
+      },
+      "paste": {
+        "title": "Cole e peça",
+        "body": "Cole nas configurações de usuário do seu app, reinicie e experimente “Liste minhas candidaturas em aberto.”"
+      }
+    },
+    "addressTitle": "Endereço do servidor",
+    "addressBody": "HTTP com streaming. Seu app envia o token no cabeçalho <code>Authorization</code>.",
+    "copyAddress": "Copiar o endereço do servidor",
+    "addressCopied": "Endereço do servidor copiado",
+    "appsTitle": "Funciona com",
+    "appsBody": "Qualquer app que consiga enviar um cabeçalho a um servidor MCP. O Applika escreve a configuração para estes:",
+    "appsLater": "Apps que só se conectam pela própria página de entrada, como o claude.ai ou o ChatGPT na web, ainda não são suportados.",
+    "canTitle": "O que seu assistente pode fazer",
+    "can": {
+      "applications": "<strong>Candidaturas.</strong> Listar, ler, adicionar, editar, encerrar e reabrir.",
+      "timeline": "<strong>Linha do tempo.</strong> Listar, adicionar, editar e excluir entrevistas, ofertas e outros eventos.",
+      "cvs": "<strong>CVs.</strong> Ler, escrever, baixar e comparar CVs principais e CVs das candidaturas, se você tiver o recurso de CVs.",
+      "lookups": "<strong>Consultas.</strong> Encontrar plataformas e empresas e conferir com qual conta você entrou."
+    },
+    "reachTitle": "Você escolhe o alcance",
+    "reach": {
+      "read": "Consulta. Não muda nada.",
+      "read_write": "Também cria, edita, encerra e reabre. Não exclui nada.",
+      "full": "Também exclui eventos da linha do tempo e CVs. Seu app pergunta antes."
+    },
+    "controlTitle": "Você continua no controle",
+    "control": {
+      "devices": "Cada token aparece em <strong>Dispositivos</strong>. Revogue e ele para na hora.",
+      "ends": "Um token termina <strong>90 dias após o último uso</strong>.",
+      "own": "Ele alcança só os seus dados, nunca os de outra pessoa, e nunca as ferramentas de administração."
+    },
+    "footerHome": "Início"
+  },
+  "mcpBanner": {
+    "region": "Aviso do Applika MCP",
+    "title": "Use o Applika pelo seu assistente de IA",
+    "body": "O servidor MCP do Applika permite que o Claude Code, o Cursor, o VS Code e outros apps de IA registrem candidaturas, atualizem a linha do tempo e adaptem CVs para você. Nada para instalar.",
+    "cta": "Veja como funciona",
+    "dismiss": "Dispensar aviso"
   },
   "features": {
     "beta": "Beta",
@@ -674,6 +805,7 @@
   "profile": {
     "tabs": {
       "profile": "Perfil",
+      "mcp": "MCP",
       "devices": "Dispositivos"
     },
     "edit": "Editar",
@@ -768,7 +900,7 @@
   },
   "devices": {
     "activeTitle": "Ativos",
-    "activeDescription": "Navegadores e CLIs conectados à sua conta. Revogue qualquer um que você não reconheça.",
+    "activeDescription": "Navegadores, CLIs e conexões MCP conectados à sua conta. Revogue qualquer um que você não reconheça.",
     "endedTitle": "Encerrados (últimos 30 dias)",
     "endedEmpty": "Nenhum dispositivo foi encerrado nos últimos 30 dias.",
     "thisDevice": "Este dispositivo",
@@ -780,7 +912,7 @@
     "signOutBody": "Você é desconectado aqui na hora e levado à página de entrada.",
     "signOutOthers": "Desconectar os outros dispositivos",
     "signOutOthersConfirm": "Desconectar outros dispositivos",
-    "signOutOthersBody": "Eles são desconectados na próxima solicitação e precisam entrar de novo. Este dispositivo continua conectado.",
+    "signOutOthersBody": "Eles são desconectados na próxima solicitação e precisam entrar de novo; as conexões MCP param de funcionar. Este dispositivo continua conectado.",
     "noOtherDevices": "Nenhum outro dispositivo está conectado.",
     "cancel": "Cancelar",
     "loading": "Carregando dispositivos",
@@ -788,7 +920,7 @@
     "loadErrorBody": "Verifique sua conexão e tente novamente.",
     "retry": "Tentar de novo",
     "emptyTitle": "Nenhum dispositivo ativo",
-    "emptyBody": "Os navegadores e CLIs em que você entrar aparecem aqui.",
+    "emptyBody": "Os navegadores e CLIs em que você entrar, e suas conexões MCP, aparecem aqui.",
     "never": "Nunca",
     "notRecorded": "Não registrado",
     "revokeTitle": "Revogar o acesso de {name}?",
@@ -803,7 +935,8 @@
       "granted": "Concedido",
       "lastUsed": "Último uso",
       "expires": "Expira",
-      "ended": "Encerrado"
+      "ended": "Encerrado",
+      "endsIfUnused": "Termina se não for usado"
     },
     "status": {
       "active": "Ativo",
@@ -816,8 +949,11 @@
       "github_web": "GitHub no navegador",
       "cli_browser": "Aprovado no navegador",
       "cli_device": "Aprovado com código de dispositivo",
-      "cli_legacy": "Acesso por CLI antiga"
-    }
+      "cli_legacy": "Acesso por CLI antiga",
+      "mcp_token": "Token MCP"
+    },
+    "revokeMcpBody": "Os apps que usam este token perdem o acesso na próxima chamada. Para conectar de novo, crie um novo token em Perfil › MCP.",
+    "mcpClient": "App de IA (MCP)"
   },
   "badges": {
     "memberName": "Membro Borderless {badge}",
@@ -2296,7 +2432,8 @@
       "dark": "Escuro",
       "sendFeedback": "Enviar feedback",
       "cookiePolicy": "Política de cookies",
-      "openSource": "Applika.dev · código aberto"
+      "openSource": "Applika.dev · código aberto",
+      "mcp": "MCP"
     },
     "landing": {
       "eyebrow": "Rastreador de candidaturas gratuito e de código aberto",

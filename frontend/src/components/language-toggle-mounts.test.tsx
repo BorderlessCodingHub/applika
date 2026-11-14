@@ -21,13 +21,13 @@ import type { User } from "@/services/types/users";
 
 /**
  * Where the language switcher is mounted (plan 0019, PRD 0021): the signed-in
- * header, the landing header (md and up; the cookie policy and /cli pages
- * share it), the phone landing's header and the phone public bar (below md:
- * /cookie-policy, /cli), the sign-in page and the terminal code page (one
- * mount each, laid out for both widths). The `default` look everywhere; the
- * `landing` look is ported but mounted nowhere. Every mount puts it right
- * after the theme toggle. Only the phone landing's header shows the flags
- * alone.
+ * header, the landing header (md and up; the cookie policy and /mcp pages
+ * share it), the phone landing's header (below md: /, /mcp) and the phone
+ * public bar (below md: /cookie-policy), the sign-in page and the terminal
+ * code page (one mount each, laid out for both widths). The `default` look
+ * everywhere; the `landing` look is ported but mounted nowhere. Every mount
+ * puts it right after the theme toggle. Only the phone landing's header
+ * shows the flags alone.
  */
 
 vi.mock("next/navigation", () => ({

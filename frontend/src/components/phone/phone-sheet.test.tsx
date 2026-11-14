@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -162,5 +162,59 @@ describe("PhoneSheet on the frame", () => {
     expect(
       document.querySelector('[data-slot="phone-sheet-scrim"]'),
     ).toHaveClass("ph-scrim", "ph-qa-scrim");
+  });
+
+  it("hands the first focus to the given element (a title: no keyboard pops up)", async () => {
+    mockPhoneViewport();
+    function TitleFirst() {
+      const title = useRef<HTMLHeadingElement>(null);
+      return (
+        <PhoneSheetFrame open onOpenChange={() => {}} initialFocus={title}>
+          <PhoneSheetTitle ref={title} tabIndex={-1}>
+            New MCP token
+          </PhoneSheetTitle>
+          <input aria-label="Name" />
+        </PhoneSheetFrame>
+      );
+    }
+    render(<TitleFirst />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "New MCP token" }),
+      ).toHaveFocus(),
+    );
+    expect(screen.getByRole("textbox", { name: "Name" })).not.toHaveFocus();
+  });
+
+  it("keepOnScrim: a tap outside does not close it, though it stays a dialog; Escape still does", async () => {
+    mockPhoneViewport();
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <PhoneSheetFrame open onOpenChange={onOpenChange} keepOnScrim>
+        <PhoneSheetTitle>Your token is ready</PhoneSheetTitle>
+      </PhoneSheetFrame>,
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Your token is ready" }),
+    ).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.pointerDown(document.body);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+
+    // The control: without it, a tap outside closes.
+    onOpenChange.mockClear();
+    rerender(
+      <PhoneSheetFrame open onOpenChange={onOpenChange}>
+        <PhoneSheetTitle>Your token is ready</PhoneSheetTitle>
+      </PhoneSheetFrame>,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.pointerDown(document.body);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

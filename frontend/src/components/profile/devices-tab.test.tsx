@@ -7,7 +7,11 @@ import { toast } from "sonner";
 
 import { ProfileDevices } from "@/app/(protected)/profile/profile-page";
 import { DevicesTab, type DevicesTabProps } from "./devices-tab";
-import { SIGN_IN_METHOD_LABEL, formatSessionTime } from "./devices-copy";
+import {
+  SIGN_IN_METHOD_LABEL,
+  formatSessionDate,
+  formatSessionTime,
+} from "./devices-copy";
 import { services } from "@/services/services";
 import type { UserSession } from "@/services/types/sessions";
 
@@ -46,6 +50,7 @@ const CURRENT: UserSession = {
   ended_at: null,
   status: "active",
   current: true,
+  scope: null,
 };
 
 const CLI: UserSession = {
@@ -62,6 +67,7 @@ const CLI: UserSession = {
   ended_at: null,
   status: "active",
   current: false,
+  scope: null,
 };
 
 const SIGNED_OUT: UserSession = {
@@ -287,7 +293,9 @@ describe("DevicesTab states", () => {
 
     expect(screen.getByText("No active devices")).toBeInTheDocument();
     expect(
-      screen.getByText("Browsers and CLIs you sign in with appear here."),
+      screen.getByText(
+        "Browsers and CLIs you sign in with, and your MCP connections, appear here.",
+      ),
     ).toBeInTheDocument();
     expect(activeList()).not.toBeInTheDocument();
   });
@@ -386,7 +394,7 @@ describe("DevicesTab states", () => {
     let dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent("Sign out 1 other device?");
     expect(dialog).toHaveTextContent(
-      "They are signed out on their next request and have to sign in again. This device stays signed in.",
+      "They are signed out on their next request and have to sign in again; MCP connections stop working. This device stays signed in.",
     );
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(onRevokeOthers).not.toHaveBeenCalled();
@@ -740,9 +748,114 @@ describe("Devices tab wired to the API (use-sessions)", () => {
   });
 });
 
+/**
+ * PRD 0023: an MCP token is one connection, listed in Devices with its name,
+ * scope, creation date, last use and last IP, and revoked here as any device.
+ */
+describe("an MCP connection in Devices", () => {
+  const MCP: UserSession = {
+    id: "301",
+    client_type: "mcp",
+    sign_in_method: "mcp_token",
+    device_name: "Claude Code on my laptop",
+    client_label: "Unknown device",
+    created_ip: "188.81.24.6",
+    last_ip: "188.81.24.7",
+    created_at: "2026-11-14T09:00:00Z",
+    last_used_at: "2026-11-14T10:00:00Z",
+    expires_at: "2027-02-12T10:00:00Z",
+    ended_at: null,
+    status: "active",
+    current: false,
+    scope: ["read", "write"],
+  };
+
+  it("shows its icon, name, scope chip, MCP token, AI app and the date it ends if unused", () => {
+    renderTab({ sessions: [CURRENT, MCP] });
+    const mcp = within(row("301"));
+
+    expect(mcp.getByText("Claude Code on my laptop")).toBeInTheDocument();
+    const chip = row("301").querySelector('[data-slot="mcp-scope"]');
+    expect(chip).toHaveTextContent("Read and write");
+    expect(chip).toHaveAttribute("data-scope", "read_write");
+    expect(mcp.getByText("MCP token")).toBeInTheDocument();
+    // The server says "Unknown device" (no user agent): the row names an AI app.
+    expect(mcp.getByText("AI app (MCP)")).toBeInTheDocument();
+    expect(mcp.queryByText("Unknown device")).toBeNull();
+    expect(
+      row("301").querySelector('[data-slot="device-last-ip"]'),
+    ).toHaveTextContent("188.81.24.7");
+    expect(mcp.getAllByRole("term").map((term) => term.textContent)).toContain(
+      "Ends if unused",
+    );
+    expect(mcp.queryByText("Expires")).toBeNull();
+    // A date without a time: Postgres can trail the real end by a day.
+    expect(mcp.getByText(formatSessionDate(MCP.expires_at))).toHaveAttribute(
+      "dateTime",
+      MCP.expires_at,
+    );
+    expect(formatSessionDate(MCP.expires_at)).toBe("Feb 12, 2027");
+    // Web and CLI rows wear no scope chip.
+    expect(row("101").querySelector('[data-slot="mcp-scope"]')).toBeNull();
+  });
+
+  it("revokes it after a confirm that says the app loses access", async () => {
+    const user = userEvent.setup();
+    const { onRevoke } = renderTab({ sessions: [CURRENT, MCP] });
+
+    await user.click(
+      within(row("301")).getByRole("button", { name: "Revoke" }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveTextContent(
+      "Revoke access for Claude Code on my laptop?",
+    );
+    expect(dialog).toHaveTextContent(
+      "Apps that use this token lose access on their next call. To connect again, create a new token in Profile › MCP.",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Revoke access" }),
+    );
+    expect(onRevoke).toHaveBeenCalledWith(MCP);
+  });
+
+  it("an ended MCP row keeps Ended with its date and time", async () => {
+    const ended: UserSession = {
+      ...MCP,
+      status: "revoked",
+      ended_at: "2026-11-15T08:00:00Z",
+    };
+    renderTab({ sessions: [CURRENT, ended] });
+    await openEnded();
+
+    const mcp = within(row("301"));
+    expect(mcp.getAllByRole("term").map((term) => term.textContent)).toContain(
+      "Ended",
+    );
+    expect(
+      mcp.getByText(formatSessionTime(ended.ended_at!)),
+    ).toBeInTheDocument();
+  });
+
+  it("names a scope the form never offers by its names", () => {
+    renderTab({
+      sessions: [CURRENT, { ...MCP, scope: ["read", "delete"] }],
+    });
+
+    const chip = row("301").querySelector('[data-slot="mcp-scope"]');
+    expect(chip).toHaveTextContent("read delete");
+    expect(chip).not.toHaveAttribute("data-scope");
+  });
+});
+
 describe("sign-in method labels (ADR-0024)", () => {
   it("names a Borderless sign-in and keeps the label of ended GitHub rows", () => {
     expect(SIGN_IN_METHOD_LABEL.borderless).toBe("Borderless in the browser");
     expect(SIGN_IN_METHOD_LABEL.github_web).toBe("GitHub in the browser");
+  });
+
+  it("names an MCP token and keeps the CLI labels until the CLI is retired", () => {
+    expect(SIGN_IN_METHOD_LABEL.mcp_token).toBe("MCP token");
+    expect(SIGN_IN_METHOD_LABEL.cli_device).toBe("Approved with a device code");
   });
 });
