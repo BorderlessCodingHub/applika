@@ -7,10 +7,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ClientType = Literal['web', 'cli']
+# ``mcp``: an MCP token, one long-lived secret with a scope (ADR-0028).
+ClientType = Literal['web', 'cli', 'mcp']
 # ``github_web`` stays: ended rows from before ADR-0024 are still listed.
 SignInMethod = Literal[
-    'github_web', 'cli_browser', 'cli_device', 'cli_legacy', 'borderless'
+    'github_web',
+    'cli_browser',
+    'cli_device',
+    'cli_legacy',
+    'borderless',
+    'mcp_token',
 ]
 # ``borderless_revoked``: a web session Borderless's refusal of applika's
 # grant ended (ADR-0026 §9).
@@ -55,6 +61,9 @@ class SessionListItemDTO(BaseModel):
     ended_at: datetime | None
     status: SessionStatus
     current: bool
+    # An MCP token's scope names; None on web and CLI sessions. Never the
+    # token itself.
+    scope: list[str] | None = None
 
 
 class DeviceRequestDTO(BaseModel):

@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import httpx
@@ -358,6 +359,45 @@ async def cvs_beta(db_session) -> int:
     feature_id = await seed_cvs_feature(db_session)
     await enrol(db_session, base_data()['user'].id, feature_id)
     return feature_id
+
+
+@dataclass(frozen=True)
+class McpTokenFixture:
+    """An MCP token minted at run time (never written to a file) and its
+    ``user_sessions`` id."""
+
+    token: str
+    session_id: int
+
+
+async def _mcp_token(async_engine, redis_client, scope) -> McpTokenFixture:
+    from tests.sessions_seed import open_mcp_token
+
+    row, token = await open_mcp_token(
+        async_engine, redis_client, base_data()['user'].id, scope
+    )
+    return McpTokenFixture(token=token, session_id=row.id)
+
+
+@pytest_asyncio.fixture
+async def mcp_token_read(async_engine, db_session, redis_client):
+    """ADR-0028: a "Read only" MCP token of the ``async_client`` user, on
+    the integration ``redis_client``."""
+    return await _mcp_token(async_engine, redis_client, ('read',))
+
+
+@pytest_asyncio.fixture
+async def mcp_token_read_write(async_engine, db_session, redis_client):
+    """ADR-0028: a "Read and write" MCP token of the base user."""
+    return await _mcp_token(async_engine, redis_client, ('read', 'write'))
+
+
+@pytest_asyncio.fixture
+async def mcp_token_full(async_engine, db_session, redis_client):
+    """ADR-0028: a "Full access" MCP token of the base user."""
+    return await _mcp_token(
+        async_engine, redis_client, ('read', 'write', 'delete')
+    )
 
 
 @pytest_asyncio.fixture

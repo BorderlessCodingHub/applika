@@ -9,6 +9,7 @@ from app.application.dto.user_session import (
 )
 from app.application.services.session_store import LiveSession, SessionStore
 from app.config.settings import envs
+from app.core.mcp_scopes import scope_names
 from app.core.user_agent import describe_user_agent
 from app.domain.repositories.user_session_repository import (
     UserSessionRepository,
@@ -88,6 +89,7 @@ class ListMySessionsUseCase:
                 ended_at=row.ended_at,
                 status=status,
                 current=status == 'active' and row.id == current_session_id,
+                scope=scope_names(row.scope),
             )
             if status == 'active':
                 active.append(item)

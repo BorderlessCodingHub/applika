@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.routing import Route
 
 from app.application.services.borderless_oidc import (
     close_borderless_oidc_client,
@@ -23,6 +24,7 @@ from app.presentation.api.cycle import router as cycle_router
 from app.presentation.api.github_restore import router as restore_router
 from app.presentation.api.job_searches import router as job_search_router
 from app.presentation.api.jobs import router as jobs_router
+from app.presentation.api.mcp_tokens import router as mcp_tokens_router
 from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.platform import router as platform_router
 from app.presentation.api.reports import router as reports_router
@@ -38,6 +40,7 @@ from app.presentation.deprecation import (
     DeprecationHeaderMiddleware,
 )
 from app.presentation.handlers import register_handlers
+from app.presentation.mcp.server import mcp_endpoint, mcp_runtime
 from app.worker import broker as task_broker
 
 
@@ -46,7 +49,10 @@ async def lifespan(_: FastAPI):
     # ADR-0016: the API only produces tasks. Starting the broker client
     # never fails the boot (plan corrections 12).
     await task_broker.start_client()
-    yield
+    # ADR-0028: the MCP session manager runs for the app's whole life; a
+    # request on /mcp before it starts would fail.
+    async with mcp_runtime.run():
+        yield
     await task_broker.stop_client()
     await close_borderless_oidc_client()
 
@@ -102,6 +108,7 @@ app.include_router(borderless_router)
 app.include_router(restore_router)
 app.include_router(profile_router)
 app.include_router(user_sessions_router)
+app.include_router(mcp_tokens_router)
 app.include_router(support_router)
 app.include_router(company_router)
 app.include_router(platform_router)
@@ -120,3 +127,9 @@ app.include_router(job_search_router)
 # REST Admin routes
 for _r in admin_routers:
     app.include_router(_r)
+# The hosted MCP server (ADR-0028): a plain route, not a mount (a mount
+# answers POST /mcp with a 307 to /mcp/). POST only: GET and DELETE are the
+# framework's 405. Behind the same CORS and rate limiter as REST.
+app.router.routes.append(
+    Route('/mcp', mcp_endpoint, methods=['POST'], include_in_schema=False)
+)

@@ -766,11 +766,10 @@ async def _create_all(url: str) -> None:
         await engine.dispose()
 
 
-# The revision ``UserSessionModel`` mirrors. ``0ee9f822e6d1`` (release A of
-# the MCP plan) adds ``scope``, ``mcp``, ``mcp_token`` and the scope pair
-# CHECK, which no model maps until release B; release B maps them and moves
-# this back to ``'head'``.
-MODEL_REVISION = 'f823e8c34e01'
+# The revision ``UserSessionModel`` mirrors: the head. Since release B of
+# the MCP plan the model maps ``scope`` and the MCP CHECKs of
+# ``0ee9f822e6d1`` (release A), so ``create_all`` builds the head schema.
+MODEL_REVISION = 'head'
 
 
 def test_create_all_builds_the_migrated_user_sessions(
@@ -779,9 +778,10 @@ def test_create_all_builds_the_migrated_user_sessions(
     """``UserSessionModel.__table_args__`` mirror the migrated table name
     for name (revision ``ed39a0fad1e5``, its sign-in CHECK widened with
     ``borderless`` by ``d9e0b46dd7e1``, its end-reason CHECK with
-    ``borderless_revoked`` by ``f823e8c34e01``): the tests' ``create_all``
-    schema equals the one at ``MODEL_REVISION`` - columns, the four CHECKs,
-    the FK and both indexes."""
+    ``borderless_revoked`` by ``f823e8c34e01``, ``scope`` and the MCP
+    CHECKs by ``0ee9f822e6d1``): the tests' ``create_all`` schema equals
+    the one at ``MODEL_REVISION`` - columns, the five CHECKs, the FK and
+    both indexes."""
     _upgrade(migration_db, MODEL_REVISION)
     migrated = (
         _column_shapes(migration_db, TABLE),

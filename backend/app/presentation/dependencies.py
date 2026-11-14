@@ -97,6 +97,9 @@ from app.application.use_cases.github_restore.begin import (
 from app.application.use_cases.github_restore.complete import (
     CompleteGithubRestoreUseCase,
 )
+from app.application.use_cases.mcp_tokens.create_token import (
+    CreateMcpTokenUseCase,
+)
 from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
     ResolveReportWebhooksUseCase,
 )
@@ -714,6 +717,17 @@ def get_revoke_other_sessions_use_case(
 
 RevokeOtherSessionsUseCaseDp = Annotated[
     RevokeOtherSessionsUseCase, Depends(get_revoke_other_sessions_use_case)
+]
+
+
+def get_create_mcp_token_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> CreateMcpTokenUseCase:
+    return CreateMcpTokenUseCase(session_repo, store)
+
+
+CreateMcpTokenUseCaseDp = Annotated[
+    CreateMcpTokenUseCase, Depends(get_create_mcp_token_use_case)
 ]
 
 

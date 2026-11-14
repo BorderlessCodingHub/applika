@@ -148,6 +148,8 @@
     "AUTH-1048": "Borderless's answer could not be verified. Try signing in again",
     "AUTH-1049": "Your Borderless sign-in has ended. Sign in again with Borderless",
     "AUTH-1050": "Your Borderless sign-in has ended. Sign in again on the applika website to use member features",
+    "AUTH-1051": "MCP token invalid, revoked or expired. Create a new one in Applika: Profile > MCP.",
+    "AUTH-1052": "This MCP token's scope does not allow this tool. Create a token with more access in Applika: Profile > MCP.",
     "USR-1001": "User not found",
     "APP-1001": "Application not found or not owned by user",
     "APP-1002": "Cannot modify an application from an archived cycle",

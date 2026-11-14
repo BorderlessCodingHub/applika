@@ -1,5 +1,6 @@
 """Device list schemas (ADR-0019). Ids are Snowflake strings on
-the wire (ADR-0003). No refresh value, no user agent string."""
+the wire (ADR-0003). No refresh value, no MCP token, no user agent
+string."""
 
 from datetime import datetime
 from typing import Literal
@@ -12,10 +13,15 @@ from app.presentation.schemas import BaseSchema
 
 class UserSessionOut(BaseSchema):
     id: SnowflakeID
-    client_type: Literal['web', 'cli']
+    client_type: Literal['web', 'cli', 'mcp']
     # ``github_web`` stays for rows from before ADR-0024.
     sign_in_method: Literal[
-        'github_web', 'cli_browser', 'cli_device', 'cli_legacy', 'borderless'
+        'github_web',
+        'cli_browser',
+        'cli_device',
+        'cli_legacy',
+        'borderless',
+        'mcp_token',
     ]
     device_name: str
     client_label: str
@@ -27,6 +33,8 @@ class UserSessionOut(BaseSchema):
     ended_at: datetime | None
     status: Literal['active', 'signed_out', 'revoked', 'expired']
     current: bool
+    # An MCP token's scope (ADR-0028); null on web and CLI sessions.
+    scope: list[str] | None
 
 
 class RevokeOthersOut(BaseModel):
