@@ -1,0 +1,502 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useForm } from "react-hook-form";
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  baseCvSchema,
+  emptyBaseCvValues,
+} from "@/components/base-cvs/base-cv-schema";
+import type { CvFormDiffSlots } from "@/components/base-cvs/cv-form-diff";
+import {
+  CV_FORM_SECTION_IDS,
+  type CvFormSectionId,
+} from "@/components/base-cvs/cv-form-sections";
+import {
+  CvSectionCard,
+  CvSectionFrame,
+} from "@/components/base-cvs/cv-section-card";
+import type { CvFormValues } from "@/components/base-cvs/types";
+import { PhoneCvSections } from "@/components/phone/phone-cv-sections";
+
+const FILLED: CvFormValues = {
+  ...emptyBaseCvValues(),
+  name: "Backend CV",
+  full_name: "Sam Carter",
+  headline: "Backend Engineer",
+  summary: "Twelve chars",
+  links: [
+    { id: "l1", label: "GitHub", url: "https://github.com/sam" },
+    { id: "l2", label: "Site", url: "https://sam.dev" },
+  ] as CvFormValues["links"],
+  skills: [
+    { id: "s1", category: "Languages", keywords: ["Python", "Go", "SQL"] },
+    { id: "s2", category: "Cloud", keywords: ["AWS", "GCP"] },
+  ],
+};
+
+function Harness({
+  values = FILLED,
+  headingLevel,
+  subline,
+  firstOpen,
+  diff,
+  reordered,
+  onValid = vi.fn(),
+}: {
+  values?: CvFormValues;
+  headingLevel?: "h2" | "h3";
+  subline?: "meta" | "description";
+  firstOpen?: CvFormSectionId | null;
+  diff?: CvFormDiffSlots;
+  reordered?: ReadonlySet<CvFormSectionId>;
+  onValid?: () => void;
+}) {
+  const form = useForm<CvFormValues>({
+    resolver: zodResolver(baseCvSchema),
+    defaultValues: values,
+  });
+  return (
+    <form noValidate onSubmit={form.handleSubmit(onValid)}>
+      <PhoneCvSections
+        form={form}
+        headingLevel={headingLevel}
+        subline={subline}
+        firstOpen={firstOpen}
+        diff={diff}
+        reordered={reordered}
+      />
+      <button type="submit">Save</button>
+    </form>
+  );
+}
+
+const row = (id: string) =>
+  document.querySelector(`[data-slot="cv-acc"][data-section="${id}"]`)!;
+
+describe("PhoneCvSections", () => {
+  it("draws every section of today's form as a v2/CVEditor row, Identity open first", () => {
+    const { container } = render(<Harness />);
+
+    const rows = container.querySelectorAll('[data-slot="cv-acc"]');
+    expect(
+      Array.from(rows).map((item) => item.getAttribute("data-section")),
+    ).toEqual([...CV_FORM_SECTION_IDS]);
+    expect(container.querySelector(".ph-group.ph-ce-list")).not.toBeNull();
+
+    const identity = screen.getByRole("button", {
+      name: "Identity and contact",
+    });
+    expect(identity).toHaveClass("ph-acc");
+    expect(identity).toHaveAttribute("aria-expanded", "true");
+    expect(identity).toHaveAccessibleDescription(
+      "Sam Carter · Backend Engineer",
+    );
+    expect(identity.closest("h2")).not.toBeNull();
+    // Today's fields, inside the open panel.
+    expect(
+      within(row("identity") as HTMLElement).getByDisplayValue("Sam Carter"),
+    ).toBeInTheDocument();
+
+    const links = screen.getByRole("button", { name: "Links" });
+    expect(links).toHaveAttribute("aria-expanded", "false");
+    expect(links).toHaveAccessibleDescription("2 links");
+    expect(
+      screen.getByRole("button", { name: "Summary" }),
+    ).toHaveAccessibleDescription("12 characters");
+    expect(
+      screen.getByRole("button", { name: "Skills" }),
+    ).toHaveAccessibleDescription("2 groups · 5 keywords");
+    expect(
+      screen.getByRole("button", { name: "Experience" }),
+    ).toHaveAccessibleDescription("None yet");
+    // A closed row's panel holds nothing.
+    expect(
+      document.getElementById(links.getAttribute("aria-controls")!),
+    ).toBeEmptyDOMElement();
+  });
+
+  it("opens one row at a time, as the board does, with the section's hint", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Links" }));
+    expect(screen.getByRole("button", { name: "Links" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "Identity and contact" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(row("links")).toHaveAttribute("data-open");
+    expect(
+      within(row("links") as HTMLElement).getByText(
+        "Portfolio, GitHub, LinkedIn and other profiles.",
+      ),
+    ).toBeInTheDocument();
+
+    // A second tap folds it.
+    await user.click(screen.getByRole("button", { name: "Links" }));
+    expect(screen.getByRole("button", { name: "Links" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("opens every section holding an error after a submit, marked Needs a fix", async () => {
+    const user = userEvent.setup();
+    const onValid = vi.fn();
+    render(<Harness values={{ ...FILLED, full_name: "" }} onValid={onValid} />);
+    await user.click(screen.getByRole("button", { name: "Links" }));
+    expect(
+      screen.getByRole("button", { name: "Identity and contact" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const identity = screen.getByRole("button", {
+      name: "Identity and contact",
+    });
+    expect(identity).toHaveAttribute("aria-expanded", "true");
+    expect(identity).toHaveAccessibleDescription("Needs a fix");
+    expect(row("identity")).toHaveAttribute("data-invalid");
+    expect(onValid).not.toHaveBeenCalled();
+  });
+
+  it("says None yet for an empty row, Identity and Skills included", () => {
+    render(<Harness values={emptyBaseCvValues()} />);
+    for (const name of ["Identity and contact", "Skills", "Links"]) {
+      expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(
+        "None yet",
+      );
+    }
+  });
+
+  it("uses h3 rows under the draft's own h2", () => {
+    render(<Harness headingLevel="h3" />);
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Links" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+  });
+});
+
+/** v3/CVNew's nine rows (CVNew.dc.html l.136-144): each section's description. */
+const DESCRIPTIONS: [id: string, title: string, description: string][] = [
+  [
+    "identity",
+    "Identity and contact",
+    "The header at the top of your CV, plus the label you recognise this CV by.",
+  ],
+  ["links", "Links", "Portfolio, GitHub, LinkedIn and other profiles."],
+  ["summary", "Summary", "A short professional summary, in your own words."],
+  [
+    "skills",
+    "Skills",
+    "Group your skills into categories. Each category prints as its own line.",
+  ],
+  ["experience", "Experience", "Your roles, most recent first."],
+  ["projects", "Projects", "Side projects, open source and notable work."],
+  ["education", "Education", "Degrees and diplomas, most recent first."],
+  [
+    "certifications",
+    "Certifications",
+    "Professional certifications and licences.",
+  ],
+  ["languages", "Languages", "The languages you speak and how well."],
+];
+
+const panelOf = (id: string) =>
+  row(id).querySelector<HTMLElement>(".ph-ce-panel")!;
+
+describe("PhoneCvSections subline", () => {
+  it("description: every row's second line is its section's description, Identity included", () => {
+    render(<Harness values={emptyBaseCvValues()} subline="description" />);
+
+    expect(
+      Array.from(document.querySelectorAll('[data-slot="cv-acc"]')).map(
+        (item) => item.getAttribute("data-section"),
+      ),
+    ).toEqual(DESCRIPTIONS.map(([id]) => id));
+    for (const [id, title, description] of DESCRIPTIONS) {
+      const toggle = screen.getByRole("button", { name: title });
+      expect(toggle, id).toHaveAccessibleDescription(description);
+      expect(row(id).querySelector(".ph-acc-m"), id).toHaveTextContent(
+        description,
+      );
+    }
+    expect(
+      screen.getByRole("button", { name: "Identity and contact" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("description: the open panel does not repeat it, an empty list shows its hint and Add", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={emptyBaseCvValues()} subline="description" />);
+
+    expect(
+      within(panelOf("identity")).queryByText(DESCRIPTIONS[0][2]),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Links" }));
+    const links = within(panelOf("links"));
+    expect(
+      links.queryByText("Portfolio, GitHub, LinkedIn and other profiles."),
+    ).toBeNull();
+    expect(
+      links.getByText("No links yet. Add the profiles you want on your CV."),
+    ).toBeInTheDocument();
+    expect(links.getByRole("button", { name: "Add link" })).toBeInTheDocument();
+  });
+
+  it("description: a section with an error still reads Needs a fix", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness values={{ ...FILLED, full_name: "" }} subline="description" />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const identity = screen.getByRole("button", {
+      name: "Identity and contact",
+    });
+    expect(identity).toHaveAccessibleDescription("Needs a fix");
+    expect(
+      screen.getByRole("button", { name: "Links" }),
+    ).toHaveAccessibleDescription(
+      "Portfolio, GitHub, LinkedIn and other profiles.",
+    );
+  });
+
+  it("meta (the default) keeps v2/CVEditor's rows: what the section holds, the hint in the panel", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const explicit = render(<Harness subline="meta" />);
+
+    for (const scope of [
+      within(document.body.firstElementChild as HTMLElement),
+      within(explicit.container),
+    ]) {
+      expect(
+        scope.getByRole("button", { name: "Identity and contact" }),
+      ).toHaveAccessibleDescription("Sam Carter · Backend Engineer");
+      expect(
+        scope.getByRole("button", { name: "Links" }),
+      ).toHaveAccessibleDescription("2 links");
+    }
+    await user.click(
+      within(explicit.container).getByRole("button", { name: "Links" }),
+    );
+    expect(
+      within(explicit.container).getByText(
+        "Portfolio, GitHub, LinkedIn and other profiles.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
+
+/** A copy's markers, with a section status the rows render under themselves. */
+function diffSlots(
+  status: Partial<Record<CvFormSectionId, string>>,
+): CvFormDiffSlots {
+  return {
+    field: () => undefined,
+    sectionStatus: (section) => status[section],
+    itemBadge: () => undefined,
+    itemClassName: () => undefined,
+    removedRows: () => undefined,
+  };
+}
+
+const REORDERED: ReadonlySet<CvFormSectionId> = new Set<CvFormSectionId>([
+  "skills",
+  "experience",
+]);
+
+describe("PhoneCvSections on a CV copy (v3/ApplicationCV)", () => {
+  it("firstOpen={null} opens no row on load, as the board draws them", () => {
+    render(<Harness firstOpen={null} />);
+
+    for (const toggle of screen.getAllByRole("button", { expanded: false })) {
+      expect(toggle).toHaveAttribute("data-action", "toggle-cv-section");
+    }
+    expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+    expect(
+      document.querySelectorAll('[data-slot="cv-acc"][data-open]'),
+    ).toHaveLength(0);
+  });
+
+  it("firstOpen={null} still opens a section holding an error after a submit", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={{ ...FILLED, full_name: "" }} firstOpen={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const identity = screen.getByRole("button", {
+      name: "Identity and contact",
+    });
+    expect(identity).toHaveAttribute("aria-expanded", "true");
+    expect(identity).toHaveAccessibleDescription("Needs a fix");
+  });
+
+  it("reordered: the named rows' meta ends · Reordered, the others stay as today", () => {
+    render(<Harness reordered={REORDERED} />);
+
+    expect(
+      screen.getByRole("button", { name: "Skills" }),
+    ).toHaveAccessibleDescription("2 groups · 5 keywords · Reordered");
+    // An empty section says so first (board l.214-215).
+    expect(
+      screen.getByRole("button", { name: "Experience" }),
+    ).toHaveAccessibleDescription("None yet · Reordered");
+    expect(
+      screen.getByRole("button", { name: "Links" }),
+    ).toHaveAccessibleDescription("2 links");
+    expect(row("skills").querySelector(".ph-acc-m")).toHaveTextContent(
+      "2 groups · 5 keywords · Reordered",
+    );
+  });
+
+  it("reordered: an invalid row still reads Needs a fix", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        values={{
+          ...FILLED,
+          skills: [{ id: "s1", category: "", keywords: ["Python"] }],
+        }}
+        reordered={REORDERED}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      screen.getByRole("button", { name: "Skills" }),
+    ).toHaveAccessibleDescription("Needs a fix");
+  });
+
+  it("reordered is ignored by the description subline (v3/CVNew)", () => {
+    render(
+      <Harness
+        values={emptyBaseCvValues()}
+        subline="description"
+        reordered={REORDERED}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Skills" }),
+    ).toHaveAccessibleDescription(
+      "Group your skills into categories. Each category prints as its own line.",
+    );
+  });
+
+  it("diff: a section's status renders under its row and describes its toggle", () => {
+    render(<Harness diff={diffSlots({ skills: "2 changes" })} />);
+
+    const skills = screen.getByRole("button", { name: "Skills" });
+    expect(skills).toHaveAccessibleDescription(
+      "2 groups · 5 keywords 2 changes",
+    );
+    const status = row("skills").querySelector(".ph-ce-status");
+    expect(status).toHaveTextContent("2 changes");
+    // Outside the heading: the toggle's name stays the section title.
+    expect(status!.closest("h2")).toBeNull();
+    expect(row("links").querySelector(".ph-ce-status")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Links" }),
+    ).toHaveAccessibleDescription("2 links");
+  });
+
+  it("without the new props a row renders exactly as before", () => {
+    const before = render(<Harness />);
+    const html = before.container.innerHTML;
+    before.unmount();
+    const after = render(
+      <Harness firstOpen="identity" diff={undefined} reordered={undefined} />,
+    );
+    // useId differs per mount: compare with the generated ids blanked.
+    const strip = (markup: string) => markup.replace(/_r_[^"\s]*_/g, "ID");
+    expect(strip(after.container.innerHTML)).toBe(strip(html));
+  });
+});
+
+describe("CvSectionCard without a CvSectionFrame", () => {
+  it("renders exactly as before: the section id is never rendered", () => {
+    const withId = render(
+      <CvSectionCard
+        title="Links"
+        description="Your profiles"
+        sectionId="links"
+      >
+        <p>fields</p>
+      </CvSectionCard>,
+    );
+    const html = withId.container.innerHTML;
+    withId.unmount();
+    const without = render(
+      <CvSectionCard title="Links" description="Your profiles">
+        <p>fields</p>
+      </CvSectionCard>,
+    );
+
+    const stable = (markup: string) => markup.replace(/radix-_r_\w+_/g, "id");
+    expect(stable(html)).toBe(stable(without.container.innerHTML));
+    expect(html).not.toContain('links"');
+    expect(
+      without.container.querySelector('[data-slot="cv-section-header"]'),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Links" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Links" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  it("hands a frame the card's words and fields, and renders what it returns", () => {
+    const frame = vi.fn(
+      ({
+        sectionId,
+        title,
+        children,
+      }: {
+        sectionId?: string;
+        title: string;
+        children: React.ReactNode;
+      }) => (
+        <section data-testid={`frame-${sectionId}`} aria-label={title}>
+          {children}
+        </section>
+      ),
+    );
+    render(
+      <CvSectionFrame.Provider value={frame}>
+        <CvSectionCard
+          title="Links"
+          description="Your profiles"
+          sectionId="links"
+        >
+          <p>fields</p>
+        </CvSectionCard>
+      </CvSectionFrame.Provider>,
+    );
+
+    expect(frame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionId: "links",
+        title: "Links",
+        description: "Your profiles",
+      }),
+    );
+    expect(
+      within(screen.getByTestId("frame-links")).getByText("fields"),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="cv-section-header"]'),
+    ).toBeNull();
+  });
+});

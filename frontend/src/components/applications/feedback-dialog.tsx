@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MessageSquareHeart, Star, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -15,16 +16,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { services } from "@/services/services";
+import { rateLimitNotice } from "@/lib/rate-limit";
 import { FeedbackScore } from "@/services/types/feedbacks";
 
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("feedback");
 
   return (
     <>
       <Button onClick={() => setOpen(true)} variant="ghost">
         <MessageSquareHeart className="h-4 w-4" />
-        <span className="font-display">Feedback</span>
+        <span className="font-display">{t("button")}</span>
       </Button>
       <FeedbackDialog open={open} onOpenChange={setOpen} />
     </>
@@ -40,6 +43,7 @@ export function FeedbackDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const t = useTranslations("feedback");
   const [rate, setRate] = useState<FeedbackScore | 0>(0);
   const [hovered, setHovered] = useState(0);
   const [feedback, setFeedback] = useState("");
@@ -52,17 +56,17 @@ export function FeedbackDialog({
 
   const handleSubmit = async () => {
     if (rate === 0) {
-      toast.error("Please select a rating");
+      toast.error(t("pickRating"));
       return;
     }
     setPending(true);
     try {
       await services.feedbacks.create({ score: rate, text: feedback });
-      toast.success("Thanks for your feedback!");
+      toast.success(t("thanks"));
       reset();
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to send feedback");
+    } catch (error) {
+      toast.error(rateLimitNotice(error) ?? t("failed"));
     } finally {
       setPending(false);
     }
@@ -78,12 +82,8 @@ export function FeedbackDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">
-            Rate your experience
-          </DialogTitle>
-          <DialogDescription>
-            How are you enjoying Applika? Your feedback helps us improve.
-          </DialogDescription>
+          <DialogTitle className="font-display">{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex justify-center gap-2 py-4">
@@ -110,15 +110,15 @@ export function FeedbackDialog({
 
         <div className="">
           <Textarea
-            placeholder="Tell us what you think… (optional)"
+            placeholder={t("placeholder")}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             rows={4}
             maxLength={MAX_TEXT_LENGHT}
             className="resize-none"
           />
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {`${MAX_TEXT_LENGHT - feedback.length} characters`}
+          <span className="font-numeric text-xs text-muted-foreground">
+            {t("charactersLeft", { count: MAX_TEXT_LENGHT - feedback.length })}
           </span>
         </div>
 
@@ -128,11 +128,11 @@ export function FeedbackDialog({
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={pending}>
             {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Send feedback
+            {t("send")}
           </Button>
         </DialogFooter>
       </DialogContent>

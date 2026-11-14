@@ -1,49 +1,70 @@
 "use client";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { APP_CONFIG } from "@/config";
 import { TrendingUp } from "lucide-react";
 
 // ── Mock data ───────────────────────────────────────────────
 
+// Labels are `landing.mockup.stats.<key>`; a `rate` is a fraction, written
+// as a percentage the way the active language writes it.
 const MOCK_STATS = [
-  { label: "ACTIVE", value: "14", color: "text-foreground" },
-  { label: "OFFERS", value: "5", color: "text-primary" },
-  { label: "DENIALS", value: "36", color: "text-destructive" },
-  { label: "TOTAL", value: "55", color: "text-foreground" },
-  { label: "SUCCESS RATE", value: "9.1%", color: "text-primary" },
-];
+  { key: "active", value: 14, color: "text-foreground" },
+  { key: "offers", value: 5, color: "text-primary" },
+  { key: "denials", value: 36, color: "text-destructive" },
+  { key: "total", value: 55, color: "text-foreground" },
+  { key: "successRate", value: 0.091, rate: true, color: "text-primary" },
+] as const;
 
 const TREND_VALUES = [
   0.4, 0.6, 0.5, 0.7, 0.9, 1.1, 1.0, 1.3, 1.6, 1.4, 1.8, 2.1, 1.9, 2.3, 2.6,
   2.9,
 ];
 const TREND_X_LABELS = ["02-14", "02-19", "02-26", "03-01", "03-06", "03-10"];
+
+/** A mockup day ("MM-DD") the way the language writes it: pt-BR "DD/MM". */
+function mockDay(label: string, locale: string): string {
+  if (locale !== "pt-BR") return label;
+  const [month, day] = label.split("-");
+  return `${day}/${month}`;
+}
 const TREND_Y_LABELS = [5, 4, 3, 2, 1];
 
-const STEP_COLORS: Record<string, string> = {
-  "Initial Screen": "hsl(258, 50%, 62%)",
-  "Phase 2": "hsl(255, 48%, 64%)",
-  "Phase 3": "hsl(252, 45%, 62%)",
-  "Phase 4": "hsl(249, 50%, 60%)",
-  Offer: "hsl(142, 60%, 45%)",
-  Denied: "hsl(0, 72%, 55%)",
+// Pipeline stages deepen toward the decision on the identity blue; the two
+// outcomes take the chart scale's green and red. Stage names are
+// `landing.mockup.steps.<key>`.
+type MockStep =
+  | "initialScreen"
+  | "phase2"
+  | "phase3"
+  | "phase4"
+  | "offer"
+  | "denied";
+
+const STEP_COLORS: Record<MockStep, string> = {
+  initialScreen: "color-mix(in oklab, var(--chart-1) 55%, var(--background))",
+  phase2: "color-mix(in oklab, var(--chart-1) 70%, var(--background))",
+  phase3: "color-mix(in oklab, var(--chart-1) 85%, var(--background))",
+  phase4: "var(--chart-1)",
+  offer: "var(--chart-2)",
+  denied: "var(--chart-4)",
 };
 
-const MOCK_CONVERSION = [
-  { name: "Initial Screen", value: 90 },
-  { name: "Phase 2", value: 88 },
-  { name: "Phase 3", value: 85 },
-  { name: "Phase 4", value: 95 },
-  { name: "Offer", value: 35 },
-  { name: "Denied", value: 40 },
+const MOCK_CONVERSION: { name: MockStep; value: number }[] = [
+  { name: "initialScreen", value: 90 },
+  { name: "phase2", value: 88 },
+  { name: "phase3", value: 85 },
+  { name: "phase4", value: 95 },
+  { name: "offer", value: 35 },
+  { name: "denied", value: 40 },
 ];
 
-const MOCK_AVG_DAYS = [
-  { name: "Initial Screen", days: 18 },
-  { name: "Phase 2", days: 18 },
-  { name: "Phase 3", days: 15 },
-  { name: "Phase 4", days: 18 },
-  { name: "Offer", days: 32 },
-  { name: "Denied", days: 38 },
+const MOCK_AVG_DAYS: { name: MockStep; days: number }[] = [
+  { name: "initialScreen", days: 18 },
+  { name: "phase2", days: 18 },
+  { name: "phase3", days: 15 },
+  { name: "phase4", days: 18 },
+  { name: "offer", days: 32 },
+  { name: "denied", days: 38 },
 ];
 
 const MOCK_PLATFORMS = [
@@ -57,6 +78,9 @@ const MOCK_PLATFORMS = [
 // ── Sub-components ──────────────────────────────────────────
 
 function MockTrendChart() {
+  const t = useTranslations("landing.mockup");
+  const format = useFormatter();
+  const locale = useLocale();
   const maxVal = Math.max(...TREND_VALUES);
   const W = 280;
   const H = 64;
@@ -89,11 +113,13 @@ function MockTrendChart() {
     >
       <div className="mb-1.5 flex items-center justify-between">
         <span className="font-display text-[9px] font-semibold text-foreground">
-          Application Trend
+          {t("trend")}
         </span>
         <div className="flex items-center gap-1 text-primary">
           <TrendingUp className="h-2.5 w-2.5" />
-          <span className="font-display text-[8px] font-semibold">+25%</span>
+          <span className="font-display text-[8px] font-semibold">
+            {format.number(0.25, { style: "percent", signDisplay: "always" })}
+          </span>
         </div>
       </div>
 
@@ -106,7 +132,7 @@ function MockTrendChart() {
           {TREND_Y_LABELS.map((v) => (
             <span
               key={v}
-              className="text-[5.5px] tabular-nums leading-none text-muted-foreground"
+              className="font-numeric text-[5.5px] leading-none text-muted-foreground"
             >
               {v}
             </span>
@@ -123,12 +149,12 @@ function MockTrendChart() {
               <linearGradient id="mockTrendFill" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="0%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--primary)"
                   stopOpacity="0.3"
                 />
                 <stop
                   offset="100%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--primary)"
                   stopOpacity="0"
                 />
               </linearGradient>
@@ -143,7 +169,7 @@ function MockTrendChart() {
                   y1={y}
                   x2={W}
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="var(--border)"
                   strokeOpacity="0.5"
                   strokeWidth="0.5"
                 />
@@ -153,7 +179,7 @@ function MockTrendChart() {
             <path
               d={linePath}
               fill="none"
-              stroke="hsl(var(--primary))"
+              stroke="var(--primary)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -167,7 +193,7 @@ function MockTrendChart() {
                   cx={p.x.toFixed(1)}
                   cy={p.y.toFixed(1)}
                   r="1.5"
-                  fill="hsl(var(--primary))"
+                  fill="var(--primary)"
                 />
               ))}
           </svg>
@@ -176,7 +202,7 @@ function MockTrendChart() {
           <div className="mt-0.5 flex justify-between">
             {TREND_X_LABELS.map((l) => (
               <span key={l} className="text-[5.5px] text-muted-foreground">
-                {l}
+                {mockDay(l, locale)}
               </span>
             ))}
           </div>
@@ -185,15 +211,15 @@ function MockTrendChart() {
           <div className="mt-2 px-1">
             <div className="relative h-0.5 w-full rounded-full bg-muted">
               <div className="absolute inset-0 rounded-full bg-primary" />
-              <div className="absolute left-0 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-card shadow-sm" />
-              <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 translate-x-1/2 rounded-full border border-primary bg-card shadow-sm" />
+              <div className="absolute top-1/2 left-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-card shadow-xs" />
+              <div className="absolute top-1/2 right-0 h-2 w-2 translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-card shadow-xs" />
             </div>
             <div className="mt-1 flex justify-between">
               <span className="font-display text-[6px] font-medium text-primary">
-                02-14
+                {mockDay("02-14", locale)}
               </span>
               <span className="font-display text-[6px] font-medium text-primary">
-                03-10
+                {mockDay("03-10", locale)}
               </span>
             </div>
           </div>
@@ -204,6 +230,7 @@ function MockTrendChart() {
 }
 
 function MockConversionChart() {
+  const t = useTranslations("landing.mockup");
   const maxVal = 120;
   const yLabels = [120, 90, 60, 30, 0];
   const W = 160;
@@ -217,7 +244,7 @@ function MockConversionChart() {
       style={{ animationDelay: "1000ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        Step Conversion
+        {t("conversion")}
       </span>
       <div className="mt-1.5 flex gap-1">
         {/* Y-axis */}
@@ -228,7 +255,7 @@ function MockConversionChart() {
           {yLabels.map((v) => (
             <span
               key={v}
-              className="text-[5.5px] tabular-nums leading-none text-muted-foreground"
+              className="font-numeric text-[5.5px] leading-none text-muted-foreground"
             >
               {v}
             </span>
@@ -250,7 +277,7 @@ function MockConversionChart() {
                   y1={y}
                   x2={W}
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="var(--border)"
                   strokeOpacity="0.4"
                   strokeWidth="0.5"
                 />
@@ -279,7 +306,7 @@ function MockConversionChart() {
             style={{ gap: `${gap}px` }}
           >
             {MOCK_CONVERSION.map((s) => {
-              const parts = s.name.split(" ");
+              const parts = t(`steps.${s.name}`).split(" ");
               return (
                 <div
                   key={s.name}
@@ -305,6 +332,7 @@ function MockConversionChart() {
 }
 
 function MockAvgDaysChart() {
+  const t = useTranslations("landing.mockup");
   const xLabels = [0, 10, 20, 30, 40];
 
   return (
@@ -313,13 +341,13 @@ function MockAvgDaysChart() {
       style={{ animationDelay: "1100ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        Avg Days / Step
+        {t("avgDays")}
       </span>
       <div className="mt-2 space-y-1.5">
         {MOCK_AVG_DAYS.map((s) => (
           <div key={s.name} className="flex items-center gap-1.5">
             <span className="w-10 shrink-0 truncate text-right text-[5.5px] leading-none text-muted-foreground">
-              {s.name}
+              {t(`steps.${s.name}`)}
             </span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
               <div
@@ -346,13 +374,15 @@ function MockAvgDaysChart() {
 }
 
 function MockPlatformBreakdown() {
+  const t = useTranslations("landing.mockup");
+  const format = useFormatter();
   return (
     <div
       className="animate-fade-in-up rounded-lg border border-border/40 bg-background/50 p-2.5"
       style={{ animationDelay: "1200ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        By Platform
+        {t("byPlatform")}
       </span>
       <div
         className="mt-1.5 space-y-1"
@@ -364,11 +394,15 @@ function MockPlatformBreakdown() {
               {p.name}
             </span>
             <span className="flex-1 border-b border-dashed border-border/50" />
-            <span className="shrink-0 text-[6px] font-semibold tabular-nums text-foreground">
+            <span className="shrink-0 font-numeric text-[6px] font-semibold text-foreground">
               {p.count}
             </span>
-            <span className="w-4 shrink-0 text-right text-[6px] tabular-nums text-muted-foreground">
-              {p.pct.toFixed(1)}%
+            <span className="w-4 shrink-0 text-right font-numeric text-[6px] text-muted-foreground">
+              {format.number(p.pct / 100, {
+                style: "percent",
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}
             </span>
             <div className="h-0.5 w-6 overflow-hidden rounded-full bg-muted">
               <div
@@ -384,6 +418,7 @@ function MockPlatformBreakdown() {
 }
 
 function MockActiveVsPassive() {
+  const t = useTranslations("landing.mockup");
   const cx = 18,
     cy = 18,
     R = 14,
@@ -419,29 +454,33 @@ function MockActiveVsPassive() {
       style={{ animationDelay: "1300ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        Active vs Passive
+        {t("activeVsPassive")}
       </span>
       <div className="mt-2 flex items-center justify-center gap-3">
         <svg viewBox="0 0 36 36" className="h-14 w-14 shrink-0">
           {/* Active arc (70%) */}
           <path
             d={`M${f(ax1)},${f(ay1)} A${R},${R} 0 1,1 ${f(ax2)},${f(ay2)} L${f(aix1)},${f(aiy1)} A${r},${r} 0 1,0 ${f(aix2)},${f(aiy2)} Z`}
-            fill="hsl(var(--primary))"
+            fill="var(--primary)"
           />
           {/* Passive arc (30%) */}
           <path
             d={`M${f(px1)},${f(py1)} A${R},${R} 0 0,1 ${f(px2)},${f(py2)} L${f(pix1)},${f(piy1)} A${r},${r} 0 0,0 ${f(pix2)},${f(piy2)} Z`}
-            fill="hsl(var(--muted-foreground))"
+            fill="var(--muted-foreground)"
           />
         </svg>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-            <span className="text-[6px] text-muted-foreground">Active</span>
+            <span className="text-[6px] text-muted-foreground">
+              {t("active")}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
-            <span className="text-[6px] text-muted-foreground">Passive</span>
+            <span className="text-[6px] text-muted-foreground">
+              {t("passive")}
+            </span>
           </div>
         </div>
       </div>
@@ -452,12 +491,14 @@ function MockActiveVsPassive() {
 // ── Main export ─────────────────────────────────────────────
 
 export function DashboardMockup() {
+  const t = useTranslations("landing.mockup");
+  const format = useFormatter();
   return (
-    <div className="stagger-4 relative animate-fade-in-up">
-      <div className="dark:bg-primary/8 absolute -inset-8 rounded-3xl bg-primary/5 blur-3xl" />
+    <div className="relative animate-fade-in-up stagger-4">
+      <div className="absolute -inset-8 rounded-3xl bg-primary/5 blur-3xl dark:bg-primary/8" />
 
       <div
-        className="shadow-elevated pointer-events-none relative select-none overflow-hidden rounded-2xl border border-border/60 bg-card"
+        className="pointer-events-none relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevated select-none"
         style={{
           transform: "perspective(1200px) rotateY(-2deg) rotateX(1deg)",
         }}
@@ -484,17 +525,22 @@ export function DashboardMockup() {
           <div className="grid grid-cols-5 gap-1.5">
             {MOCK_STATS.map((s, i) => (
               <div
-                key={s.label}
+                key={s.key}
                 className="animate-fade-in-up rounded-lg border border-border/40 bg-background/50 p-2"
                 style={{ animationDelay: `${500 + i * 70}ms` }}
               >
-                <span className="block font-display text-[7px] font-medium leading-none tracking-wide-label text-muted-foreground">
-                  {s.label}
+                <span className="block font-display text-[7px] leading-none font-medium tracking-wide-label text-muted-foreground">
+                  {t(`stats.${s.key}`)}
                 </span>
                 <p
-                  className={`mt-0.5 font-display text-base font-bold tabular-nums leading-tight ${s.color}`}
+                  className={`mt-0.5 font-numeric text-base leading-tight font-bold ${s.color}`}
                 >
-                  {s.value}
+                  {"rate" in s
+                    ? format.number(s.value, {
+                        style: "percent",
+                        minimumFractionDigits: 1,
+                      })
+                    : format.number(s.value)}
                 </p>
               </div>
             ))}

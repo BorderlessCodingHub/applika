@@ -1,5 +1,11 @@
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+from app.application.use_cases.applications.read_model import (
+    ApplicationReadModel,
+)
+from app.core.enums import EventType, InterviewType
 
 
 def make_model(**kwargs):
@@ -31,39 +37,78 @@ def make_application(**kwargs):
         'expected_salary': None,
         'salary_range_min': None,
         'salary_range_max': None,
-        'salary_offer': None,
         'currency': None,
         'salary_period': None,
         'experience_level': None,
         'work_mode': None,
         'country': None,
+        'job_description': None,
         'cycle_id': None,
-        'finalized': False,
-        'last_step': None,
-        'feedback': None,
-        'feedback_id': None,
-        'feedback_date': None,
-        'last_step_id': None,
-        'last_step_date': None,
+        'finalized_at': None,
     }
+    defaults.update(kwargs)
+    # ApplicationModel.finalized is a property over finalized_at.
+    defaults.setdefault('finalized', defaults['finalized_at'] is not None)
+    return SimpleNamespace(**defaults)
+
+
+def make_event(**kwargs):
+    """SimpleNamespace mimicking TimelineEventModel. Defaults to an
+    interview of type unknown (what a former note is, ADR-0020); another
+    ``event_type`` without an ``interview_type`` gets none, as the CHECK
+    requires."""
+    defaults = {
+        'id': 700,
+        'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
+        'updated_at': None,
+        'application_id': 1,
+        'user_id': 1,
+        'event_type': EventType.INTERVIEW,
+        'interview_type': InterviewType.UNKNOWN,
+        'denied_reason': None,
+        'event_date': date(2025, 12, 5),
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+    }
+    if kwargs.get('event_type', EventType.INTERVIEW) is not EventType.INTERVIEW:
+        defaults['interview_type'] = None
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
 
 
-def make_step(**kwargs):
-    """SimpleNamespace mimicking ApplicationStepModel."""
+def make_step_definition(**kwargs):
+    """SimpleNamespace mimicking StepDefinitionModel (with its mapping)."""
     defaults = {
         'id': 1,
         'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
         'updated_at': None,
-        'application_id': 1,
-        'step_id': 1,
-        'step_name': 'Applied',
-        'step_date': date(2025, 12, 5),
-        'observation': None,
+        'name': 'Phase 2',
+        'color': '#007bff',
+        'strict': False,
+        'event_type': None,
+        'interview_type': None,
     }
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
+
+
+def make_read_model(
+    latest: dict | None = None,
+    offers: dict | None = None,
+    catalog: list | None = None,
+) -> ApplicationReadModel:
+    """A real ApplicationReadModel over mocked repositories."""
+    timeline_repo = AsyncMock()
+    timeline_repo.latest_for_applications.return_value = latest or {}
+    timeline_repo.latest_offer_for_applications.return_value = offers or {}
+    step_repo = AsyncMock()
+    step_repo.get_all.return_value = catalog or []
+    return ApplicationReadModel(timeline_repo, step_repo)
 
 
 def make_user(**kwargs):
@@ -72,7 +117,6 @@ def make_user(**kwargs):
         'id': 1,
         'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
         'updated_at': None,
-        'github_id': 1,
         'username': 'testuser',
         'email': 'test@test.com',
         'first_name': None,

@@ -1,3 +1,5 @@
+import type { MembershipBadgeKey } from "@/services/types/users";
+
 export interface AdminPlatformStats {
   total_users: number;
   active_users_30d: number;
@@ -16,7 +18,8 @@ export interface AdminUserRow {
   id: string;
   username: string;
   email: string;
-  github_id: string;
+  /** A JSON number; `null` for a Borderless-only account. */
+  github_id: number | null;
   seniority_level?: string;
   location?: string;
   is_admin: boolean;
@@ -96,7 +99,6 @@ export interface AdminUserDetail extends AdminUserRow {
   linkedin_url?: string;
   tech_stack?: string[];
   availability?: string;
-  is_org_member: boolean;
 }
 
 export interface AdminUpdateUser {
@@ -105,19 +107,31 @@ export interface AdminUpdateUser {
   location?: string;
 }
 
+/** The nested creator shape (PRD 0010). `null` when the row has no recorded creator. */
+export interface AdminCatalogCreatedBy {
+  id: string;
+  username: string;
+}
+
 export interface AdminCompanyRow {
   id: string;
   name: string;
   url: string;
   is_active: boolean;
   applications_count: number;
+  /** Legacy flat field, kept for the CLI. Prefer `created_by` on the web (PRD 0010). */
   created_by_username?: string;
+  created_by?: AdminCatalogCreatedBy | null;
+  is_public: boolean;
   created_at: string;
 }
+
+export type AdminCatalogVisibility = "public" | "private";
 
 export interface AdminCompaniesParams {
   search?: string;
   is_active?: boolean;
+  visibility?: AdminCatalogVisibility;
   sort_by?: string;
   sort_order?: "asc" | "desc";
   page?: number;
@@ -138,18 +152,99 @@ export interface UpdateCompany {
 export interface AdminPlatform {
   id: string;
   name: string;
-  url?: string;
+  url?: string | null;
+  is_public: boolean;
+  created_by?: AdminCatalogCreatedBy | null;
 }
 
-export interface AdminStepDefinition {
+/** `GET /admin/platforms` row (PRD 0010): paginated, like `AdminCompanyRow`. */
+export interface AdminPlatformRow {
   id: string;
   name: string;
-  color: string;
-  strict: boolean;
+  url: string | null;
+  is_public: boolean;
+  created_by?: AdminCatalogCreatedBy | null;
+  applications_count: number;
+  created_at: string;
 }
 
-export interface AdminFeedbackDefinition {
+export type PaginatedPlatforms = PaginatedResponse<AdminPlatformRow>;
+
+export interface AdminPlatformsParams {
+  search?: string;
+  visibility?: AdminCatalogVisibility;
+  sort_by?: "name" | "created_at" | "applications_count";
+  sort_order?: "asc" | "desc";
+  page?: number;
+  per_page?: number;
+}
+
+// AdminStepDefinition / AdminFeedbackDefinition removed (PRD 0008, ADR 0012,
+// R-021): admins can no longer create, edit or delete step or feedback
+// definitions — `/admin/step-definitions*` and `/admin/feedback-definitions*`
+// now 404.
+
+/**
+ * Admin report webhook (`/admin/report-webhooks`, ADR-0024). A webhook holds
+ * one or more badges, and a report goes to every webhook holding a badge its
+ * author holds. `webhook_url_masked` is the only address form the API
+ * returns; `badges` is `[]` only on a row carried over from before badges,
+ * which receives nothing until one is assigned. Ordered base, psp.
+ */
+export interface AdminReportWebhook {
   id: string;
+  label: string | null;
+  badges: MembershipBadgeKey[];
+  webhook_url_masked: string;
+  created_at: string;
+  updated_at: string | null;
+}
+
+/** `POST /admin/report-webhooks` body: one or two distinct badges. */
+export interface CreateReportWebhook {
+  webhook_url: string;
+  badges: MembershipBadgeKey[];
+  label?: string | null;
+}
+
+/**
+ * `PATCH /admin/report-webhooks/{id}` body: only the keys present change.
+ * `badges` replaces the whole set and is never empty.
+ */
+export interface UpdateReportWebhook {
+  webhook_url?: string;
+  badges?: MembershipBadgeKey[];
+  label?: string | null;
+}
+
+// ── Job sources (R-033..R-035) ──────────────────────────────────────────
+
+/** How a source's last run ended. `null` on the row until it first runs. */
+export type AdminJobRunStatus = "ok" | "failed" | "blocked";
+
+/** `GET /admin/jobs/sources` row. */
+export interface AdminJobSource {
+  id: string;
+  code: string;
   name: string;
-  color: string;
+  base_url: string;
+  platform_id: string | null;
+  is_enabled: boolean;
+  last_run_at: string | null;
+  last_run_status: AdminJobRunStatus | null;
+  last_run_error: string | null;
+  last_run_found: number | null;
+  last_run_saved: number | null;
+  /** Listed (not removed) jobs from this source. */
+  active_jobs: number;
+}
+
+/** `PATCH /admin/jobs/sources/{id}` body (`extra=forbid`, a strict bool). */
+export interface UpdateAdminJobSource {
+  is_enabled: boolean;
+}
+
+/** `POST /admin/jobs/runs` 202 body. 409 / 503 carry a `{detail}` instead. */
+export interface AdminJobRunQueued {
+  queued: true;
 }

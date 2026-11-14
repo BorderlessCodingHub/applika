@@ -1,17 +1,37 @@
+"""Schemas of the deprecated ``/applications/{id}/steps`` routes and the
+agenda item.
+
+The step shapes are the ones ``applika-cli`` 0.1.4 sends and reads
+(``applika/cli/src/applika/schemas/application_step.py``), unchanged
+(R-016, .claude/rules/cli-compatibility.md).
+"""
+
 from datetime import date, time
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
+from app.core.enums import EventType, InterviewType
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 
+MAX_TIMEZONE = 100
+
 
 class AgendaStepSchema(BaseSchema):
+    """An agenda item (R-026): a timeline event in the agenda window.
+
+    ``id`` is the event id and ``step_date`` its date; ``step_id``,
+    ``step_name`` and ``step_color`` are its reverse-mapped legacy step;
+    ``event_type`` and ``interview_type`` are new.
+    """
+
     id: SnowflakeID
-    step_id: SnowflakeID
+    step_id: SnowflakeID | None = None
     step_date: date
     step_name: str | None
     step_color: str | None = None
+    event_type: EventType
+    interview_type: InterviewType | None = None
     start_time: time | None = None
     end_time: time | None = None
     timezone: str | None = None
@@ -43,14 +63,14 @@ class _TimeRangeValidator(BaseSchema):
 class CreateApplicationStep(_TimeRangeValidator):
     step_id: SnowflakeID
     step_date: date
-    timezone: str | None = None
+    timezone: str | None = Field(default=None, max_length=MAX_TIMEZONE)
     observation: str | None = None
 
 
 class UpdateApplicationStep(_TimeRangeValidator):
     step_id: SnowflakeID
     step_date: date
-    timezone: str | None = None
+    timezone: str | None = Field(default=None, max_length=MAX_TIMEZONE)
     observation: str | None = None
 
 

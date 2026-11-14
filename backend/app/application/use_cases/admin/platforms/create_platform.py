@@ -13,9 +13,20 @@ class CreatePlatformUseCase:
         self.platform_repo = platform_repo
 
     async def execute(
-        self, data: PlatformCreateDTO, admin_id: int
+        self,
+        data: PlatformCreateDTO,
+        admin_id: int,
+        admin_username: str | None = None,
     ) -> PlatformDTO:
-        platform = await self.platform_repo.create(**data.model_dump())
+        # Owner decision, 2026-09-25: the admin screens are the only place a
+        # platform is created public at once (R-021/R-022); it still keeps
+        # ``created_by`` (the admin who added it).
+        platform = await self.platform_repo.create(
+            name=data.name,
+            url=data.url,
+            is_public=True,
+            created_by=admin_id,
+        )
 
         logger.info(
             f'Admin created platform: {platform.name}',
@@ -29,4 +40,13 @@ class CreatePlatformUseCase:
             },
         )
 
-        return PlatformDTO.model_validate(platform)
+        return PlatformDTO(
+            id=platform.id,
+            created_at=platform.created_at,
+            updated_at=platform.updated_at,
+            name=platform.name,
+            url=platform.url,
+            is_public=platform.is_public,
+            created_by=platform.created_by,
+            created_by_username=admin_username,
+        )

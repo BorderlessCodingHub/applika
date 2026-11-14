@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
+import { word } from "@/i18n/translator";
 import { services } from "@/services/services";
+import { rateLimitNotice } from "@/lib/rate-limit";
 import type { CreateCyclePayload } from "@/services/types/cycles";
 
 export function useCycles() {
@@ -17,8 +18,7 @@ export function useCreateCycle(opts?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateCyclePayload) =>
-      services.cycles.createCycle(data),
+    mutationFn: (data: CreateCyclePayload) => services.cycles.createCycle(data),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["cycles"] }),
@@ -26,10 +26,11 @@ export function useCreateCycle(opts?: { onSuccess?: () => void }) {
         queryClient.invalidateQueries({ queryKey: ["statistics"] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
       ]);
-      toast.success("New cycle started successfully");
+      toast.success(word("cycles.toast.created"));
       opts?.onSuccess?.();
     },
-    onError: () => toast.error("Failed to create cycle"),
+    onError: (error) =>
+      toast.error(rateLimitNotice(error) ?? word("cycles.toast.createFailed")),
   });
 }
 
@@ -45,9 +46,10 @@ export function useDeleteCycle(opts?: { onSuccess?: () => void }) {
         queryClient.invalidateQueries({ queryKey: ["statistics"] }),
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
       ]);
-      toast.success("Cycle deleted permanently");
+      toast.success(word("cycles.toast.deleted"));
       opts?.onSuccess?.();
     },
-    onError: () => toast.error("Failed to delete cycle"),
+    onError: (error) =>
+      toast.error(rateLimitNotice(error) ?? word("cycles.toast.deleteFailed")),
   });
 }

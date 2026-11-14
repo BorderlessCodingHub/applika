@@ -5,13 +5,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { isAfter, isBefore, isEqual, parseISO } from "date-fns";
 import { AxiosError } from "axios";
+import { word } from "@/i18n/translator";
 import { services } from "@/services/services";
 import { useSupports } from "@/contexts/supports-context";
-import {
-  ApplicationFinalizePayload,
+import type {
+  Application,
   CreateApplicationPayload,
 } from "@/services/types/applications";
 import { getApiError } from "@/lib/api-client";
+import { rateLimitNotice } from "@/lib/rate-limit";
+import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
+import { APPLICATION_CV_FIT_QUERY_KEY } from "@/hooks/use-application-cv-fit";
 
 export interface ApplicationFilters {
   mode: "all" | "active" | "passive";
@@ -77,13 +81,20 @@ export function useApplications(cycleId?: string | null) {
     queryFn: () => services.applications.getApplications(cycleId),
   });
 
+  // G7: the advanced panel holds `mode`, `platformId` and `dateRange` — not
+  // `status`, which is a toolbar control. Counting `status` here used to make
+  // the sliders button light up on a toolbar-only filter and hide "Clear all"
+  // when only a panel field was set.
   const hasAdvancedFilters =
-    filters.status !== "all" ||
+    filters.mode !== "all" ||
     filters.platformId != null ||
     filters.dateRange != null;
 
+  // `hasAnyFilter` drives the empty state (search vs. "Clear all"), so it
+  // counts the toolbar `status` control too, even though `hasAdvancedFilters`
+  // (G7) deliberately does not.
   const hasAnyFilter =
-    !!filters.search || filters.mode !== "all" || hasAdvancedFilters;
+    !!filters.search || filters.status !== "all" || hasAdvancedFilters;
 
   const filtered = useMemo(() => {
     if (!query.data) return [];
@@ -118,7 +129,13 @@ export function useApplications(cycleId?: string | null) {
 
   return {
     filtered,
+    /** The cycle's whole list, before any filter (`undefined` until it loads). */
+    applications: query.data,
     isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    isFetching: query.isFetching,
+    refetch: query.refetch,
     filters,
     updateFilter,
     clearFilters,
@@ -129,6 +146,44 @@ export function useApplications(cycleId?: string | null) {
   };
 }
 
+/**
+ * One application out of the cycle's list, by id.
+ *
+ * The API has no `GET /applications/{id}`, so the single application is read
+ * out of the list — and deliberately under the SAME query key as
+ * `useApplications`, so the two share one cache entry and one round trip
+ * instead of racing each other.
+ *
+ * `cycleId` is the cycle currently being viewed (`null` is the open one). An
+ * application only appears in the list of the cycle it belongs to, which is
+ * also what makes "this one is archived" knowable on the client at all: the
+ * wire carries no `cycle_id` per application.
+ */
+export function useApplicationById(
+  applicationId: string | null | undefined,
+  cycleId?: string | null,
+) {
+  const query = useQuery({
+    queryKey: ["applications", cycleId ?? "current"],
+    queryFn: () => services.applications.getApplications(cycleId),
+    // Idle until the route names an application: `?id=` is `null` on the first
+    // client frame, and on `/applications/cv` with no id there is nothing to
+    // look up at all.
+    enabled: Boolean(applicationId),
+  });
+
+  const application = useMemo(
+    () => query.data?.find((app) => app.id === applicationId) ?? null,
+    [query.data, applicationId],
+  );
+
+  return {
+    application,
+    isLoading: query.isLoading,
+    error: query.error as Error | null,
+  };
+}
+
 export function useApplicationDelete() {
   const queryClient = useQueryClient();
 
@@ -136,21 +191,36 @@ export function useApplicationDelete() {
     mutationFn: (id: string) => services.applications.deleteApplication(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["applications"] });
-      toast.success("Application deleted");
+      // Deleting an application takes its CV copy with it, so the cached copy
+      // is gone too — the client mirror of that cascade.
+      await queryClient.invalidateQueries({
+        queryKey: TAILORED_CVS_QUERY_KEY,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: APPLICATION_CV_FIT_QUERY_KEY,
+      });
+      toast.success(word("applications.toasts.deleted"));
     },
-    onError: () => toast.error("Failed to delete"),
+    onError: (error) =>
+      toast.error(
+        rateLimitNotice(error) ?? word("applications.toasts.deleteFailed"),
+      ),
   });
 
-  async function deleteApplication(id: string) {
-    await deleteMutation.mutate(id);
+  async function deleteApplication(
+    id: string,
+    options?: { onSuccess?: () => void },
+  ) {
+    await deleteMutation.mutate(id, { onSuccess: options?.onSuccess });
   }
 
-  return { deleteApplication };
+  return { deleteApplication, isPending: deleteMutation.isPending };
 }
 
 interface ApplicationMutateProps {
   applicationId?: string;
-  onSuccess?: () => Promise<void> | void;
+  /** Receives the saved application: the created row's `id` (the phone quick add opens it). */
+  onSuccess?: (application: Application) => Promise<void> | void;
 }
 
 export function useApplicationMutate(props: ApplicationMutateProps) {
@@ -162,14 +232,22 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
       : services.applications.createApplication(data);
   }
 
-  async function onSuccess() {
+  async function onSuccess(application: Application) {
     await queryClient.invalidateQueries({ queryKey: ["applications"] });
     await queryClient.invalidateQueries({ queryKey: ["statistics"] });
     await queryClient.invalidateQueries({ queryKey: ["company-search"] });
+    // An edit may change the job description the copy's fit is scored against (R-028).
+    await queryClient.invalidateQueries({
+      queryKey: APPLICATION_CV_FIT_QUERY_KEY,
+    });
     toast.success(
-      props.applicationId ? "Application updated" : "Application created",
+      word(
+        props.applicationId
+          ? "applications.toasts.updated"
+          : "applications.toasts.created",
+      ),
     );
-    if (props.onSuccess) await props.onSuccess();
+    if (props.onSuccess) await props.onSuccess(application);
   }
 
   function onError(error: AxiosError) {
@@ -190,33 +268,7 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
   };
 }
 
-interface ApplicationFinalizeProps {
-  applicationId: string;
-  onSuccess?: () => Promise<void> | void;
-}
-
-export function useFinalizeApplication(props: ApplicationFinalizeProps) {
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: (data: ApplicationFinalizePayload) =>
-      services.applications.finalizeApplication(props.applicationId, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["applications"] });
-      await queryClient.invalidateQueries({ queryKey: ["statistics"] });
-      toast.success("Application finalized");
-      if (props.onSuccess) await props.onSuccess();
-    },
-    onError: () => toast.error("Failed to finalize"),
-  });
-
-  async function finalize(payload: ApplicationFinalizePayload) {
-    await mutation.mutate(payload);
-  }
-
-  return {
-    finalize,
-    isPending: mutation.isPending,
-    error: mutation.error as Error | null,
-  };
-}
+// Finalize/reopen moved to `@/hooks/use-finalize-application` and
+// `@/hooks/use-reopen-application` (PRD 0008, ADR 0012, R-032): the legacy
+// `ApplicationFinalizePayload` (`step_id`/`feedback_id`) is CLI-0.1.4-only —
+// the web now sends the outcome-based body (or none) instead.

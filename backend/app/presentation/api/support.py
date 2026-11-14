@@ -27,4 +27,4 @@ async def get_supports_data(
         platform_repo=platform_repo,
         step_repo=step_repo,
     )
-    return await use_case.execute()
+    return await use_case.execute(c_user.id)

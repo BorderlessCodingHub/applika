@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema
@@ -24,7 +25,7 @@ class AdminUserRowSchema(BaseSchema):
     id: SnowflakeID
     username: str
     email: str
-    github_id: int
+    github_id: int | None = None
     seniority_level: str | None = None
     location: str | None = None
     is_admin: bool = False
@@ -79,7 +80,7 @@ class AdminUserDetailSchema(BaseSchema):
     id: SnowflakeID
     username: str
     email: str
-    github_id: int
+    github_id: int | None = None
     first_name: str | None = None
     last_name: str | None = None
     current_role: str | None = None
@@ -91,7 +92,6 @@ class AdminUserDetailSchema(BaseSchema):
     tech_stack: list[str] | None = None
     availability: str | None = None
     is_admin: bool = False
-    is_org_member: bool = False
     total_applications: int = 0
     offers: int = 0
     denials: int = 0
@@ -106,12 +106,27 @@ class AdminUpdateUserSchema(BaseModel):
     location: str | None = None
 
 
+class CreatedBySchema(BaseSchema):
+    """Who added a private catalog row (ADR-0014): kept even after the row
+    is published (R-025)."""
+
+    id: SnowflakeID
+    username: str
+
+
 class AdminCompanyRowSchema(BaseSchema):
     id: SnowflakeID
     name: str
     url: str
     is_active: bool
+    is_public: bool = True
     applications_count: int = 0
+    created_by: CreatedBySchema | None = None
+    # Kept alongside the new nested `created_by` (ADR-0014): the shipped
+    # frontend admin companies screen still reads this flat field directly
+    # (`company.created_by_username`), and cli-compatibility.md's
+    # "never remove a field a published client uses" applies here too, not
+    # only to the CLI routes.
     created_by_username: str | None = None
     created_at: datetime
 
@@ -149,38 +164,54 @@ class PlatformSchema(BaseSchema):
     id: SnowflakeID
     name: str
     url: str | None = None
+    is_public: bool = True
+    created_by: CreatedBySchema | None = None
 
 
-class CreateStepDefinitionSchema(BaseModel):
-    name: str
-    color: str = '#007bff'
-    strict: bool = False
-
-
-class UpdateStepDefinitionSchema(BaseModel):
-    name: str | None = None
-    color: str | None = None
-    strict: bool | None = None
-
-
-class StepDefinitionSchema(BaseSchema):
+class AdminPlatformRowSchema(BaseSchema):
     id: SnowflakeID
     name: str
-    color: str
-    strict: bool
+    url: str | None = None
+    is_public: bool = True
+    applications_count: int = 0
+    created_by: CreatedBySchema | None = None
+    created_at: datetime
 
 
-class CreateFeedbackDefinitionSchema(BaseModel):
-    name: str
-    color: str = '#28a745'
+class PaginatedPlatformsSchema(BaseSchema):
+    items: list[AdminPlatformRowSchema]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
 
 
-class UpdateFeedbackDefinitionSchema(BaseModel):
-    name: str | None = None
-    color: str | None = None
+class JobSourceAdminRow(BaseSchema):
+    """One job source on the admin screen (R-033)."""
 
-
-class FeedbackDefinitionSchema(BaseSchema):
     id: SnowflakeID
+    code: str
     name: str
-    color: str
+    base_url: str
+    platform_id: SnowflakeID | None
+    is_enabled: bool
+    last_run_at: datetime | None
+    last_run_status: Literal['ok', 'failed', 'blocked'] | None
+    last_run_error: str | None
+    last_run_found: int | None
+    last_run_saved: int | None
+    active_jobs: int
+
+
+class JobSourceUpdate(BaseModel):
+    """Switch a source off or on (R-034); nothing else is editable."""
+
+    model_config = ConfigDict(extra='forbid')
+
+    is_enabled: StrictBool
+
+
+class RunQueued(BaseModel):
+    """``POST /admin/jobs/runs`` answer: the run is queued (R-035)."""
+
+    queued: Literal[True] = True

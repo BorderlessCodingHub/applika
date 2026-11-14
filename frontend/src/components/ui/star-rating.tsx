@@ -1,19 +1,32 @@
-import { Star } from "lucide-react";
+"use client";
+
+import { StarIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const TOTAL_STARS = 5;
 
+/**
+ * applika-only component (T032): a read-only 5-star display.
+ * Restyled by hand to the new-york idiom; the rounding and the accessible
+ * label are unchanged.
+ */
 export function StarRating({ rating }: { rating: number }) {
+  const t = useTranslations("common");
   const filled = Math.max(0, Math.min(TOTAL_STARS, Math.round(rating)));
 
   return (
-    <div className="flex gap-1" aria-label={`${filled} out of ${TOTAL_STARS} stars`}>
+    <div
+      data-slot="star-rating"
+      className="flex gap-1"
+      aria-label={t("starRating", { filled, total: TOTAL_STARS })}
+    >
       {Array.from({ length: TOTAL_STARS }).map((_, idx) => (
-        <Star
+        <StarIcon
           key={idx}
           className={
             idx < filled
-              ? "h-4 w-4 fill-current text-warning drop-shadow-[0_0_6px_rgba(251,191,36,0.35)]"
-              : "h-4 w-4 text-muted-foreground/40"
+              ? "size-4 fill-current text-warning drop-shadow-[0_0_6px_rgba(251,191,36,0.35)]"
+              : "size-4 text-muted-foreground/40"
           }
         />
       ))}

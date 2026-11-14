@@ -1,0 +1,109 @@
+"use client";
+
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+import {
+  JobDetailBackLink,
+  JobDetailSkeleton,
+  JobDetailView,
+  JobNotListed,
+} from "@/components/jobs/job-detail-view";
+import { useJobsCopy } from "@/components/jobs/job-copy";
+import type { JobMarkPending } from "@/components/jobs/job-list-item";
+import { JobLoadError } from "@/components/jobs/job-list-states";
+import { StartApplicationFlow } from "@/components/jobs/start-application-flow";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
+import { JobDetailScreen } from "@/components/phone/screens/job-detail-screen";
+import { useBaseCvs } from "@/hooks/use-base-cvs";
+import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
+import {
+  apiStatus,
+  jobApiDetail,
+  useDismissJob,
+  useJob,
+  useRestoreJob,
+} from "@/hooks/use-jobs";
+import { unknownErrorMessage } from "@/lib/api-error-message";
+
+/**
+ * `/jobs/view?id=` (R-012): the description, the link to the source, and
+ * each master CV's fit. A 404 (unknown, or no longer listed without an
+ * application of the user's) is "This job is no longer listed". Below md the
+ * v2/JobDetail board (PRD 0021), inside the same gate; at md and up today's
+ * page, unchanged.
+ */
+export function JobViewPage() {
+  const isPhone = useIsPhone();
+  return (
+    <FeatureGate feature="jobs">
+      {isPhone ? <JobDetailScreen /> : <JobView />}
+    </FeatureGate>
+  );
+}
+
+/**
+ * Mounted only with `jobs` (PRD 0013), so `useJob` never fires without it.
+ * Fit, "Start application" (with its "Tailor by keywords") and a draft link
+ * also need `cvs`: without it the server sends `fits: []` anyway.
+ */
+function JobView() {
+  const copy = useJobsCopy();
+  const beta = useHasFeature("jobs").stage === "beta";
+  const hasCvs = useHasFeature("cvs").has;
+  const id = useSearchParams().get("id");
+  const job = useJob(id);
+  const baseCvs = useBaseCvs();
+  const dismiss = useDismissJob();
+  const restore = useRestoreJob();
+  const [startOpen, setStartOpen] = useState(false);
+
+  if (!id || apiStatus(job.error) === 404) return <JobNotListed />;
+  if (job.isLoading) return <JobDetailSkeleton showFit={hasCvs} />;
+  if (job.isError || !job.data) {
+    return (
+      <div className="flex flex-col gap-6">
+        <JobDetailBackLink />
+        <JobLoadError
+          titleAs="h1"
+          title={copy.loadJobErrorTitle}
+          message={jobApiDetail(job.error, unknownErrorMessage())}
+          onRetry={() => void job.refetch()}
+          isRetrying={job.isFetching}
+        />
+      </div>
+    );
+  }
+
+  const pending: JobMarkPending = dismiss.isPending
+    ? "dismiss"
+    : restore.isPending
+      ? "restore"
+      : null;
+
+  return (
+    <>
+      <JobDetailView
+        job={job.data}
+        cvs={baseCvs.data}
+        cvsLoading={baseCvs.isLoading}
+        onStart={hasCvs ? () => setStartOpen(true) : undefined}
+        showFit={hasCvs}
+        linkDraft={hasCvs}
+        onDismiss={(target) => dismiss.mutate(target.id)}
+        onRestore={(target) => restore.mutate(target.id)}
+        pending={pending}
+        titleBadge={beta ? <BetaBadge /> : undefined}
+      />
+      {hasCvs ? (
+        <StartApplicationFlow
+          job={job.data}
+          open={startOpen}
+          onOpenChange={setStartOpen}
+        />
+      ) : null}
+    </>
+  );
+}

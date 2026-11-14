@@ -3,22 +3,34 @@ import type {
   ActivityHeatmapPoint,
   AdminCompaniesParams,
   AdminCompanyRow,
-  AdminFeedbackDefinition,
+  AdminJobRunQueued,
+  AdminJobSource,
   AdminPlatform,
+  AdminPlatformsParams,
   AdminPlatformStats,
-  AdminStepDefinition,
+  AdminReportWebhook,
   AdminUpdateUser,
   AdminUserDetail,
   AdminUserRow,
   AdminUsersParams,
   CreateCompany,
+  CreateReportWebhook,
+  PaginatedPlatforms,
   PaginatedResponse,
   SeniorityBreakdown,
   TopCompanyStat,
   TopPlatformStat,
   UpdateCompany,
+  UpdateAdminJobSource,
+  UpdateReportWebhook,
   UserGrowthPoint,
 } from "@/services/types/admin";
+import type {
+  AdminFeature,
+  AdminFeatureUsersPage,
+  AdminFeatureUsersParams,
+  FeatureStage,
+} from "@/services/types/features";
 
 export class AdminService {
   // ── Dashboard Analytics ───────────────────────────────────────────
@@ -68,9 +80,7 @@ export class AdminService {
   // ── User Management ───────────────────────────────────────────────
 
   getUser(id: string): Promise<AdminUserDetail> {
-    return api
-      .get<AdminUserDetail>(`/admin/users/${id}`)
-      .then((r) => r.data);
+    return api.get<AdminUserDetail>(`/admin/users/${id}`).then((r) => r.data);
   }
 
   updateUser(id: string, data: AdminUpdateUser): Promise<AdminUserDetail> {
@@ -105,10 +115,26 @@ export class AdminService {
     return api.delete(`/admin/companies/${id}`).then(() => undefined);
   }
 
+  /** `POST /admin/companies/{id}/publish` — 200 (idempotent) | 404 | 409 with the colliding row's detail. */
+  publishCompany(id: string): Promise<AdminCompanyRow> {
+    return api
+      .post<AdminCompanyRow>(`/admin/companies/${id}/publish`)
+      .then((r) => r.data);
+  }
+
   // ── Supports: Platforms ───────────────────────────────────────────
 
-  getPlatforms(): Promise<AdminPlatform[]> {
-    return api.get<AdminPlatform[]>("/admin/platforms").then((r) => r.data);
+  getPlatforms(params?: AdminPlatformsParams): Promise<PaginatedPlatforms> {
+    return api
+      .get<PaginatedPlatforms>("/admin/platforms", { params })
+      .then((r) => r.data);
+  }
+
+  /** `POST /admin/platforms/{id}/publish` — same contract as `publishCompany`. */
+  publishPlatform(id: string): Promise<AdminPlatform> {
+    return api
+      .post<AdminPlatform>(`/admin/platforms/${id}/publish`)
+      .then((r) => r.data);
   }
 
   createPlatform(data: { name: string; url?: string }): Promise<AdminPlatform> {
@@ -130,69 +156,112 @@ export class AdminService {
     return api.delete(`/admin/platforms/${id}`).then(() => undefined);
   }
 
-  // ── Supports: Step Definitions ────────────────────────────────────
+  // Step/feedback definition CRUD removed (PRD 0008, ADR 0012, R-021):
+  // `/admin/step-definitions*` and `/admin/feedback-definitions*` now 404 —
+  // the web must never call them.
 
-  getStepDefinitions(): Promise<AdminStepDefinition[]> {
+  // ── Report webhooks (ADR-0024) ──────────────────────────────────
+
+  getReportWebhooks(): Promise<AdminReportWebhook[]> {
     return api
-      .get<AdminStepDefinition[]>("/admin/step-definitions")
+      .get<AdminReportWebhook[]>("/admin/report-webhooks")
       .then((r) => r.data);
   }
 
-  createStepDefinition(data: {
-    name: string;
-    color: string;
-    strict: boolean;
-  }): Promise<AdminStepDefinition> {
+  createReportWebhook(data: CreateReportWebhook): Promise<AdminReportWebhook> {
     return api
-      .post<AdminStepDefinition>("/admin/step-definitions", data)
+      .post<AdminReportWebhook>("/admin/report-webhooks", data)
       .then((r) => r.data);
   }
 
-  updateStepDefinition(
+  updateReportWebhook(
     id: string,
-    data: { name?: string; color?: string; strict?: boolean },
-  ): Promise<AdminStepDefinition> {
+    data: UpdateReportWebhook,
+  ): Promise<AdminReportWebhook> {
     return api
-      .patch<AdminStepDefinition>(`/admin/step-definitions/${id}`, data)
+      .patch<AdminReportWebhook>(`/admin/report-webhooks/${id}`, data)
       .then((r) => r.data);
   }
 
-  deleteStepDefinition(id: string): Promise<void> {
-    return api.delete(`/admin/step-definitions/${id}`).then(() => undefined);
+  deleteReportWebhook(id: string): Promise<void> {
+    return api.delete(`/admin/report-webhooks/${id}`).then(() => undefined);
   }
 
-  // ── Supports: Feedback Definitions ────────────────────────────────
+  // ── Job sources ─────────────────────────────────────────────────────
 
-  getFeedbackDefinitions(): Promise<AdminFeedbackDefinition[]> {
-    return api
-      .get<AdminFeedbackDefinition[]>("/admin/feedback-definitions")
-      .then((r) => r.data);
+  getJobSources(): Promise<AdminJobSource[]> {
+    return api.get<AdminJobSource[]>("/admin/jobs/sources").then((r) => r.data);
   }
 
-  createFeedbackDefinition(data: {
-    name: string;
-    color: string;
-  }): Promise<AdminFeedbackDefinition> {
-    return api
-      .post<AdminFeedbackDefinition>("/admin/feedback-definitions", data)
-      .then((r) => r.data);
-  }
-
-  updateFeedbackDefinition(
+  /** R-034: a source that is off is skipped by every run. */
+  updateJobSource(
     id: string,
-    data: { name?: string; color?: string },
-  ): Promise<AdminFeedbackDefinition> {
+    data: UpdateAdminJobSource,
+  ): Promise<AdminJobSource> {
     return api
-      .patch<AdminFeedbackDefinition>(
-        `/admin/feedback-definitions/${id}`,
-        data,
+      .patch<AdminJobSource>(`/admin/jobs/sources/${id}`, data)
+      .then((r) => r.data);
+  }
+
+  /** R-035: 202 queues a run; 409 "A run is already in progress"; 503 "Background service unavailable". */
+  startJobRun(): Promise<AdminJobRunQueued> {
+    return api.post<AdminJobRunQueued>("/admin/jobs/runs").then((r) => r.data);
+  }
+
+  // ── Beta features ───────────────────────────────────────────────────
+
+  /** `GET /admin/features`: every feature with its count, release date and the caller's own access. */
+  getFeatures(): Promise<AdminFeature[]> {
+    return api.get<AdminFeature[]>("/admin/features").then((r) => r.data);
+  }
+
+  /** `GET /admin/features/{key}/users`: the beta list, newest first; 404 "Feature not found". */
+  getFeatureUsers(
+    key: string,
+    params?: AdminFeatureUsersParams,
+  ): Promise<AdminFeatureUsersPage> {
+    return api
+      .get<AdminFeatureUsersPage>(
+        `/admin/features/${encodeURIComponent(key)}/users`,
+        { params },
       )
       .then((r) => r.data);
   }
 
-  deleteFeedbackDefinition(id: string): Promise<void> {
+  /** `PUT …/users/{user_id}`: 204, idempotent; 404 "Feature not found" | "User not found". */
+  addFeatureUser(key: string, userId: string): Promise<void> {
     return api
-      .delete(`/admin/feedback-definitions/${id}`)
+      .put(`/admin/features/${encodeURIComponent(key)}/users/${userId}`)
+      .then(() => undefined);
+  }
+
+  /** `DELETE …/users/{user_id}`: 204, idempotent; 404 "Feature not found". */
+  removeFeatureUser(key: string, userId: string): Promise<void> {
+    return api
+      .delete(`/admin/features/${encodeURIComponent(key)}/users/${userId}`)
+      .then(() => undefined);
+  }
+
+  /** `PATCH /admin/features/{key}` `{stage}`: release, or move back to beta. The list is kept. */
+  setFeatureStage(key: string, stage: FeatureStage): Promise<AdminFeature> {
+    return api
+      .patch<AdminFeature>(`/admin/features/${encodeURIComponent(key)}`, {
+        stage,
+      })
+      .then((r) => r.data);
+  }
+
+  /** `PUT …/opt-out`: the caller turns the feature off for themselves only. */
+  optOutFeature(key: string): Promise<void> {
+    return api
+      .put(`/admin/features/${encodeURIComponent(key)}/opt-out`)
+      .then(() => undefined);
+  }
+
+  /** `DELETE …/opt-out`: the caller turns it back on. */
+  optInFeature(key: string): Promise<void> {
+    return api
+      .delete(`/admin/features/${encodeURIComponent(key)}/opt-out`)
       .then(() => undefined);
   }
 }

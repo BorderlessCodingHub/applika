@@ -1,123 +1,90 @@
 # Applika.dev
 
-Applika.dev is a full-stack application designed to manage applications and user statistics. It consists of a backend (Python/FastAPI) and a frontend (Next.js/React), organized in separate folders for modular development.
+A job application tracker for active job seekers. Log every application,
+follow its timeline (interviews, offers, denials), see your statistics and
+agenda, and file biweekly reports — from the web or from the terminal.
 
-## Project Structure
+**Use it:** <https://applika.dev> · **CLI:** [`applika-cli` on PyPI](https://pypi.org/project/applika-cli/)
 
-```
-root/
-├── backend/      # Python FastAPI backend
-├── cli/          # Python CLI package for the applika command
-├── frontend/     # Next.js React frontend
-├── legacy/       # Legacy code
-├── CONTRIBUTORS.md
-└── README.md
-```
+## What's in this repository
 
-## Prerequisites
+| Folder | What it is | Stack |
+|---|---|---|
+| [`backend/`](backend/README.md) | The API and its background worker | Python 3.14, FastAPI, PostgreSQL, Redis, taskiq |
+| [`frontend/`](frontend/README.md) | The web app | Next.js 16 (static export), React 19, Tailwind 4 |
+| [`cli/`](cli/README.md) | `applika`, the command-line client | Python 3.10+, Typer |
+| [`docs/`](docs/) | Product requirements, architecture decisions, plans, infrastructure | |
 
-- Docker & Docker Compose (recommended for local development)
-- Python 3.9+ (for backend, if running without Docker)
-- Node.js 20+ and pnpm (for frontend, if running without Docker)
-- [uv](https://docs.astral.sh/uv/) (for backend and CLI Python environments)
+## Run it locally
 
-## CLI
-
-Install the published CLI from PyPI. The package page has the current install
-and usage docs:
-
-- [applika-cli on PyPI](https://pypi.org/project/applika-cli/)
+You need Docker. Everything else runs in containers.
 
 ```bash
-uv tool install applika-cli
-# or
-pipx install applika-cli
+cp .env.example .env
+make run-fake-auth      # a fake Borderless sign-in; prints the .env values to paste
+make up-build           # api, web, worker, scheduler, Postgres and Redis
 ```
 
-This installs the global `applika` command:
+- Web app: <http://127.0.0.1:8080>
+- API docs: <http://127.0.0.1:8000/api/docs>
+
+Sign-in goes through [Borderless](https://borderlesscoding.com). Locally, the
+fake Borderless stands in for it: paste the values `make run-fake-auth` prints
+into `.env`, run `make up` again, and sign in with one of the accounts in
+`backend/tests/fixtures/borderless/accounts.json`.
 
 ```bash
-applika --help
-applika --version
-applika version
+make stop               # stop the stack, keep the data
+make stop-fake-auth     # stop the fake Borderless
+docker compose down -v  # remove everything, database included
+make help               # every target
 ```
 
-For local CLI development from this repository:
+### Working on the web app
+
+The web app is a static export, so the stack only shows a frontend change
+after a rebuild. For a fast loop, run the frontend on your machine instead:
 
 ```bash
-cd cli
-uv sync
-uv run applika --help
+docker compose up -d --wait api worker scheduler
+cd frontend && pnpm install && pnpm dev     # http://127.0.0.1:8080
 ```
 
-If you want the global `applika` command to point at your local checkout while
-you develop, install it in editable mode:
+Set `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api` in `frontend/.env.local`.
+
+### Behind a tunnel or a custom domain
+
+Set the public URLs in `.env` together — `API_BASE_URL`, `CORS_ORIGINS`,
+`WEB_SIGNIN_URI`, `BORDERLESS_REDIRECT_URI` and the others listed in
+`.env.example` — then rebuild with `make up-build`.
+
+## Beta features
+
+New features start in beta and are visible only to the users on their beta
+list (admins see them too). Today: the CV builder (`cvs`) and the job board
+(`jobs`). Manage them in the web app at **Admin → Features**. Releasing one to
+everyone is a click there, not a deploy.
+
+## Checks before a pull request
 
 ```bash
-cd cli
-uv tool install --force --editable .
+make full-gate      # secrets scan, then backend, frontend, CLI and end-to-end tests
 ```
 
-Useful commands:
+Or one part at a time: `make api-gate`, `make front-gate`, `make cli-gate`,
+`make e2e-gate`, `make leaks`.
 
-```bash
-cd cli
-make test    # Run CLI tests
-make format  # Format CLI code
-make lint    # Lint CLI code
-```
+Work goes to `develop`; merging `develop` into `main` is a release.
+Database migrations never drop a column or table
+([ADR-0005](docs/adr/0005-non-destructive-migrations.md)).
 
-CLI commands:
+## Documentation
 
-```bash
-applika login
-applika logout
-applika applications list
-applika applications new \
-  --company "Acme" \
-  --role "Backend Engineer" \
-  --platform "LinkedIn" \
-  --mode active \
-  --date 2026-05-08
-applika applications edit 123 --role "Senior Backend Engineer"
-applika applications -n \
-  --company "Acme" \
-  --role "Backend Engineer" \
-  --platform "LinkedIn" \
-  --mode active \
-  --date 2026-05-08
-applika applications steps list 123
-applika applications steps add 123 \
-  --step "Initial Screen" \
-  --date 2026-05-11
-applika applications finalize 123 \
-  --step "Offer" \
-  --feedback "Accepted" \
-  --date 2026-05-18 \
-  --salary-offer 180000
-```
+- [docs/infrastructure.md](docs/infrastructure.md) — how production fits together
+- [docs/prd/](docs/prd/) — product requirements ([0000](docs/prd/0000-product-vision.md) is the vision)
+- [docs/adr/](docs/adr/) — architecture decisions
+- [docs/plan/](docs/plan/) — technical plans per feature
+- [docs/error-codes.md](docs/error-codes.md) — every API error code
+- Changelogs: [backend](backend/CHANGELOG.md), [CLI](cli/CHANGELOG.md)
 
-## Quick Start (Docker Compose)
-
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/ProgramadoresSemPatria/application_panel.git application-panel
-   cd application-panel
-   ```
-
-2. **Start backend service:**
-
-   ```bash
-   cd backend
-   docker compose up --build
-   ```
-   Backend API: [http://127.0.0.1:8000/api/docs](http://127.0.0.1:8000/api/docs) (Swagger UI)
-
-3. **Start backend service:**
-
-   ```bash
-   cd frontend
-   docker compose up --build
-   ```
-   Frontend: [http://127.0.0.1:3000](http://127.0.0.1:3000)
+See also [CONTRIBUTORS.md](CONTRIBUTORS.md) and [SECURITY.md](SECURITY.md).

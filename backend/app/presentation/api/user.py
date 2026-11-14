@@ -1,29 +1,92 @@
 from datetime import date
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Query, Response
 
-from app.application.dto.user import UserUpdateDTO
+from app.application.dto.user import UserDTO, UserUpdateDTO
+from app.application.use_cases.features.list_my_features import (
+    ListMyFeaturesUseCase,
+)
 from app.application.use_cases.get_user_agenda import (
     GetUserAgendaUseCase,
 )
 from app.application.use_cases.update_user import UpdateUserUseCase
 from app.config.settings import envs
 from app.presentation.dependencies import (
-    ApplicationStepRepositoryDp,
+    BorderlessAccountRepositoryDp,
+    BorderlessOidcClientDp,
     CurrentUserDp,
+    FeatureRepositoryDp,
+    GithubConnectionRepositoryDp,
+    ReleaseBorderlessGrantUseCaseDp,
+    RevokeOtherSessionsUseCaseDp,
+    StepDefinitionRepositoryDp,
+    TimelineEventRepositoryDp,
+    UserBadgeRepositoryDp,
     UserRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.application_step import AgendaStepSchema
+from app.presentation.schemas.features import MyFeature, MyFeatures
 from app.presentation.schemas.user import UpdateUserProfile, UserProfile
 
 router = APIRouter(tags=['Users'], responses={'403': {'model': DetailSchema}})
-EMPTY_DATE_QUERY = Query(None)
+
+
+async def _profile(
+    user,
+    badge_repo: UserBadgeRepositoryDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    github_repo: GithubConnectionRepositoryDp,
+) -> UserProfile:
+    return UserProfile.from_user(
+        user,
+        await badge_repo.live_for_user(user.id),
+        await binding_repo.get_by_user_id(user.id),
+        await github_repo.get_by_user_id(user.id),
+    )
 
 
 @router.get('/users/me', response_model=UserProfile)
-def get_me(c_user: CurrentUserDp):
-    return UserProfile.model_validate(c_user)
+async def get_me(
+    c_user: CurrentUserDp,
+    badge_repo: UserBadgeRepositoryDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    github_repo: GithubConnectionRepositoryDp,
+):
+    """The caller's profile, with the recorded badges, the state of the
+    Borderless access and whether a GitHub restore is offered (ADR-0024)."""
+    return await _profile(c_user, badge_repo, binding_repo, github_repo)
+
+
+@router.post(
+    '/users/me/github-restore/dismiss',
+    status_code=204,
+    responses={'401': {'model': DetailSchema}},
+)
+async def dismiss_github_restore(
+    c_user: CurrentUserDp, user_repo: UserRepositoryDp
+):
+    """ "Start fresh": the one-time restore screen never shows again.
+    Idempotent."""
+    await user_repo.mark_restore_prompt_seen(c_user.id)
+
+
+@router.get(
+    '/users/me/features',
+    response_model=MyFeatures,
+    responses={'401': {'model': DetailSchema}},
+)
+async def get_my_features(
+    c_user: CurrentUserDp, feature_repo: FeatureRepositoryDp
+):
+    """The features the caller has right now, by key, with their stages
+    (ADR-0018). The web hides what is missing; the API enforces it."""
+    features = await ListMyFeaturesUseCase(feature_repo).execute(
+        c_user.id, c_user.is_admin
+    )
+    return MyFeatures(
+        features=[MyFeature(key=f.key, stage=f.stage.value) for f in features]
+    )
 
 
 @router.patch('/users/me', response_model=UserProfile)
@@ -31,21 +94,29 @@ async def update_me(
     payload: UpdateUserProfile,
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
+    badge_repo: UserBadgeRepositoryDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    github_repo: GithubConnectionRepositoryDp,
 ):
     use_case = UpdateUserUseCase(user_repo)
     data = UserUpdateDTO(**payload.model_dump(exclude_unset=True))
-    user = await use_case.execute(c_user.id, data)
-    return UserProfile.model_validate(user)
+    user: UserDTO = await use_case.execute(c_user.id, data)
+    return await _profile(user, badge_repo, binding_repo, github_repo)
 
 
 @router.get('/users/me/agenda', response_model=list[AgendaStepSchema])
 async def get_my_agenda(
     c_user: CurrentUserDp,
-    app_step_repo: ApplicationStepRepositoryDp,
-    from_date: date | None = EMPTY_DATE_QUERY,
-    to_date: date | None = EMPTY_DATE_QUERY,
+    timeline_repo: TimelineEventRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
+    # Two separate Query() instances: FastAPI writes the first parameter's
+    # name onto a shared Query default object, so a second parameter that
+    # reuses the same instance ends up reading the first one's query key —
+    # sharing one instance here silently dropped ``to_date``.
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
 ):
-    use_case = GetUserAgendaUseCase(app_step_repo)
+    use_case = GetUserAgendaUseCase(timeline_repo, step_repo)
     dtos = await use_case.execute(
         user_id=c_user.id,
         from_date=from_date,
@@ -58,8 +129,22 @@ async def get_my_agenda(
 async def delete_me(
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
+    revoke_sessions: RevokeOtherSessionsUseCaseDp,
+    release: ReleaseBorderlessGrantUseCaseDp,
+    oidc: BorderlessOidcClientDp,
+    background: BackgroundTasks,
     response: Response,
 ):
+    # ADR-0026 §10: applika's Borderless refresh token is revoked after the
+    # answer, best effort; the Redis access token goes now.
+    token = await release.execute(c_user.id, force=True)
+    if token:
+        background.add_task(oidc.revoke, token)
+    # R-008: every session of the account ends at once - their
+    # Redis keys go now, their rows with the user by CASCADE, as do the
+    # Borderless binding, the badges and the GitHub identity row.
+    await revoke_sessions.end_all_keys(c_user.id)
+
     user = await user_repo.get_by_id(c_user.id)
     if user:
         await user_repo.delete(user)

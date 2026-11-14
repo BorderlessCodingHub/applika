@@ -9,44 +9,117 @@ on:
     paths:
       - "backend/**"
 
+# One run at a time: a second push waits instead of racing the first one's
+# push, cleanup and deploy on the same `latest` tag.
+concurrency:
+  group: backend-cd
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: applika-api
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      # GHCR refuses upper-case repository names and the owner is
+      # BorderlessCodingHub.
+      - name: Resolve image reference
+        run: echo "IMAGE_REF=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # provenance/sbom off: they push extra untagged manifests that the
+      # `latest` index points at, which the cleanup below would delete.
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           push: true
-          tags: |
-            ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:api-latest
+          provenance: false
+          sbom: false
+          tags: ${{ env.IMAGE_REF }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
 
-  deploy:
+      # Only `latest` is kept: every push leaves the previous image untagged,
+      # and untagged versions still count against the package storage quota.
+      - name: Delete untagged image versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ env.IMAGE_NAME }}
+          package-type: container
+          delete-only-untagged-versions: "true"
+          min-versions-to-keep: 0
+
+  # One Coolify resource per job, all running this image: the API, and
+  # (ADR-0016) the taskiq worker and scheduler, each with its own start
+  # command. A job runs only when its UUID variable is set, so a stack
+  # without one of them still deploys. Coolify pulls `latest` again and
+  # restarts the resource. Migrations run through the API resource's
+  # post-deployment command in Coolify (`alembic upgrade head`), never here.
+  deploy-api:
     needs: build-and-push
+    if: vars.COOLIFY_API_UUID != ''
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.VPS_HOSTNAME }}
-          username: ${{ secrets.VPS_USERNAME }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          script: |
-            docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:api-latest ${{ vars.SWARM_BACKEND_SERVICE_NAME }} --force
+      - name: Trigger Coolify deployment
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_UUID: ${{ vars.COOLIFY_API_UUID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"
+
+  deploy-worker:
+    needs: build-and-push
+    if: vars.COOLIFY_WORKER_UUID != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Coolify deployment
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_UUID: ${{ vars.COOLIFY_WORKER_UUID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"
+
+  deploy-scheduler:
+    needs: build-and-push
+    if: vars.COOLIFY_SCHEDULER_UUID != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Coolify deployment
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_UUID: ${{ vars.COOLIFY_SCHEDULER_UUID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_UUID}&force=false"

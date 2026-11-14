@@ -16,3 +16,6 @@ class PlatformUpdateDTO(BaseModel):
 class PlatformDTO(BaseSchema):
     name: str
     url: str | None = None
+    is_public: bool = True
+    created_by: int | None = None
+    created_by_username: str | None = None

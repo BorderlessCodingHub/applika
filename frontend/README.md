@@ -1,127 +1,85 @@
-# Applika.dev v2 - Frontend
+# Applika.dev — Frontend
 
-Job application tracker built with Next.js 16, App Router, and static export. Communicates with a FastAPI backend via cookie-based JWT authentication (GitHub OAuth).
+The Applika.dev web app. Built with Next.js as a **static export** and served
+by nginx; it talks to the [backend](../backend/README.md) API with cookie
+sessions. In English and Brazilian Portuguese.
 
-## Project Structure
+## Run it
 
-```
-frontend/
-├── docker/              # Docker configuration
-│   ├── Dockerfile       # Multi-stage build (Node + Nginx)
-│   └── nginx.conf       # Nginx config with SPA routing and caching
-├── public/              # Static files
-│   └── images/          # Image assets
-├── src/
-│   ├── app/             # Next.js App Router pages
-│   │   ├── (public)/        # Unauthenticated pages (home, login)
-│   │   └── (protected)/     # Auth-guarded pages
-│   │       ├── admin/           # Admin panel
-│   │       ├── applications/    # Application tracking
-│   │       ├── dashboard/       # Dashboard & statistics
-│   │       ├── profile/         # User profile
-│   │       └── reports/         # Daily reports
-│   ├── components/      # UI components (by feature + shared)
-│   │   ├── admin/
-│   │   ├── applications/
-│   │   ├── dashboard/
-│   │   ├── landing/
-│   │   ├── layout/          # App layout, root & protected providers
-│   │   ├── profile/
-│   │   ├── reports/
-│   │   └── ui/              # shadcn/ui primitives (Radix + Tailwind)
-│   ├── contexts/        # React contexts
-│   │   ├── auth-context.tsx     # Auth state & polling-based token refresh
-│   │   └── supports-context.tsx # Shared lookup data
-│   ├── hooks/           # Custom hooks (data fetching & mutations)
-│   ├── lib/             # Utilities, Axios client, React Query config
-│   ├── services/        # Service layer (DI pattern)
-│   │   ├── implementations/    # Concrete API service classes
-│   │   ├── interfaces/         # Service contracts
-│   │   ├── types/              # Request/response types
-│   │   └── services.ts         # Singleton DI container
-│   └── test/            # Test utilities
-```
+You need Node.js 22 and pnpm 10, and a running API. The quickest API is the
+root stack without its `web` service:
 
-## Prerequisites
-
-- Node.js 22 or higher
-- pnpm (latest version recommended)
-
-## Environment Setup
-
-Create a `.env.local` file in the root directory:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api
-```
-
-## Installation
-
-1. Install dependencies:
 ```bash
+docker compose up -d --wait api worker scheduler   # from the repository root
+```
+
+Then, in this folder:
+
+```bash
+echo "NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api" > .env.local
 pnpm install
+pnpm dev                                           # http://127.0.0.1:8080
 ```
 
-2. Run the development server:
-```bash
-pnpm dev
-```
+## Commands
 
-3. Build for production:
-```bash
-pnpm build
-```
+| Command                                              |                                   |
+| ---------------------------------------------------- | --------------------------------- |
+| `pnpm dev`                                           | Development server on port 8080   |
+| `pnpm build`                                         | Static export to `out/`           |
+| `pnpm test`                                          | Unit and component tests (Vitest) |
+| `pnpm lint` · `pnpm format:check` · `pnpm typecheck` | Checks                            |
+| `./scripts/e2e.sh`                                   | End-to-end tests (below)          |
 
-## Available Scripts
+Before a pull request: `pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build`.
+`make front-gate` from the repository root runs the same checks without the build.
 
-| Command | Description |
-|---|---|
-| `pnpm dev` | Start development server on port 8080 |
-| `pnpm build` | Create production build (static export to `out/`) |
-| `pnpm start` | Serve production build locally on port 8080 |
-| `pnpm test` | Run tests with Vitest |
-| `pnpm test:watch` | Run tests in watch mode |
-| `pnpm lint` | Run ESLint |
-| `pnpm lint-fix` | Run ESLint with auto-fix |
+## End-to-end tests
 
-## Docker
-
-The project includes a multi-stage Docker build (Node.js build + Nginx) and Docker Compose:
+Playwright runs against the real stack — the built API and web images, a real
+Postgres and Redis, and a fake Borderless sign-in. Nothing is mocked.
 
 ```bash
-docker compose up --build
+./scripts/e2e.sh                       # start the stack, seed it, test, tear it down
+./scripts/e2e.sh e2e/smoke.spec.ts     # one spec (arguments go to playwright test)
+KEEP_STACK=1 ./scripts/e2e.sh          # keep the stack up to debug
 ```
 
-The `API_BASE_URL` build argument defaults to `http://127.0.0.1/api` and is baked into the static bundle at build time. Override it by setting `NEXT_PUBLIC_API_BASE_URL` in your environment before building.
+`pnpm e2e` alone won't work: the specs need the users the script seeds.
 
-The Nginx image runs as a non-root user with gzip compression, SPA routing, and long-lived caching for static assets.
+## Build settings
 
-## Accessing the Application
+Values are baked into the bundle at build time, so changing one needs a
+rebuild. With Docker they are build arguments (`docker/Dockerfile`); in
+development they go in `.env.local`.
 
-After starting the development server or Docker container, the application will be available at:
+| Build argument       | Variable in the app              | Default                                         |
+| -------------------- | -------------------------------- | ----------------------------------------------- |
+| `API_BASE_URL`       | `NEXT_PUBLIC_API_BASE_URL`       | —                                               |
+| `BORDERLESS_SIGN_UP` | `NEXT_PUBLIC_BORDERLESS_SIGN_UP` | `https://platform.borderlesscoding.com/sign-up` |
+| `APPLIKA_CLI`        | `NEXT_PUBLIC_APPLIKA_CLI`        | `https://pypi.org/project/applika-cli/`         |
 
-- **Dev server:** [http://127.0.0.1:8080](http://127.0.0.1:8080)
-- **Docker:** [http://127.0.0.1:8080](http://127.0.0.1:8080)
+## Where things are
 
-## Tech Stack
+```
+src/
+├── app/            # pages: (public)/ landing, cookie policy, /cli
+│                   #        (protected)/ everything behind sign-in
+│                   #        login/, cli/code/ — no app shell
+├── components/     # UI by feature; ui/ holds the shadcn/ui primitives
+├── hooks/          # data fetching and mutations (TanStack Query)
+├── services/       # typed API clients
+├── i18n/messages/  # en.json and pt-BR.json — every visible word
+└── lib/            # API client and helpers
+e2e/                # Playwright specs
+```
 
-| Category | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router, static export) |
-| Language | TypeScript |
-| Styling | Tailwind CSS + shadcn/ui (Radix UI) |
-| State | TanStack React Query + React Context |
-| Forms | React Hook Form + Zod |
-| HTTP | Axios (cookie-based JWT auth) |
-| Charts | Recharts |
-| Testing | Vitest + Testing Library |
-| Linting | ESLint + Prettier |
+- Every word on screen comes from `src/i18n/messages/`; lint fails on literal
+  text in JSX.
+- Pages behind a beta feature are wrapped in `<FeatureGate feature="…">` and
+  render "page not found" for users without it.
 
-## Architecture Notes
+Stack: Next.js 16, React 19, TypeScript, Tailwind CSS 4, shadcn/ui, TanStack
+Query, React Hook Form + Zod, next-intl, Vitest, Playwright.
 
-- The app is exported as static HTML/JS/CSS — no Node.js server in production
-- Authentication uses HTTP-only JWT cookies with GitHub OAuth
-- Token refresh is handled via polling in AuthContext (10-min interval when connected, 30-sec on failure)
-- Protected routes redirect unauthenticated users to `/login`
-- All API calls go through typed service classes with a DI container (`src/services/services.ts`)
-- Environment variables must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser
+More detail on each area: [AGENTS.md](AGENTS.md).

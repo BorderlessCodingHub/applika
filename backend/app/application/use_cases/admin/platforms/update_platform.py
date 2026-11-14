@@ -3,6 +3,7 @@ from app.application.dto.platform import (
     PlatformUpdateDTO,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.platform_repository import (
     PlatformRepository,
@@ -32,7 +33,9 @@ class UpdatePlatformUseCase:
                     }
                 },
             )
-            raise ResourceNotFound('Platform not found')
+            raise ResourceNotFound(
+                'Platform not found', ErrorCode.CAT_PLATFORM_NOT_FOUND
+            )
 
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
@@ -52,4 +55,17 @@ class UpdatePlatformUseCase:
             },
         )
 
-        return PlatformDTO.model_validate(platform)
+        return PlatformDTO(
+            id=platform.id,
+            created_at=platform.created_at,
+            updated_at=platform.updated_at,
+            name=platform.name,
+            url=platform.url,
+            is_public=platform.is_public,
+            created_by=platform.created_by,
+            created_by_username=(
+                platform.created_by_user.username
+                if platform.created_by_user
+                else None
+            ),
+        )

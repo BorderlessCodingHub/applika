@@ -1,18 +1,56 @@
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Literal
+
 from pydantic import EmailStr
 
+from app.application.use_cases.borderless.badge_access import access_status
 from app.core.enums import (
     Availability,
     Currency,
     ExperienceLevel,
     SalaryPeriod,
 )
+from app.domain.models import (
+    BorderlessAccountModel,
+    GithubConnectionModel,
+    UserBadgeModel,
+)
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 
 
+class BadgeOut(BaseSchema):
+    """A recorded (live) badge, held or not: whether it counts is
+    ``borderless.status == 'active'``."""
+
+    badge: Literal['borderless_base', 'borderless_psp']
+    granted_at: datetime
+
+
+class BorderlessAccessOut(BaseSchema):
+    """The state of the user's Borderless binding (ADR-0026). ``active``:
+    the badges count; ``needs_reconnect``: Borderless refused applika's
+    grant, sign in again on the web. ``checked_at``: the last successful
+    membership read. Never a token."""
+
+    status: Literal['active', 'needs_reconnect']
+    email: str
+    checked_at: datetime | None
+
+
+class GithubRestoreOut(BaseSchema):
+    """``available``: no GitHub identity on record. ``prompt``: available
+    and the one-time welcome screen not answered yet."""
+
+    available: bool
+    prompt: bool
+
+
 class UserProfile(BaseSchema, TimeSchema):
     id: SnowflakeID
-    github_id: int
+    # The GitHub-era identity on record (``github_connections``), else null.
+    github_id: int | None = None
     username: str
     email: EmailStr
     first_name: str | None = None
@@ -30,6 +68,41 @@ class UserProfile(BaseSchema, TimeSchema):
     bio: str | None = None
     linkedin_url: str | None = None
     is_admin: bool = False
+    badges: list[BadgeOut] = []
+    borderless: BorderlessAccessOut | None = None
+    github_restore: GithubRestoreOut = GithubRestoreOut(
+        available=False, prompt=False
+    )
+
+    @classmethod
+    def from_user(
+        cls,
+        user,
+        badges: Sequence[UserBadgeModel] = (),
+        binding: BorderlessAccountModel | None = None,
+        github: GithubConnectionModel | None = None,
+    ) -> 'UserProfile':
+        profile = cls.model_validate(user, from_attributes=True)
+        profile.github_id = github.github_id if github is not None else None
+        profile.badges = [
+            BadgeOut.model_validate(row)
+            for row in badges
+            if row.revoked_at is None
+        ]
+        status = access_status(binding)
+        if binding is not None and status is not None:
+            profile.borderless = BorderlessAccessOut(
+                status=status,
+                email=binding.email,
+                checked_at=binding.profile_read_at,
+            )
+        available = github is None
+        profile.github_restore = GithubRestoreOut(
+            available=available,
+            prompt=available
+            and getattr(user, 'github_restore_prompt_seen_at', None) is None,
+        )
+        return profile
 
 
 class UpdateUserProfile(BaseSchema):

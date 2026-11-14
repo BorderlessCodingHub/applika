@@ -1,4 +1,5 @@
 from app.application.dto.user import UserDTO, UserUpdateDTO
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.user_repository import UserRepository
 
@@ -10,7 +11,9 @@ class UpdateUserUseCase:
     async def execute(self, user_id: int, data: UserUpdateDTO) -> UserDTO:
         user = await self.user_repo.get_by_id(user_id)
         if not user:
-            raise ResourceNotFound('User not found')
+            raise ResourceNotFound(
+                'User not found', ErrorCode.USR_USER_NOT_FOUND
+            )
 
         update_data = data.model_dump(exclude_unset=True)
 

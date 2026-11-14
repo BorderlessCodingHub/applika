@@ -2,10 +2,8 @@ import { api } from "@/lib/api-client";
 import type { IApplicationService } from "@/services/interfaces/i-application-service";
 import type {
   Application,
-  ApplicationFinalizePayload,
-  ApplicationStep,
-  ApplicationStepPayload,
   CreateApplicationPayload,
+  FinalizeApplicationPayload,
 } from "@/services/types/applications";
 
 export class ApplicationService implements IApplicationService {
@@ -31,41 +29,18 @@ export class ApplicationService implements IApplicationService {
     return api.delete(`/applications/${id}`).then((r) => r.data);
   }
 
-  getApplicationSteps(id: string): Promise<ApplicationStep[]> {
-    return api
-      .get<ApplicationStep[]>(`/applications/${id}/steps`)
-      .then((r) => r.data);
-  }
-
-  addStep(
-    applicationId: string,
-    data: ApplicationStepPayload,
-  ): Promise<ApplicationStep> {
-    return api
-      .post(`/applications/${applicationId}/steps`, data)
-      .then((r) => r.data);
-  }
-
-  updateStep(
-    applicationId: string,
-    stepId: string,
-    data: ApplicationStepPayload,
-  ): Promise<ApplicationStep> {
-    return api
-      .put(`/applications/${applicationId}/steps/${stepId}`, data)
-      .then((r) => r.data);
-  }
-
-  deleteStep(applicationId: string, stepId: string): Promise<void> {
-    return api
-      .delete(`/applications/${applicationId}/steps/${stepId}`)
-      .then((r) => r.data);
-  }
-
-  finalizeApplication(
+  finalize(
     id: string,
-    data: ApplicationFinalizePayload,
-  ): Promise<void> {
-    return api.post(`/applications/${id}/finalize`, data).then((r) => r.data);
+    payload?: FinalizeApplicationPayload,
+  ): Promise<Application> {
+    return api
+      .post<Application>(`/applications/${id}/finalize`, payload)
+      .then((r) => r.data);
+  }
+
+  reopen(id: string): Promise<Application> {
+    return api
+      .post<Application>(`/applications/${id}/reopen`)
+      .then((r) => r.data);
   }
 }

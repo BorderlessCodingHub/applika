@@ -26,24 +26,44 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 _currency_enum = sa.Enum(
-    'USD', 'BRL', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'INR',
+    'USD',
+    'BRL',
+    'EUR',
+    'GBP',
+    'CAD',
+    'AUD',
+    'JPY',
+    'CHF',
+    'INR',
     name='currency',
 )
 _salaryperiod_enum = sa.Enum(
-    'HOURLY', 'MONTHLY', 'ANNUAL',
+    'HOURLY',
+    'MONTHLY',
+    'ANNUAL',
     name='salaryperiod',
 )
 _experiencelevel_enum = sa.Enum(
-    'INTERN', 'JUNIOR', 'MID_LEVEL', 'SENIOR', 'STAFF',
-    'LEAD', 'PRINCIPAL', 'SPECIALIST',
+    'INTERN',
+    'JUNIOR',
+    'MID_LEVEL',
+    'SENIOR',
+    'STAFF',
+    'LEAD',
+    'PRINCIPAL',
+    'SPECIALIST',
     name='experiencelevel',
 )
 _workmode_enum = sa.Enum(
-    'REMOTE', 'HYBRID', 'ON_SITE',
+    'REMOTE',
+    'HYBRID',
+    'ON_SITE',
     name='workmode',
 )
 _availability_enum = sa.Enum(
-    'OPEN_TO_WORK', 'CASUALLY_LOOKING', 'NOT_LOOKING',
+    'OPEN_TO_WORK',
+    'CASUALLY_LOOKING',
+    'NOT_LOOKING',
     name='availability',
 )
 
@@ -141,9 +161,7 @@ def upgrade() -> None:
     )
     op.add_column(
         'applications',
-        sa.Column(
-            'experience_level', _experiencelevel_enum, nullable=True
-        ),
+        sa.Column('experience_level', _experiencelevel_enum, nullable=True),
     )
     op.add_column(
         'applications',
@@ -171,9 +189,7 @@ def upgrade() -> None:
     )
     op.add_column(
         'users',
-        sa.Column(
-            'seniority_level', _experiencelevel_enum, nullable=True
-        ),
+        sa.Column('seniority_level', _experiencelevel_enum, nullable=True),
     )
     op.add_column(
         'users',
@@ -207,9 +223,7 @@ def upgrade() -> None:
     # Step 5 — Drop FK constraints (required before PK updates)
     # =========================================================
     for constraint_name, table in _FK_CONSTRAINTS:
-        op.drop_constraint(
-            constraint_name, table, type_='foreignkey'
-        )
+        op.drop_constraint(constraint_name, table, type_='foreignkey')
 
     # =========================================================
     # Step 6 — Generate Snowflake IDs and update PKs
@@ -219,22 +233,15 @@ def upgrade() -> None:
         rows = conn.execute(
             sa.text(f'SELECT id FROM {table} ORDER BY id')
         ).fetchall()
-        id_maps[table] = {
-            row[0]: generate_snowflake_id() for row in rows
-        }
+        id_maps[table] = {row[0]: generate_snowflake_id() for row in rows}
 
     for table in _TABLES:
         mapping = id_maps[table]
         if not mapping:
             continue
         conn.execute(
-            sa.text(
-                f'UPDATE {table} SET id = :new_id WHERE id = :old_id'
-            ),
-            [
-                {'new_id': new, 'old_id': old}
-                for old, new in mapping.items()
-            ],
+            sa.text(f'UPDATE {table} SET id = :new_id WHERE id = :old_id'),
+            [{'new_id': new, 'old_id': old} for old, new in mapping.items()],
         )
 
     # =========================================================
@@ -249,10 +256,7 @@ def upgrade() -> None:
                 f'UPDATE {table} SET {column} = :new_id'
                 f' WHERE {column} = :old_id'
             ),
-            [
-                {'new_id': new, 'old_id': old}
-                for old, new in mapping.items()
-            ],
+            [{'new_id': new, 'old_id': old} for old, new in mapping.items()],
         )
 
     # =========================================================
@@ -260,9 +264,7 @@ def upgrade() -> None:
     # =========================================================
     for table, seq in _SEQUENCES.items():
         conn.execute(
-            sa.text(
-                f'ALTER TABLE {table} ALTER COLUMN id DROP DEFAULT'
-            )
+            sa.text(f'ALTER TABLE {table} ALTER COLUMN id DROP DEFAULT')
         )
         conn.execute(sa.text(f'DROP SEQUENCE IF EXISTS {seq}'))
 
@@ -270,36 +272,64 @@ def upgrade() -> None:
     # Step 9 — Restore FK constraints
     # =========================================================
     op.create_foreign_key(
-        'fk_applications_user_id', 'applications', 'users',
-        ['user_id'], ['id'], ondelete='CASCADE',
+        'fk_applications_user_id',
+        'applications',
+        'users',
+        ['user_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
     op.create_foreign_key(
-        'fk_applications_platform_id', 'applications', 'platforms',
-        ['platform_id'], ['id'],
+        'fk_applications_platform_id',
+        'applications',
+        'platforms',
+        ['platform_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_applications_last_step_id', 'applications',
-        'steps_definition', ['last_step_id'], ['id'],
+        'fk_applications_last_step_id',
+        'applications',
+        'steps_definition',
+        ['last_step_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_applications_feedback_id', 'applications',
-        'feedbacks_definition', ['feedback_id'], ['id'],
+        'fk_applications_feedback_id',
+        'applications',
+        'feedbacks_definition',
+        ['feedback_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_steps_application_id', 'application_steps', 'applications',
-        ['application_id'], ['id'], ondelete='CASCADE',
+        'fk_steps_application_id',
+        'application_steps',
+        'applications',
+        ['application_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
     op.create_foreign_key(
-        'fk_steps_step_id', 'application_steps', 'steps_definition',
-        ['step_id'], ['id'],
+        'fk_steps_step_id',
+        'application_steps',
+        'steps_definition',
+        ['step_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_application_steps_user_id', 'application_steps', 'users',
-        ['user_id'], ['id'], ondelete='CASCADE',
+        'fk_application_steps_user_id',
+        'application_steps',
+        'users',
+        ['user_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
     op.create_foreign_key(
-        'fk_quinzenal_reports_user_id', 'quinzenal_reports', 'users',
-        ['user_id'], ['id'], ondelete='CASCADE',
+        'fk_quinzenal_reports_user_id',
+        'quinzenal_reports',
+        'users',
+        ['user_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
 
 
@@ -310,9 +340,7 @@ def downgrade() -> None:
     # Step 1 — Drop FK constraints
     # =========================================================
     for constraint_name, table in _FK_CONSTRAINTS:
-        op.drop_constraint(
-            constraint_name, table, type_='foreignkey'
-        )
+        op.drop_constraint(constraint_name, table, type_='foreignkey')
 
     # =========================================================
     # Step 2 — Reassign Snowflake IDs to sequential integers
@@ -326,22 +354,15 @@ def downgrade() -> None:
         rows = conn.execute(
             sa.text(f'SELECT id FROM {table} ORDER BY id')
         ).fetchall()
-        id_maps[table] = {
-            row[0]: i + 1 for i, row in enumerate(rows)
-        }
+        id_maps[table] = {row[0]: i + 1 for i, row in enumerate(rows)}
 
     for table in _TABLES:
         mapping = id_maps[table]
         if not mapping:
             continue
         conn.execute(
-            sa.text(
-                f'UPDATE {table} SET id = :new_id WHERE id = :old_id'
-            ),
-            [
-                {'new_id': new, 'old_id': old}
-                for old, new in mapping.items()
-            ],
+            sa.text(f'UPDATE {table} SET id = :new_id WHERE id = :old_id'),
+            [{'new_id': new, 'old_id': old} for old, new in mapping.items()],
         )
 
     # =========================================================
@@ -356,10 +377,7 @@ def downgrade() -> None:
                 f'UPDATE {table} SET {column} = :new_id'
                 f' WHERE {column} = :old_id'
             ),
-            [
-                {'new_id': new, 'old_id': old}
-                for old, new in mapping.items()
-            ],
+            [{'new_id': new, 'old_id': old} for old, new in mapping.items()],
         )
 
     # =========================================================
@@ -384,14 +402,10 @@ def downgrade() -> None:
         max_id = conn.execute(
             sa.text(f'SELECT COALESCE(MAX(id), 0) FROM {table}')
         ).scalar()
+        conn.execute(sa.text(f'CREATE SEQUENCE {seq} START WITH {max_id + 1}'))
         conn.execute(
             sa.text(
-                f'CREATE SEQUENCE {seq} START WITH {max_id + 1}'
-            )
-        )
-        conn.execute(
-            sa.text(
-                f"ALTER TABLE {table} ALTER COLUMN id"
+                f'ALTER TABLE {table} ALTER COLUMN id'
                 f" SET DEFAULT nextval('{seq}'::regclass)"
             )
         )
@@ -400,36 +414,64 @@ def downgrade() -> None:
     # Step 6 — Restore FK constraints
     # =========================================================
     op.create_foreign_key(
-        'fk_applications_user_id', 'applications', 'users',
-        ['user_id'], ['id'], ondelete='CASCADE',
+        'fk_applications_user_id',
+        'applications',
+        'users',
+        ['user_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
     op.create_foreign_key(
-        'fk_applications_platform_id', 'applications', 'platforms',
-        ['platform_id'], ['id'],
+        'fk_applications_platform_id',
+        'applications',
+        'platforms',
+        ['platform_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_applications_last_step_id', 'applications',
-        'steps_definition', ['last_step_id'], ['id'],
+        'fk_applications_last_step_id',
+        'applications',
+        'steps_definition',
+        ['last_step_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_applications_feedback_id', 'applications',
-        'feedbacks_definition', ['feedback_id'], ['id'],
+        'fk_applications_feedback_id',
+        'applications',
+        'feedbacks_definition',
+        ['feedback_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_steps_application_id', 'application_steps', 'applications',
-        ['application_id'], ['id'], ondelete='CASCADE',
+        'fk_steps_application_id',
+        'application_steps',
+        'applications',
+        ['application_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
     op.create_foreign_key(
-        'fk_steps_step_id', 'application_steps', 'steps_definition',
-        ['step_id'], ['id'],
+        'fk_steps_step_id',
+        'application_steps',
+        'steps_definition',
+        ['step_id'],
+        ['id'],
     )
     op.create_foreign_key(
-        'fk_application_steps_user_id', 'application_steps', 'users',
-        ['user_id'], ['id'], ondelete='CASCADE',
+        'fk_application_steps_user_id',
+        'application_steps',
+        'users',
+        ['user_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
     op.create_foreign_key(
-        'fk_quinzenal_reports_user_id', 'quinzenal_reports', 'users',
-        ['user_id'], ['id'], ondelete='CASCADE',
+        'fk_quinzenal_reports_user_id',
+        'quinzenal_reports',
+        'users',
+        ['user_id'],
+        ['id'],
+        ondelete='CASCADE',
     )
 
     # =========================================================

@@ -1,0 +1,253 @@
+# Dedicated E2E stack — production-simulating, ephemeral, isolated.
+#
+# NOT the dev stack. `frontend/docker-compose.yml` is the developer stack and
+# this file never touches it. Here both real production images are built and
+# run side by side, the way production serves them: `api` from
+# `backend/Dockerfile` (uvicorn behind the `/api` root path) and `web` from
+# `frontend/docker/Dockerfile` (the Next.js static export served by nginx).
+# The fake Borderless is the one test-only image, built apart from both.
+# The schema comes from the real Alembic chain (`alembic upgrade head`) on the
+# api command, against a real Postgres and a real Redis. Playwright drives the
+# `web` origin and every request it makes hits the real API — nothing is mocked.
+# See `frontend/scripts/e2e.sh` (the runner) and `backend/app/scripts/seed_e2e.py`
+# (real-session seeding). Borderless's OpenID Connect sign-in (ADR-0026) is
+# played by the `borderless-fake` service; nothing calls the real Borderless.
+#
+# Isolation: a distinct compose PROJECT name (`applika-e2e`) and `applika-e2e-*`
+# container names — it shares NO project, containers, networks or volumes with
+# the dev stack, so tearing it down can never touch a developer's database.
+# There are intentionally NO named volumes: Postgres and Redis live in
+# throwaway container layers, so every run starts from an EMPTY database
+# migrated solely by `alembic upgrade head`.
+#
+# Two origins, one host: the cookies minted by the seeder are set for host
+# `127.0.0.1` and cookies ignore the port, so the session issued for the web
+# origin (`:8180`) is sent to the api origin (`:8100`), and SameSite=Lax treats
+# the two ports as same-site. Both ports are bound to 127.0.0.1 only.
+#
+#   Up:   docker compose -f docker-compose.e2e.yml up -d --build --wait
+#   Down: docker compose -f docker-compose.e2e.yml down -v --remove-orphans
+# Normally you don't call those directly — `frontend/scripts/e2e.sh` does.
+name: applika-e2e
+
+# The API's environment, shared by `api`, `worker` and `scheduler`
+# (Plan corrections 10/11): the worker and the scheduler run the same image with
+# the same settings, the way `docker-compose.yml` shares `*api-environment`.
+x-api-environment: &api-environment
+  ENVIRONMENT: DEV
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika_e2e
+  REDIS_URL: redis://redis:6379/0
+  # Synthetic, non-secret E2E values. JWT_SECRET is shared with the seed
+  # CLI (it runs via `compose exec api`, same env) so the tokens it mints
+  # validate. NOT for production.
+  JWT_SECRET: e2e-jwt-secret-not-for-production
+  # Borderless OpenID Connect sign-in (ADR-0026) goes to the `borderless-fake`
+  # service below, never to the real Borderless. The issuer is the fake's
+  # in-stack address; the client id and secret are the SYNTHETIC client of
+  # `backend/tests/fixtures/borderless/accounts.json` (not a secret, not the
+  # real client). The redirect URI is this stack's API callback, registered
+  # in that same file. BORDERLESS_TOKEN_ENCRYPTION_KEY is a fixed throwaway
+  # Fernet key: it encrypts the fake refresh tokens (Postgres) and access
+  # tokens (Redis). WEB_SIGNIN_URI is the e2e web's sign-in page, where every
+  # callback lands, signed in or with `?error=<code>`.
+  BORDERLESS_ISSUER: http://borderless-fake:8081/api/auth
+  BORDERLESS_CLIENT_ID: applika-fake-client
+  BORDERLESS_CLIENT_SECRET: applika-fake-client-secret-not-real
+  BORDERLESS_REDIRECT_URI: http://127.0.0.1:8100/api/auth/borderless/callback
+  BORDERLESS_TOKEN_ENCRYPTION_KEY: auiKtUcX-v_oZqv-A4viHsBK8MPYwDE_AFvK_EIj7WU=
+  WEB_SIGNIN_URI: http://127.0.0.1:8180/login
+  # The GitHub restore answers 503 without a client id and secret. The
+  # dummies let a spec reach the consent URL; real github.com is never
+  # reached (the spec aborts that navigation).
+  GITHUB_CLIENT_ID: e2e-dummy-github-client-id
+  GITHUB_CLIENT_SECRET: e2e-dummy-github-client-secret
+  ACCOUNT_LINK_REDIRECT_URI: http://127.0.0.1:8180/profile
+  # The browser's origin is the `web` service, not the API's own port.
+  # allow_credentials is already True in app/main.py; CORS_HEADERS is
+  # widened here (the default is only X-Request-ID + Content-Type) so the
+  # axios preflight from the SPA passes without editing settings.py.
+  CORS_ORIGINS: '["http://127.0.0.1:8180"]'
+  CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
+  # ADR-0015: the rate limiter wraps every route, so it would
+  # otherwise trip on the seed script and on a Playwright run driving
+  # many requests in this one 60s window - raised so the limiter stays
+  # wired up (still ON) without the E2E suite ever hitting a 429.
+  RATE_LIMIT_DEFAULT: "100000"
+  RATE_LIMIT_AUTH: "10000"
+  # ADR-0019 (plan 0014 correction 7): the device-code approval
+  # page and the PKCE manual-code page live on the e2e web, not on the dev
+  # stack's :8080 default, so `verification_uri_complete` opens this stack.
+  DEVICE_VERIFICATION_URI: http://127.0.0.1:8180/device
+  CLI_MANUAL_REDIRECT_URI: http://127.0.0.1:8180/cli/code
+  # Job board. The FIXTURE scraper serves every enabled source
+  # (himalayas, remoteok) from `backend/tests/fixtures/jobs/postings.json`,
+  # mounted read-only below: nothing ever reaches himalayas.app or
+  # remoteok.com. The settings model refuses `fixture` in PROD. The cron is
+  # 00:00 on January 1st, so the scheduler never fires during a run - every
+  # E2E run is started by the admin's "Run now".
+  JOBS_SCRAPERS: fixture
+  JOBS_FIXTURE_PATH: /fixtures/postings.json
+  JOBS_INGEST_CRON: "0 0 1 1 *"
+
+services:
+  # The fake Borderless (ADR-0026, `backend/tests/fixtures/borderless/
+  # fake_oidc.py`): discovery, a sign-in page where the test picks the
+  # account, the code exchange with its PKCE and client checks, refresh with
+  # rotation, refusal on demand, keys and revocation, plus its `/__fake/*`
+  # controls. It runs on its OWN test-only image, built from that folder's
+  # Dockerfile (python plus the pinned pyjwt and cryptography, the synthetic
+  # `accounts.json` baked in) and tagged `applika-e2e-borderless-fake`; never
+  # on the API image, which holds no fake code. The image's entrypoint runs
+  # the fake, so `command:` carries its flags only (`--config` and `--port`
+  # keep their defaults: the baked accounts and 8081). Every provider
+  # endpoint sits under the issuer's path; the browser reaches the sign-in
+  # page on the published port (`--public-url`), the API reaches the rest
+  # in-stack. `--access-ttl 2`: each access token lives 2 s, so a membership
+  # check refreshes at the fake almost every time. The image has no curl or
+  # wget: the healthcheck uses its python.
+  borderless-fake:
+    container_name: applika-e2e-borderless-fake
+    image: applika-e2e-borderless-fake
+    build:
+      context: ./backend/tests/fixtures/borderless
+    command:
+      - --issuer
+      - http://borderless-fake:8081/api/auth
+      - --public-url
+      - http://127.0.0.1:8181
+      - --access-ttl
+      - "2"
+    ports:
+      - "127.0.0.1:8181:8081"
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2)"
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # The real API image. `ENVIRONMENT: DEV` overrides the Dockerfile's PROD:
+  # it keeps /api/openapi.json reachable (the readiness probe) and — crucially
+  # — makes the session cookies non-Secure so they work over plain http in the
+  # harness (see core/tokens.py: secure = ENVIRONMENT == 'PROD').
+  # The image has no `uv` at runtime; PATH already points at /app/.venv/bin, so
+  # `alembic` and `uvicorn` are called directly.
+  api:
+    container_name: applika-e2e-api
+    image: applika-e2e-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command:
+      - /bin/sh
+      - -c
+      - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment: *api-environment
+    volumes:
+      - ./backend/tests/fixtures/jobs:/fixtures:ro
+    ports:
+      - "127.0.0.1:8100:8000"
+    healthcheck:
+      # applika has no /health route; openapi.json exists in every non-PROD
+      # environment and proves the app booted after the migration ran.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/openapi.json')"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      borderless-fake:
+        condition: service_healthy
+
+  # ADR-0016: the taskiq worker consuming the `applika:tasks` queue - it runs
+  # the ingest "Run now" enqueues. Same image as `api` (built once there),
+  # same env, the fixture postings mounted read-only. Healthy api = migrated:
+  # the worker never runs Alembic.
+  worker:
+    container_name: applika-e2e-worker
+    image: applika-e2e-api
+    # Built by `api`; never pulled (there is no such image on a registry).
+    pull_policy: never
+    command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks"]
+    environment: *api-environment
+    volumes:
+      - ./backend/tests/fixtures/jobs:/fixtures:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Exactly one scheduler (ADR-0016). Its cron never fires during a run (see
+  # JOBS_INGEST_CRON above); it is here so the stack matches production.
+  scheduler:
+    container_name: applika-e2e-scheduler
+    image: applika-e2e-api
+    # Built by `api`; never pulled (there is no such image on a registry).
+    pull_policy: never
+    command: ["taskiq", "scheduler", "app.worker.broker:scheduler", "app.worker.tasks"]
+    environment: *api-environment
+    volumes:
+      - ./backend/tests/fixtures/jobs:/fixtures:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # The real frontend image: the static export built with the API base URL
+  # baked in at build time (NEXT_PUBLIC_API_BASE_URL), served by nginx with
+  # the SPA try_files fallback.
+  web:
+    container_name: applika-e2e-web
+    image: applika-e2e-web
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile
+      args:
+        API_BASE_URL: http://127.0.0.1:8100/api
+    ports:
+      - "127.0.0.1:8180:80"
+    healthcheck:
+      # 127.0.0.1, not localhost: nginx listens on IPv4 only and `localhost`
+      # resolves to ::1 first inside the container.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # EMPTY on boot — no volume. The schema comes only from the api service's
+  # `alembic upgrade head`, so every run starts from a clean, migrated database.
+  db:
+    container_name: applika-e2e-db
+    image: postgres:16
+    environment:
+      POSTGRES_DB: applika_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d applika_e2e"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    container_name: applika-e2e-redis
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+# NO top-level `volumes:` — by design. Nothing persists across `down`.

@@ -6,10 +6,9 @@ runs. The allowed upper bound for any user-provided date is
 ``UTC today + 1 day``, so with time frozen at ``2026-04-07`` the
 maximum accepted date is ``2026-04-08``.
 
-The ``ignore=['snowflake']`` option keeps the Snowflake ID generator
-on the real wall clock — otherwise its cached ``last_timestamp`` from
-prior tests would be ahead of the frozen time, causing it to raise
-``InvalidSystemClock`` and produce ``id=None`` on inserts.
+The frozen clock also reaches the Snowflake ID generator: a frozen time
+behind its last timestamp is a clock that stepped back, and the generator
+keeps issuing from the last timestamp it used (``app/lib/types.py``).
 """
 
 from datetime import date
@@ -18,14 +17,15 @@ from freezegun import freeze_time
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType, InterviewType
 from app.domain.models import ApplicationModel, StepDefinitionModel
 from tests import msg
 from tests.base_db_setup import base_data
 
 FROZEN_NOW = '2026-04-07 12:00:00'
 TODAY = date(2026, 4, 7)
-MAX_ALLOWED = date(2026, 4, 8)          # UTC today + 1 day
-ONE_DAY_PAST_MAX = date(2026, 4, 9)     # first rejected date
+MAX_ALLOWED = date(2026, 4, 8)  # UTC today + 1 day
+ONE_DAY_PAST_MAX = date(2026, 4, 9)  # first rejected date
 
 
 def _app_payload(application_date: str, **overrides) -> dict:
@@ -45,22 +45,34 @@ async def _seed_steps_and_app(
 ) -> None:
     db_session.add_all([
         StepDefinitionModel(
-            id=1, name='Applied', color='#007bff', strict=False
+            id=1,
+            name='Applied',
+            color='#007bff',
+            strict=False,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
         ),
         StepDefinitionModel(
-            id=2, name='Interview', color='#17a2b8', strict=False
+            id=2,
+            name='Interview',
+            color='#17a2b8',
+            strict=False,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
         ),
     ])
-    db_session.add(ApplicationModel(
-        id=1,
-        user_id=base_data()['user'].id,
-        platform_id=base_data()['plat_linkedin'].id,
-        company_id=base_data()['company_acme'].id,
-        company_name='Acme Corp',
-        role='Software Engineer',
-        mode='active',
-        application_date=application_date,
-    ))
+    db_session.add(
+        ApplicationModel(
+            id=1,
+            user_id=base_data()['user'].id,
+            platform_id=base_data()['plat_linkedin'].id,
+            company_id=base_data()['company_acme'].id,
+            company_name='Acme Corp',
+            role='Software Engineer',
+            mode='active',
+            application_date=application_date,
+        )
+    )
     await db_session.commit()
 
 
@@ -69,7 +81,7 @@ async def _seed_steps_and_app(
 # ---------------------------------------------------------------------------
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_create_application_with_today_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -80,7 +92,7 @@ async def test_create_application_with_today_succeeds(
     assert response.status_code == 201, msg(201, response.status_code)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_create_application_at_max_allowed_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -92,7 +104,7 @@ async def test_create_application_at_max_allowed_succeeds(
     assert response.status_code == 201, msg(201, response.status_code)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_create_application_past_upper_bound_returns_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -105,7 +117,7 @@ async def test_create_application_past_upper_bound_returns_422(
     assert 'application_date' in str(body), msg('application_date', body)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_create_application_far_future_returns_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -116,7 +128,7 @@ async def test_create_application_far_future_returns_422(
     assert response.status_code == 422, msg(422, response.status_code)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_create_application_in_the_past_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -127,20 +139,22 @@ async def test_create_application_in_the_past_succeeds(
     assert response.status_code == 201, msg(201, response.status_code)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_update_application_with_future_date_returns_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    db_session.add(ApplicationModel(
-        id=1,
-        user_id=base_data()['user'].id,
-        platform_id=base_data()['plat_linkedin'].id,
-        company_id=base_data()['company_acme'].id,
-        company_name='Acme Corp',
-        role='Software Engineer',
-        mode='active',
-        application_date=date(2025, 12, 1),
-    ))
+    db_session.add(
+        ApplicationModel(
+            id=1,
+            user_id=base_data()['user'].id,
+            platform_id=base_data()['plat_linkedin'].id,
+            company_id=base_data()['company_acme'].id,
+            company_name='Acme Corp',
+            role='Software Engineer',
+            mode='active',
+            application_date=date(2025, 12, 1),
+        )
+    )
     await db_session.commit()
 
     response = await async_client.put(
@@ -152,27 +166,26 @@ async def test_update_application_with_future_date_returns_422(
 
 
 # ---------------------------------------------------------------------------
-# ApplicationStep.step_date must be >= application.application_date
+# Step dates: the order rules are gone (PRD 0008 "Assumptions")
+#
+# A step is a timeline event now, and for timeline events no
+# rule ties the date to the application date or to the previous step.
 # ---------------------------------------------------------------------------
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
-async def test_create_step_before_application_date_returns_422(
+@freeze_time(FROZEN_NOW)
+async def test_create_step_before_application_date_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
 
     payload = {'step_id': 1, 'step_date': '2026-03-31'}
-    response = await async_client.post(
-        '/applications/1/steps', json=payload
-    )
+    response = await async_client.post('/applications/1/steps', json=payload)
 
-    assert response.status_code == 422, msg(422, response.status_code)
-    body = response.json()
-    assert 'application_date' in str(body), msg('application_date', body)
+    assert response.status_code == 201, msg(201, response.status_code)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_create_step_on_application_date_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -180,32 +193,28 @@ async def test_create_step_on_application_date_succeeds(
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
 
     payload = {'step_id': 1, 'step_date': '2026-04-01'}
-    response = await async_client.post(
-        '/applications/1/steps', json=payload
-    )
+    response = await async_client.post('/applications/1/steps', json=payload)
 
     assert response.status_code == 201, msg(201, response.status_code)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
+@freeze_time(FROZEN_NOW)
 async def test_create_step_after_application_date_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
 
     payload = {'step_id': 1, 'step_date': '2026-04-03'}
-    response = await async_client.post(
-        '/applications/1/steps', json=payload
-    )
+    response = await async_client.post('/applications/1/steps', json=payload)
 
     assert response.status_code == 201, msg(201, response.status_code)
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
-async def test_create_step_earlier_than_previous_step_returns_422(
+@freeze_time(FROZEN_NOW)
+async def test_create_step_earlier_than_previous_step_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """Chronological order: new step cannot regress past the last one."""
+    """No chronological rule any more: the timeline orders by date."""
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
 
     first = await async_client.post(
@@ -219,13 +228,16 @@ async def test_create_step_earlier_than_previous_step_returns_422(
         json={'step_id': 2, 'step_date': '2026-04-03'},
     )
 
-    assert second.status_code == 422, msg(422, second.status_code)
-    body = second.json()
-    assert 'previous step' in str(body), msg('previous step', body)
+    assert second.status_code == 201, msg(201, second.status_code)
+    listed = await async_client.get('/applications/1/steps')
+    assert [s['step_date'] for s in listed.json()] == [
+        '2026-04-03',
+        '2026-04-05',
+    ]
 
 
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
-async def test_update_step_before_application_date_returns_422(
+@freeze_time(FROZEN_NOW)
+async def test_update_step_before_application_date_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
@@ -242,4 +254,4 @@ async def test_update_step_before_application_date_returns_422(
         json={'step_id': 1, 'step_date': '2026-03-20'},
     )
 
-    assert update.status_code == 422, msg(422, update.status_code)
+    assert update.status_code == 200, msg(200, update.status_code)

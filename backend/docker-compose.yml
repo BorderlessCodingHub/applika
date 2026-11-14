@@ -7,19 +7,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
+    environment: &backend-environment
       - ENVIRONMENT=DEV
-      - CORS_ORIGINS=["http://127.0.0.1:8080"]
+      - CORS_ORIGINS=${CORS_ORIGINS:-["http://127.0.0.1:8080"]}
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/applika
       - REDIS_URL=redis://redis:6379/0
-      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - GITHUB_REDIRECT_URI=${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
-      - GITHUB_TOKEN_ENCRYPTION_KEY=${GITHUB_TOKEN_ENCRYPTION_KEY}
-      - LOGIN_REDIRECT_URI=${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}
-      - DISCORD_REPORTS_WEBHOOK=${DISCORD_REPORTS_WEBHOOK:-}
+      # Sign in with Borderless through OpenID Connect (ADR-0026): ?error=AUTH-1018
+      # until the issuer, client id, secret and key are set. Locally, the fake:
+      #   uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth
+      - BORDERLESS_ISSUER=${BORDERLESS_ISSUER:-}
+      - BORDERLESS_CLIENT_ID=${BORDERLESS_CLIENT_ID:-}
+      - BORDERLESS_CLIENT_SECRET=${BORDERLESS_CLIENT_SECRET:-}
+      - BORDERLESS_REDIRECT_URI=${BORDERLESS_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/borderless/callback}
+      - BORDERLESS_TOKEN_ENCRYPTION_KEY=${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
+      - WEB_SIGNIN_URI=${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
       - DISCORD_FEEDBACK_WEBHOOK=${DISCORD_FEEDBACK_WEBHOOK:-}
-      - DISCORD_REPORTS_ORGANIZATION=${DISCORD_REPORTS_ORGANIZATION:-}
     ports:
       - "8000:8000"
     entrypoint:
@@ -28,6 +33,42 @@ services:
         "-c",
         "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000",
       ]
+    healthcheck:
+      # openapi.json exists in every non-PROD environment and proves the app
+      # booted AFTER the migration ran; the worker and scheduler wait on it.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/openapi.json')"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    restart: unless-stopped
+
+  # ADR-0016: the taskiq worker and its single scheduler run the same image
+  # with the api's settings. They start once the api is healthy, i.e. after
+  # its migration ran, and never run Alembic themselves.
+  worker:
+    build: .
+    container_name: applika.dev-worker
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment: *backend-environment
+    command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks"]
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    container_name: applika.dev-scheduler
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment: *backend-environment
+    # Exactly one scheduler: it enqueues `ingest_jobs` on JOBS_INGEST_CRON.
+    command: ["taskiq", "scheduler", "app.worker.broker:scheduler", "app.worker.tasks"]
     restart: unless-stopped
 
   db:

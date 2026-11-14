@@ -1,5 +1,5 @@
 import { ReportDays, ReportDaysType } from "@/services/types/reports";
-import { ReportDayClient } from "./report-day-page";
+import { ReportDayRoute } from "./report-day-route";
 
 interface Props {
   params: Promise<{ day: ReportDaysType }>;
@@ -11,5 +11,5 @@ export function generateStaticParams() {
 
 export default async function ReportDayPage({ params }: Props) {
   const { day } = await params;
-  return <ReportDayClient day={day} />;
+  return <ReportDayRoute day={day} />;
 }

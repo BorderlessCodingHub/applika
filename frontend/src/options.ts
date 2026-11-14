@@ -4,52 +4,73 @@ import {
   SalaryPeriodType,
   SeniorityLevelType,
 } from "./services/types/users";
+import {
+  CURRENCY_OPTIONS,
+  SALARY_PERIOD_OPTIONS,
+} from "@/components/timeline/timeline-options";
+import { word } from "@/i18n/translator";
 
-const CURRENCY = [
-  { value: "USD", symbol: "$" },
-  { value: "BRL", symbol: "R$" },
-  { value: "EUR", symbol: "€" },
-  { value: "GBP", symbol: "£" },
-  { value: "CAD", symbol: "C$" },
-  { value: "AUD", symbol: "A$" },
-  { value: "JPY", symbol: "¥" },
-  { value: "CHF", symbol: "CHF" },
-  { value: "INR", symbol: "₹" },
-] as { value: SalaryCurrencyType; symbol: string }[];
+/**
+ * AC9 (R-031): derived from the single source of truth
+ * (`@/components/timeline/timeline-options`) so this file's shape (`symbol`
+ * for currency, `sufix` — this file's own long-standing typo, kept so no
+ * caller needs to change — for the period suffix) stays intact for every
+ * existing caller (profile, application create/edit) while the VALUES are
+ * the shared 20 currencies / `hourly | monthly | annually`.
+ */
+const CURRENCY = CURRENCY_OPTIONS.map((option) => ({
+  value: option.value,
+  symbol: option.symbol,
+})) as { value: SalaryCurrencyType; symbol: string }[];
 
-const SALARY_PERIOD = [
-  { value: "hourly", label: "Hourly", sufix: "/hr" },
-  { value: "monthly", label: "Monthly", sufix: "/mo" },
-  { value: "annual", label: "Annual", sufix: "/yr" },
-] as { value: SalaryPeriodType; label: string; sufix: string }[];
+const SALARY_PERIOD = SALARY_PERIOD_OPTIONS.map((option) => ({
+  value: option.value,
+  get label() {
+    return option.label;
+  },
+  get sufix() {
+    return option.suffix;
+  },
+})) as { value: SalaryPeriodType; label: string; sufix: string }[];
 
-const SENIORITY = [
-  { value: "intern", label: "Intern" },
-  { value: "junior", label: "Junior" },
-  { value: "mid_level", label: "Mid Level" },
-  { value: "senior", label: "Senior" },
-  { value: "staff", label: "Staff" },
-  { value: "lead", label: "Lead" },
-  { value: "principal", label: "Principal" },
-  { value: "specialist", label: "Specialist" },
-] as { value: SeniorityLevelType; label: string }[];
+/**
+ * An option list whose labels are getters: each read returns the words of the
+ * active language (`options.<group>.<value>`). Components rendering them
+ * subscribe with `useTranslations`, so a switch re-renders them.
+ */
+function liveOptions<V extends string>(group: string, values: readonly V[]) {
+  return values.map((value) => ({
+    value,
+    get label() {
+      return word(`options.${group}.${value}`);
+    },
+  }));
+}
 
-const AVAILABILITY = [
-  { value: "open_to_work", label: "Open to work" },
-  { value: "casually_looking", label: "Casually looking" },
-  { value: "not_looking", label: "Not looking" },
-] as { value: AvailabilityType; label: string }[];
+const SENIORITY = liveOptions("seniority", [
+  "intern",
+  "junior",
+  "mid_level",
+  "senior",
+  "staff",
+  "lead",
+  "principal",
+  "specialist",
+] as const) as { value: SeniorityLevelType; label: string }[];
 
-const WORK_MODE = [
-  { value: "remote", label: "Remote" },
-  { value: "hybrid", label: "Hybrid" },
-  { value: "on_site", label: "On-site" },
-] as const;
+const AVAILABILITY = liveOptions("availability", [
+  "open_to_work",
+  "casually_looking",
+  "not_looking",
+] as const) as { value: AvailabilityType; label: string }[];
 
-const SOURCE = [
-  { value: "active", label: "Active (I applied)" },
-  { value: "passive", label: "Passive (Recruiter contacted me)" },
-] as const;
+const WORK_MODE = liveOptions("workMode", [
+  "remote",
+  "hybrid",
+  "on_site",
+] as const);
+
+const SOURCE = liveOptions("source", ["active", "passive"] as const);
 
 export const SelectOptions = {
   CURRENCY,
@@ -59,19 +80,3 @@ export const SelectOptions = {
   WORK_MODE,
   SOURCE,
 };
-
-export function formatSalary(
-  value: number | undefined | null,
-  currency?: SalaryCurrencyType,
-  period?: SalaryPeriodType,
-) {
-  if (value == null) return "?";
-
-  const c = CURRENCY.find((x) => x.value === currency);
-  const sym = c ? c.symbol : "$";
-
-  const s = SALARY_PERIOD.find((x) => x.value === period);
-  const suf = s ? s.sufix : "";
-
-  return `${sym}${value.toLocaleString()} ${suf}`;
-}

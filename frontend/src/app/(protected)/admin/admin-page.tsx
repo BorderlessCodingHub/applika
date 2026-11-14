@@ -14,9 +14,19 @@ import { TopPlatformsPanel } from "@/components/admin/top-platforms-panel";
 import { TopCompaniesPanel } from "@/components/admin/top-companies-panel";
 import { ActivityHeatmap } from "@/components/admin/activity-heatmap";
 import { useAuth } from "@/contexts/auth-context";
+import { useTranslations } from "next-intl";
+import { AdminScreen } from "@/components/phone/screens/admin-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 
+/** `/admin`: below md the Admin board's Dashboard (PRD 0021); at md and up today's dashboard, unchanged. */
 export function AdminPage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <AdminScreen /> : <AdminDesktopPage />;
+}
+
+function AdminDesktopPage() {
   const { user } = useAuth();
+  const t = useTranslations("admin.dashboard");
 
   return (
     <div className="space-y-5">
@@ -34,11 +44,11 @@ export function AdminPage() {
                 <Shield className="h-3.5 w-3.5 text-amber-400" />
               </div>
               <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground">
-                Admin Console
+                {t("title")}
               </h1>
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Platform-wide analytics and user management
+              {t("subtitle")}
             </p>
           </div>
 
@@ -49,7 +59,7 @@ export function AdminPage() {
             className="hidden items-center gap-2 rounded-lg border border-amber-500/15 bg-amber-500/10 px-3 py-1.5 sm:flex"
           >
             <Terminal className="h-3 w-3 text-amber-400" />
-            <span className="font-display text-[11px] font-medium uppercase tracking-wide-label text-amber-400">
+            <span className="font-display text-[11px] font-medium tracking-wide-label text-amber-400 uppercase">
               {user?.username ?? "admin"}
             </span>
           </motion.div>
@@ -63,7 +73,7 @@ export function AdminPage() {
           className="mt-4 h-px origin-left"
           style={{
             background:
-              "linear-gradient(90deg, hsl(var(--primary)), #fbbf24 50%, transparent)",
+              "linear-gradient(90deg, var(--chart-1), var(--chart-3) 50%, transparent)",
           }}
         />
       </motion.div>

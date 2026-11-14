@@ -31,6 +31,17 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { AdminUserRow } from "@/services/types/admin";
+import {
+  useAdminNumber,
+  useAvailabilityLabel,
+  useAdminPager,
+  useAdminRelative,
+  useSeniorityLabel,
+} from "@/components/admin/admin-format";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { AdminUsersScreenView } from "@/components/phone/screens/admin-users-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
+import { useLocale, useTranslations } from "next-intl";
 
 type SortKey =
   | "username"
@@ -73,7 +84,7 @@ function SortHeader({
     <button
       onClick={() => onSort(sortKey)}
       className={cn(
-        "flex items-center gap-1 font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground transition-colors hover:text-foreground",
+        "flex items-center gap-1 font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase transition-colors hover:text-foreground",
         className,
       )}
     >
@@ -91,33 +102,41 @@ function SortHeader({
   );
 }
 
-function formatRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
 export function UsersPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("joined_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
+  const t = useTranslations("admin.users");
+  const td = useTranslations("admin.users.detail");
+  const availabilityLabel = useAvailabilityLabel();
+  const locale = useLocale();
+  const tc = useTranslations("admin.users.columns");
+  const n = useAdminNumber();
+  const pager = useAdminPager();
+  const formatRelative = useAdminRelative();
+  const seniorityLabel = useSeniorityLabel();
 
   const [selectedUser, setSelectedUser] = useState<AdminUserRow | null>(null);
 
-  const { data, isLoading, isFetching } = useAdminUsers({
-    search: search || undefined,
-    sort_by: sortKey,
-    sort_order: sortDir,
-    page: page + 1,
-    per_page: PAGE_SIZE,
-  });
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useAdminUsers({
+      search: search || undefined,
+      sort_by: sortKey,
+      sort_order: sortDir,
+      page: page + 1,
+      per_page: PAGE_SIZE,
+    });
 
-  const { data: userDetail } = useAdminUserDetail(selectedUser?.id ?? "");
+  const {
+    data: userDetail,
+    isError: detailFailed,
+    error: detailError,
+    isFetching: detailFetching,
+    refetch: refetchDetail,
+  } = useAdminUserDetail(selectedUser?.id ?? "");
   const updateUser = useUpdateAdminUser();
+  const isPhone = useIsPhone();
 
   const users = data?.items ?? [];
   const totalPages = data?.total_pages ?? 0;
@@ -132,6 +151,45 @@ export function UsersPage() {
     setPage(0);
   };
 
+  // Below md v3/AdminUsers (PRD 0022): the same queries, sort, pages, admin
+  // flag and details, drawn as the board's rows and sheet.
+  if (isPhone) {
+    return (
+      <AdminUsersScreenView
+        search={search}
+        onSearchChange={(next) => {
+          setSearch(next);
+          setPage(0);
+        }}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
+        users={fromQuery({ data, isError, error, isFetching, refetch })}
+        refreshing={isFetching && !!data}
+        page={page + 1}
+        onPageChange={(next) => setPage(next - 1)}
+        onToggleAdmin={(user) =>
+          updateUser.mutate({
+            id: user.id,
+            data: { is_admin: !user.is_admin },
+          })
+        }
+        pendingAdminId={
+          updateUser.isPending ? (updateUser.variables?.id ?? null) : null
+        }
+        selected={selectedUser}
+        onSelectedChange={setSelectedUser}
+        detail={fromQuery({
+          data: userDetail,
+          isError: detailFailed,
+          error: detailError,
+          isFetching: detailFetching,
+          refetch: refetchDetail,
+        })}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <motion.div
@@ -140,27 +198,28 @@ export function UsersPage() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         <h1 className="font-display text-xl font-bold tracking-tight-display text-foreground">
-          User Management
+          {t("title")}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          View, search, and manage all platform users
-        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("subtitle")}</p>
       </motion.div>
 
       <Card className="overflow-hidden">
         <div className="flex flex-col justify-between gap-3 p-5 pb-3 sm:flex-row sm:items-center">
-          <span className="text-xs tabular-nums text-muted-foreground/60">
-            {data?.total ?? 0} users
+          <span className="font-numeric text-xs text-muted-foreground/60">
+            {t("count", {
+              count: data?.total ?? 0,
+              total: n(data?.total ?? 0),
+            })}
           </span>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+            <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
             <Input
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(0);
               }}
-              placeholder="Search users..."
+              placeholder={t("searchPlaceholder")}
               className="h-8 w-full pl-8 sm:w-64"
             />
           </div>
@@ -174,13 +233,18 @@ export function UsersPage() {
           </div>
         ) : (
           <>
-            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
+            <div
+              className={cn(
+                "overflow-x-auto transition-opacity duration-200",
+                isFetching && "opacity-50",
+              )}
+            >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
                     <th className="px-5 py-2.5 text-left">
                       <SortHeader
-                        label="User"
+                        label={tc("user")}
                         sortKey="username"
                         current={sortKey}
                         dir={sortDir}
@@ -188,13 +252,13 @@ export function UsersPage() {
                       />
                     </th>
                     <th className="hidden px-3 py-2.5 text-left lg:table-cell">
-                      <span className="font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
-                        Seniority
+                      <span className="font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
+                        {tc("seniority")}
                       </span>
                     </th>
                     <th className="px-3 py-2.5 text-right">
                       <SortHeader
-                        label="Apps"
+                        label={tc("apps")}
                         sortKey="total_applications"
                         current={sortKey}
                         dir={sortDir}
@@ -204,7 +268,7 @@ export function UsersPage() {
                     </th>
                     <th className="hidden px-3 py-2.5 text-right md:table-cell">
                       <SortHeader
-                        label="Offers"
+                        label={tc("offers")}
                         sortKey="offers"
                         current={sortKey}
                         dir={sortDir}
@@ -214,7 +278,7 @@ export function UsersPage() {
                     </th>
                     <th className="hidden px-3 py-2.5 text-right md:table-cell">
                       <SortHeader
-                        label="Denials"
+                        label={tc("denials")}
                         sortKey="denials"
                         current={sortKey}
                         dir={sortDir}
@@ -224,7 +288,7 @@ export function UsersPage() {
                     </th>
                     <th className="px-3 py-2.5 text-right">
                       <SortHeader
-                        label="Joined"
+                        label={tc("joined")}
                         sortKey="joined_at"
                         current={sortKey}
                         dir={sortDir}
@@ -233,8 +297,8 @@ export function UsersPage() {
                       />
                     </th>
                     <th className="px-5 py-2.5 text-right">
-                      <span className="font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
-                        Actions
+                      <span className="font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
+                        {tc("actions")}
                       </span>
                     </th>
                   </tr>
@@ -260,7 +324,7 @@ export function UsersPage() {
                                   variant="outline"
                                   className="border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-400"
                                 >
-                                  admin
+                                  {t("adminBadge")}
                                 </Badge>
                               )}
                             </div>
@@ -280,20 +344,20 @@ export function UsersPage() {
                                 "bg-muted text-muted-foreground",
                             )}
                           >
-                            {user.seniority_level.replace("_", " ")}
+                            {seniorityLabel(user.seniority_level)}
                           </Badge>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right font-display font-semibold tabular-nums text-foreground">
-                        {user.total_applications}
+                      <td className="px-3 py-3 text-right font-numeric font-semibold text-foreground">
+                        {n(user.total_applications)}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display tabular-nums text-primary md:table-cell">
-                        {user.offers}
+                      <td className="hidden px-3 py-3 text-right font-numeric text-primary md:table-cell">
+                        {n(user.offers)}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display tabular-nums text-rose-400 md:table-cell">
-                        {user.denials}
+                      <td className="hidden px-3 py-3 text-right font-numeric text-rose-400 md:table-cell">
+                        {n(user.denials)}
                       </td>
-                      <td className="px-3 py-3 text-right text-xs tabular-nums text-muted-foreground">
+                      <td className="px-3 py-3 text-right font-numeric text-xs text-muted-foreground">
                         {formatRelative(user.joined_at)}
                       </td>
                       <td className="px-5 py-3 text-right">
@@ -303,7 +367,8 @@ export function UsersPage() {
                             size="icon"
                             className="h-7 w-7"
                             onClick={() => setSelectedUser(user)}
-                            title="View user details"
+                            title={t("viewDetails")}
+                            aria-label={t("viewDetails")}
                           >
                             <User className="h-3.5 w-3.5" />
                           </Button>
@@ -317,7 +382,8 @@ export function UsersPage() {
                                 data: { is_admin: !user.is_admin },
                               })
                             }
-                            title="Toggle user admin"
+                            title={t("toggleAdmin")}
+                            aria-label={t("toggleAdmin")}
                           >
                             {user.is_admin ? (
                               <ShieldOff className="h-3.5 w-3.5 text-amber-400" />
@@ -335,13 +401,14 @@ export function UsersPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border/30 px-5 py-3">
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  Page {page + 1} of {totalPages}
+                <span className="font-numeric text-xs text-muted-foreground">
+                  {pager.page(page + 1, totalPages)}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0}
+                    aria-label={pager.previous}
                     className="rounded-md p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -351,6 +418,7 @@ export function UsersPage() {
                       setPage((p) => Math.min(totalPages - 1, p + 1))
                     }
                     disabled={page >= totalPages - 1}
+                    aria-label={pager.next}
                     className="rounded-md p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -375,21 +443,21 @@ export function UsersPage() {
             <div className="mt-6 space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[11px] uppercase text-muted-foreground">
-                    Email
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {td("email")}
                   </p>
                   <p className="font-medium">{userDetail.email}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase text-muted-foreground">
-                    GitHub ID
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {td("githubId")}
                   </p>
-                  <p className="font-medium">{userDetail.github_id}</p>
+                  <p className="font-medium">{userDetail.github_id ?? "—"}</p>
                 </div>
                 {userDetail.first_name && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
-                      Name
+                    <p className="text-[11px] text-muted-foreground uppercase">
+                      {td("name")}
                     </p>
                     <p className="font-medium">
                       {userDetail.first_name} {userDetail.last_name}
@@ -398,24 +466,24 @@ export function UsersPage() {
                 )}
                 {userDetail.current_role && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
-                      Role
+                    <p className="text-[11px] text-muted-foreground uppercase">
+                      {td("role")}
                     </p>
                     <p className="font-medium">{userDetail.current_role}</p>
                   </div>
                 )}
                 {userDetail.current_company && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
-                      Company
+                    <p className="text-[11px] text-muted-foreground uppercase">
+                      {td("company")}
                     </p>
                     <p className="font-medium">{userDetail.current_company}</p>
                   </div>
                 )}
                 {userDetail.seniority_level && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
-                      Seniority
+                    <p className="text-[11px] text-muted-foreground uppercase">
+                      {td("seniority")}
                     </p>
                     <Badge
                       variant="outline"
@@ -425,68 +493,80 @@ export function UsersPage() {
                           "bg-muted text-muted-foreground",
                       )}
                     >
-                      {userDetail.seniority_level.replace("_", " ")}
+                      {seniorityLabel(userDetail.seniority_level)}
                     </Badge>
                   </div>
                 )}
                 {userDetail.location && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
-                      Location
+                    <p className="text-[11px] text-muted-foreground uppercase">
+                      {td("location")}
                     </p>
                     <p className="font-medium">{userDetail.location}</p>
                   </div>
                 )}
                 {userDetail.availability && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
-                      Availability
+                    <p className="text-[11px] text-muted-foreground uppercase">
+                      {td("availability")}
                     </p>
-                    <p className="font-medium capitalize">
-                      {userDetail.availability.replace("_", " ")}
+                    <p
+                      className={cn(
+                        "font-medium",
+                        // pt-BR labels are sentence case already.
+                        locale !== "pt-BR" && "capitalize",
+                      )}
+                    >
+                      {availabilityLabel(userDetail.availability)}
                     </p>
                   </div>
                 )}
               </div>
 
               <div className="rounded-lg border border-border/40 p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
-                  Application Stats
+                <p className="mb-2 text-[11px] font-semibold text-muted-foreground uppercase">
+                  {td("stats")}
                 </p>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div>
-                    <p className="text-lg font-bold tabular-nums">
-                      {userDetail.total_applications}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">Total</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold tabular-nums text-primary">
-                      {userDetail.offers}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">Offers</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold tabular-nums text-rose-400">
-                      {userDetail.denials}
+                    <p className="font-numeric text-lg font-bold">
+                      {n(userDetail.total_applications)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      Denials
+                      {td("total")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold tabular-nums text-amber-400">
-                      {userDetail.active_applications}
+                    <p className="font-numeric text-lg font-bold text-primary">
+                      {n(userDetail.offers)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Active</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {td("offers")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-numeric text-lg font-bold text-rose-400">
+                      {n(userDetail.denials)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {td("denials")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-numeric text-lg font-bold text-amber-400">
+                      {n(userDetail.active_applications)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {td("active")}
+                    </p>
                   </div>
                 </div>
               </div>
 
               {userDetail.bio && (
                 <div>
-                  <p className="text-[11px] uppercase text-muted-foreground">
-                    Bio
+                  <p className="text-[11px] text-muted-foreground uppercase">
+                    {td("bio")}
                   </p>
                   <p className="mt-1 text-muted-foreground">{userDetail.bio}</p>
                 </div>
@@ -494,12 +574,16 @@ export function UsersPage() {
 
               {userDetail.tech_stack && userDetail.tech_stack.length > 0 && (
                 <div>
-                  <p className="mb-1 text-[11px] uppercase text-muted-foreground">
-                    Tech Stack
+                  <p className="mb-1 text-[11px] text-muted-foreground uppercase">
+                    {td("techStack")}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {userDetail.tech_stack.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-[10px]">
+                      <Badge
+                        key={t}
+                        variant="secondary"
+                        className="text-[10px]"
+                      >
                         {t}
                       </Badge>
                     ))}
@@ -510,7 +594,6 @@ export function UsersPage() {
           )}
         </SheetContent>
       </Sheet>
-
     </div>
   );
 }

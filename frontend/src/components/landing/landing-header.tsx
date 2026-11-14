@@ -1,7 +1,10 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
+import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -10,14 +13,23 @@ import { SignInLink } from "../auth-buttons";
 
 export function LandingHeader() {
   const { isAuthenticated, isLoading } = useAuth();
+  const t = useTranslations("landing");
+  const tHeader = useTranslations("header");
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5 md:px-8">
-        <AppLogo mode="header" />
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-3.5 md:px-8">
+        <Link
+          href="/"
+          aria-label={tHeader("home")}
+          className="rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <AppLogo mode="header" />
+        </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <ThemeToggle />
+          <LanguageToggle variant="default" />
           {!isLoading && isAuthenticated ? (
             <Button
               asChild
@@ -25,8 +37,8 @@ export function LandingHeader() {
               className="gap-2 font-display font-medium"
             >
               <Link href="/dashboard">
-                Dashboard
-                <ArrowRight className="h-3.5 w-3.5" />
+                {t("dashboard")}
+                <ArrowRight className="hidden h-3.5 w-3.5 sm:block" />
               </Link>
             </Button>
           ) : (
@@ -35,7 +47,7 @@ export function LandingHeader() {
               size="sm"
               className="gap-2 font-display font-medium"
             >
-              <SignInLink>Sign in</SignInLink>
+              <SignInLink>{t("signIn")}</SignInLink>
             </Button>
           )}
         </div>

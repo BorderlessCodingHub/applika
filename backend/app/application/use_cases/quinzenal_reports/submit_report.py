@@ -1,7 +1,5 @@
 from datetime import UTC, date, datetime
 
-from fastapi import HTTPException
-
 from app.application.dto.quinzenal_report import (
     ReportDays,
     ReportMetricsDTO,
@@ -9,21 +7,28 @@ from app.application.dto.quinzenal_report import (
     SubmitReportResultDTO,
 )
 from app.application.services.discord_service import DiscordService
-from app.application.services.github_service import GitHubService
 from app.application.use_cases.quinzenal_reports.common import (
     get_current_day,
     get_next_report_day,
     get_phase,
     get_report_period,
 )
+from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
+    ResolveReportWebhooksUseCase,
+)
 from app.config.logging import logger
-from app.core.crypto import decrypt_token
-from app.core.exceptions import ResourceConflict
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import (
+    ForbiddenAccess,
+    InvalidRequest,
+    ResourceConflict,
+)
 from app.domain.models import QuinzenalReportModel
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
 )
-from app.domain.repositories.user_repository import UserRepository
+
+_MAX_DISCORD_ERROR_LENGTH = 500
 
 
 class SubmitReportUseCase:
@@ -33,13 +38,11 @@ class SubmitReportUseCase:
         self,
         report_repo: QuinzenalReportRepository,
         discord_service: DiscordService,
-        github_service: GitHubService,
-        user_repo: UserRepository,
+        resolve_webhooks: ResolveReportWebhooksUseCase,
     ):
         self.report_repo = report_repo
         self.discord_service = discord_service
-        self.github_service = github_service
-        self.user_repo = user_repo
+        self.resolve_webhooks = resolve_webhooks
 
     @classmethod
     def _sanitize_discord_text(cls, text: str, *, max_length: int) -> str:
@@ -118,20 +121,6 @@ class SubmitReportUseCase:
             f'🎯 **NEXT FORTNIGHT GOAL:** {safe_next_fortnight_goal}'
         )
 
-    async def _validate_org_membership(self, user_id: int) -> bool:
-        """Check if the user is an org member via their stored GitHub
-        token. Returns False if the user has no token or the check
-        fails — never cached for non-members."""
-        user = await self.user_repo.get_by_id(user_id)
-        if not user or not user.encrypted_github_token:
-            return False
-
-        github_token = decrypt_token(user.encrypted_github_token)
-        if not github_token:
-            return False
-
-        return await self.github_service.check_org_membership(github_token)
-
     async def execute(
         self,
         user_id: int,
@@ -160,41 +149,43 @@ class SubmitReportUseCase:
                     }
                 },
             )
-            raise ResourceConflict('Report already submitted')
+            raise ResourceConflict(
+                'Report already submitted', ErrorCode.RPT_ALREADY_SUBMITTED
+            )
 
         next_report_day = get_next_report_day(submitted_days)
         if next_report_day != report_day:
-            raise HTTPException(
-                status_code=403,
-                detail='Must submit current report before proceeding',
+            raise ForbiddenAccess(
+                'Must submit current report before proceeding',
+                ErrorCode.RPT_CURRENT_REPORT_FIRST,
             )
 
         if report_day == 1:
             if payload.start_date is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail='start_date is required for day 1 report',
+                raise InvalidRequest(
+                    'start_date is required for day 1 report',
+                    ErrorCode.RPT_START_DATE_REQUIRED,
                 )
             if payload.start_date > date.today():
-                raise HTTPException(
-                    status_code=400,
-                    detail='start_date cannot be in the future',
+                raise InvalidRequest(
+                    'start_date cannot be in the future',
+                    ErrorCode.RPT_START_DATE_IN_FUTURE,
                 )
             start_date = payload.start_date
         else:
             day_one_report = reports_by_day.get(1)
             if day_one_report is None:
-                raise HTTPException(
-                    status_code=403,
-                    detail='Must submit day 1 report first',
+                raise ForbiddenAccess(
+                    'Must submit day 1 report first',
+                    ErrorCode.RPT_DAY_ONE_FIRST,
                 )
             start_date = day_one_report.start_date
 
         current_day = get_current_day(start_date)
         if current_day < report_day:
-            raise HTTPException(
-                status_code=403,
-                detail='Cannot submit report for a future day',
+            raise ForbiddenAccess(
+                'Cannot submit report for a future day',
+                ErrorCode.RPT_FUTURE_DAY,
             )
 
         period_start, period_end = get_report_period(report_day, start_date)
@@ -235,12 +226,37 @@ class SubmitReportUseCase:
         )
 
         saved_report = await self.report_repo.create(report)
+        # Captured now as plain values: a later rollback on the shared
+        # session would expire ``saved_report``.
+        report_id = saved_report.id
+        report_discord_posted = saved_report.discord_posted
 
+        # The report is saved before Discord is ever contacted (R-028): a
+        # Discord failure never blocks or unwinds the submission - each
+        # Discord-facing call below is its own try/except on top of the
+        # services' own error handling, so a defect in a service (or an
+        # answer neither service anticipated) still can't turn into an
+        # unhandled 500 on an already-saved report (T126, backend-qa B1).
         discord_posted = False
-        discord_error = None
+        discord_errors: list[str] = []
 
-        is_org_member = await self._validate_org_membership(user_id)
-        if is_org_member:
+        try:
+            webhook_urls = await self.resolve_webhooks.execute(user_id)
+        except Exception as exc:
+            logger.error(
+                f'Resolving report webhooks failed unexpectedly: '
+                f'{type(exc).__name__}',
+                extra={
+                    'extra_data': {
+                        'event': 'report_route_resolution_failed',
+                        'user_id': user_id,
+                        'exception_type': type(exc).__name__,
+                    }
+                },
+            )
+            webhook_urls = []
+
+        if webhook_urls:
             discord_message = self._build_discord_message(
                 report_day=report_day,
                 username=username,
@@ -248,14 +264,43 @@ class SubmitReportUseCase:
                 metrics=metrics,
                 payload=payload,
             )
-            (
-                discord_posted,
-                discord_error,
-            ) = await self.discord_service.post_report_message(discord_message)
+            for webhook_url in webhook_urls:
+                try:
+                    (
+                        posted,
+                        error,
+                    ) = await self.discord_service.post_report_message(
+                        discord_message,
+                        webhook_url=webhook_url,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        f'Posting the report to Discord failed '
+                        f'unexpectedly: {type(exc).__name__}',
+                        extra={
+                            'extra_data': {
+                                'event': 'report_post_failed_unexpectedly',
+                                'user_id': user_id,
+                                'exception_type': type(exc).__name__,
+                            }
+                        },
+                    )
+                    posted, error = False, 'Discord post failed unexpectedly'
+                if posted:
+                    discord_posted = True
+                elif error:
+                    discord_errors.append(error)
 
-            if discord_posted and not saved_report.discord_posted:
+            if discord_posted and not report_discord_posted:
                 saved_report.discord_posted = True
                 saved_report = await self.report_repo.update(saved_report)
+                report_discord_posted = saved_report.discord_posted
+
+        discord_error = (
+            '; '.join(discord_errors)[:_MAX_DISCORD_ERROR_LENGTH]
+            if discord_errors
+            else None
+        )
 
         logger.info(
             f'Report day {report_day} submitted successfully',
@@ -264,15 +309,15 @@ class SubmitReportUseCase:
                     'event': 'report_submitted',
                     'user_id': user_id,
                     'report_day': report_day,
-                    'report_id': saved_report.id,
-                    'discord_posted': saved_report.discord_posted,
+                    'report_id': report_id,
+                    'discord_posted': report_discord_posted,
                 }
             },
         )
 
         return SubmitReportResultDTO(
             success=True,
-            report_id=saved_report.id,
-            discord_posted=saved_report.discord_posted,
+            report_id=report_id,
+            discord_posted=report_discord_posted,
             discord_error=discord_error,
         )

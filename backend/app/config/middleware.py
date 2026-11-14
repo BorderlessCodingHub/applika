@@ -9,6 +9,56 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config.logging import _filter_traceback, request_id_ctx
 
+# Callbacks whose query carries an authorization code and a state
+# (ADR-0026 §4): the request log never writes it.
+_REDACTED_QUERY_PATHS = ('/auth/borderless/callback', '/auth/github/callback')
+REDACTED_QUERY = '[redacted]'
+
+
+def logged_query(path: str, query: str) -> str | None:
+    """The query as the request log writes it: ``[redacted]`` on the
+    sign-in callbacks, ``None`` when empty."""
+    if not query:
+        return None
+    if path.rstrip('/').endswith(_REDACTED_QUERY_PATHS):
+        return REDACTED_QUERY
+    return query
+
+
+def logged_url(request: Request) -> str:
+    """The URL as the request log writes it (``?[redacted]`` on the
+    sign-in callbacks)."""
+    query = logged_query(request.url.path, request.url.query)
+    if query is None:
+        return str(request.url)
+    return str(request.url.replace(query=query))
+
+
+class CallbackQueryFilter(logging.Filter):
+    """Redacts the sign-in callbacks' query in uvicorn's access log, whose
+    record args are ``(client, method, path_with_query, http_version,
+    status)``."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3:
+            target = args[2]
+            if isinstance(target, str) and '?' in target:
+                path, _, query = target.partition('?')
+                if logged_query(path, query) == REDACTED_QUERY:
+                    record.args = (
+                        *args[:2],
+                        f'{path}?{REDACTED_QUERY}',
+                        *args[3:],
+                    )
+        return True
+
+
+def install_access_log_redaction() -> None:
+    access = logging.getLogger('uvicorn.access')
+    if not any(isinstance(f, CallbackQueryFilter) for f in access.filters):
+        access.addFilter(CallbackQueryFilter())
+
 
 class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
     def __init__(
@@ -21,24 +71,24 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
         request_id = str(uuid.uuid4())
         request_id_ctx.set(request_id)
 
-        client_ip = (
-            request.headers
-            .get('X-Forwarded-For', request.client.host)
-            .split(',')[0]
-            .strip()
-        )
+        # The address uvicorn resolved, trusting the forwarded header only
+        # from FORWARDED_ALLOW_IPS (ADR-0015, Plan corrections 1,
+        # R-022). The raw header is never read directly here: anyone can
+        # forge it.
+        client_ip = request.client.host if request.client else 'unknown'
 
+        url = logged_url(request)
         user_agent = request.headers.get('User-Agent', '-')
         content_type = request.headers.get('Content-Type', '-')
 
         self.logger.info(
-            f'[{client_ip}][{request.method}][{request.url}]',
+            f'[{client_ip}][{request.method}][{url}]',
             extra={
                 'extra_data': {
                     'event': 'request_start',
                     'method': request.method,
                     'path': str(request.url.path),
-                    'query': str(request.url.query) or None,
+                    'query': logged_query(request.url.path, request.url.query),
                     'client_ip': client_ip,
                     'user_agent': user_agent,
                     'content_type': content_type,
@@ -61,7 +111,7 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
 
             self.logger.log(
                 log_level,
-                f'[{client_ip}][{request.method}][{request.url}][{scode}]',
+                f'[{client_ip}][{request.method}][{url}][{scode}]',
                 extra={
                     'extra_data': {
                         'event': 'request_end',
@@ -159,5 +209,8 @@ class WebSocketLifecycleMiddleware:
 
 
 def register_middleware(app: FastAPI) -> None:
-    app.add_middleware(HTTPLifecycleMiddleware)
-    app.add_middleware(WebSocketLifecycleMiddleware)
+    install_access_log_redaction()
+    # Same ParamSpec-based _MiddlewareFactory false positive ty hits on
+    # every add_middleware(<custom class>) call - see app/main.py.
+    app.add_middleware(HTTPLifecycleMiddleware)  # ty: ignore[invalid-argument-type]
+    app.add_middleware(WebSocketLifecycleMiddleware)  # ty: ignore[invalid-argument-type]

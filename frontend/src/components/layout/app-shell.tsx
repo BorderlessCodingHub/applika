@@ -1,0 +1,200 @@
+"use client";
+
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { AppLogo } from "@/components/app-logo";
+import { CliPromoBanner } from "@/components/cli-promo-banner";
+import { FeedbackDialog } from "@/components/applications/feedback-dialog";
+import { CycleSelector } from "@/components/layout/cycle-selector";
+import { Header } from "@/components/layout/header";
+import { Sidebar } from "@/components/layout/sidebar";
+import {
+  FullWidthRequestProvider,
+  isFullWidthPath,
+  useFullWidthRequests,
+} from "@/components/layout/content-width";
+import { PRIMARY_NAV, type NavItem } from "@/components/layout/nav";
+import { PhoneShell } from "@/components/layout/phone-shell";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsPhone } from "@/hooks/use-is-phone";
+import type { User } from "@/services/types/users";
+import { cn } from "@/lib/utils";
+
+interface AppShellProps {
+  children: ReactNode;
+  /** Current pathname, from `usePathname()` in the consuming layout. */
+  activePath: string;
+  /** Nav entries, already filtered for the acting user (see `navItemsFor`). */
+  navItems?: NavItem[];
+  user: User | null;
+  onLogout: () => void;
+  /** Page-level actions rendered at the right of the header. */
+  headerActions?: ReactNode;
+  className?: string;
+}
+
+export function AppShell({
+  children,
+  activePath,
+  navItems = PRIMARY_NAV,
+  user,
+  onLogout,
+  headerActions,
+  className,
+}: AppShellProps) {
+  const t = useTranslations("header");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
+  const fullWidth = useFullWidthRequests();
+  const isFullWidth = isFullWidthPath(activePath) || fullWidth.requested;
+
+  const closeMobileNav = () => setMobileNavOpen(false);
+
+  // The sheet is `md:hidden`; without this a resize past `md` while it is open
+  // leaves Radix trapping focus and locking body scroll inside an invisible panel.
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const md = window.matchMedia("(min-width: 48rem)");
+    const close = () => {
+      if (md.matches) setMobileNavOpen(false);
+    };
+    close();
+    md.addEventListener("change", close);
+    return () => md.removeEventListener("change", close);
+  }, [mobileNavOpen]);
+
+  // Below md, the phone shell (ADR-0027): chosen by the width alone.
+  const isPhone = useIsPhone();
+  if (isPhone) {
+    return (
+      <PhoneShell
+        activePath={activePath}
+        navItems={navItems}
+        user={user}
+        className={className}
+      >
+        {children}
+      </PhoneShell>
+    );
+  }
+
+  const sidebarProps = {
+    items: navItems,
+    activePath,
+    user,
+    onLogout,
+    onFeedback: () => setFeedbackOpen(true),
+  };
+
+  return (
+    <FullWidthRequestProvider value={fullWidth.request}>
+      {/*
+        `relative` makes the shell the containing block for every absolutely
+        positioned descendant, so `overflow-hidden` actually clips them. Without
+        it, one that no ancestor positions (Radix Select's hidden native
+        `<select>`) stretches the DOCUMENT to its own offset and the page grows
+        a second scrollbar. Sizing is untouched: `h-viewport` plus `body`'s
+        padding still add up to exactly one viewport.
+      */}
+      <div className="relative flex h-viewport w-full overflow-hidden bg-background text-foreground">
+        <aside className="hidden w-60 shrink-0 border-r border-sidebar-border md:block">
+          <Sidebar {...sidebarProps} />
+        </aside>
+
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent
+            side="left"
+            size="nav"
+            hideClose
+            className="md:hidden"
+            onCloseAutoFocus={(event) => {
+              // Radix hands focus back to its own `Dialog.Trigger`. This sheet is
+              // controlled and has no trigger inside the Root, so Radix's handler
+              // focuses `null` and a keyboard user is dumped on <body>, losing
+              // their place. Restore it to the button that opened the sheet.
+              event.preventDefault();
+              mobileNavTriggerRef.current?.focus();
+            }}
+          >
+            <SheetTitle className="sr-only">{t("navigation")}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {t("navigationDescription")}
+            </SheetDescription>
+
+            <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border bg-sidebar px-4">
+              <Link
+                href="/dashboard"
+                aria-label={t("home")}
+                onClick={closeMobileNav}
+                className="min-w-0 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
+              >
+                <AppLogo mode="compact" />
+              </Link>
+              <SheetClose asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("closeNavigation")}
+                  className="shrink-0"
+                >
+                  <X className="size-4" />
+                </Button>
+              </SheetClose>
+            </div>
+
+            <Sidebar
+              {...sidebarProps}
+              hideBrand
+              onNavigate={closeMobileNav}
+              className="min-h-0 flex-1"
+            />
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Header
+            user={user}
+            onLogout={onLogout}
+            onFeedback={() => setFeedbackOpen(true)}
+            onOpenMobileNav={() => setMobileNavOpen(true)}
+            mobileNavTriggerRef={mobileNavTriggerRef}
+            leading={<CycleSelector />}
+            actions={headerActions}
+          />
+
+          <main className={cn("flex-1 overflow-y-auto", className)}>
+            {/*
+              The reading column, unless the route or the content on screen
+              asked for the whole width (`content-width.ts`). Either way the
+              container is rendered HERE and never by a page component.
+            */}
+            <div
+              data-slot="app-content"
+              data-width={isFullWidth ? "full" : "reading"}
+              className={cn(
+                "px-4 py-6 md:px-8 md:py-8",
+                isFullWidth ? "w-full" : "mx-auto max-w-7xl",
+              )}
+            >
+              <CliPromoBanner />
+              {children}
+            </div>
+          </main>
+        </div>
+
+        <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+      </div>
+    </FullWidthRequestProvider>
+  );
+}

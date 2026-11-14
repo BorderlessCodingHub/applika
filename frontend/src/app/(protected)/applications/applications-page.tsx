@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import type { ApplicationStep } from "@/services/types/applications";
+import { useTranslations } from "next-intl";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { isAxiosError, type AxiosError } from "axios";
+import { toast } from "sonner";
 import type { Application } from "@/services/types/applications";
 import {
   useApplicationDelete,
   useApplications,
 } from "@/hooks/use-applications";
-import { Search, Plus, SlidersHorizontal, X } from "lucide-react";
+import { useReopenApplication } from "@/hooks/use-reopen-application";
+import { getApiError } from "@/lib/api-client";
+import {
+  Briefcase,
+  Plus,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -30,47 +41,288 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
-import { ApplicationStepFormDialog } from "@/components/applications/step-form-dialog";
-import { FinalizeDialog } from "@/components/applications/finalize-dialog";
+import { ApplicationItem } from "@/components/applications/application-item";
+import { TimelineEventForm } from "@/components/timeline/timeline-event-form";
+import { NewApplicationActions } from "@/components/applications/new-application-actions";
+import { DraftsSection } from "@/components/application-drafts/drafts-section";
+import { useDeleteDraft, useDrafts } from "@/hooks/use-application-drafts";
+import { ApplicationCardSkeleton } from "@/components/applications/application-card-skeleton";
 import {
-  ApplicationItem,
-  ApplicationStepTimeline,
-} from "@/components/applications/application-item";
-import { Card } from "@/components/ui/card";
+  APPLICATIONS_PAGE_COPY,
+  foundApplicationsLabel,
+} from "@/components/applications/application-card-copy";
+import { EmptyState } from "@/components/common/empty-state";
 import { DatePickerInput } from "@/components/ui/date-picker";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCycleContext } from "@/contexts/cycle-context";
+import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
+import { scrollIntoContainer } from "@/lib/scroll-into-container";
+import { ApplicationScreen } from "@/components/phone/screens/application-screen";
+import { PipelineScreen } from "@/components/phone/screens/pipeline-screen";
 
 interface ApplicationAction {
-  action:
-    | "none"
-    | "new"
-    | "inspect"
-    | "edit"
-    | "delete"
-    | "newStep"
-    | "editStep"
-    | "finalize";
+  action: "none" | "new" | "inspect" | "edit" | "delete" | "finalize";
   data?: Application | null;
-  stepData?: ApplicationStep;
 }
 
+/** The route's Suspense fallback: a client component, so its name translates. */
+export function ApplicationsPageFallback() {
+  const t = useTranslations("applications.list");
+  return (
+    <div
+      aria-busy
+      aria-label={t("loading")}
+      className="h-64 w-full animate-pulse rounded-xl bg-muted"
+    />
+  );
+}
+
+/**
+ * `/applications`: below md the Pipeline board and, for `?focus=<id>`, the
+ * Application board (PRD 0021); at md and up today's list, unchanged.
+ * Crossing md remounts the other one.
+ */
 export function ApplicationsPage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <PhoneApplicationsPage /> : <ApplicationsDesktopPage />;
+}
+
+const PIPELINE_PATH = "/applications";
+
+/**
+ * The phone's two screens on one route. `?focus=` is the Application
+ * screen's address: read through `useSearchParams` and written through the
+ * History API, which Next keeps in sync (the `jobs-page.tsx` precedent;
+ * `router.replace` with only a new query is a no-op on this static export).
+ * A row's tap pushes it, so the phone's back gesture returns to the list;
+ * "Pipeline" goes back (or replaces, when the screen was opened from
+ * elsewhere: Today, the Agenda, a link). The list's scroll comes back.
+ */
+function PhoneApplicationsPage() {
+  const searchParams = useSearchParams();
+  const param = searchParams.get("focus");
+  // The URL decides; a tap answers at once, before the URL round trip.
+  const [focusId, setFocusId] = useState<string | null>(param);
+  const [seenParam, setSeenParam] = useState<string | null>(param);
+  if (param !== seenParam) {
+    setSeenParam(param);
+    setFocusId(param);
+  }
+  // The id a tap pushed: only then does "Pipeline" go back in history.
+  const pushedFor = useRef<string | null>(null);
+  const listScroll = useRef(0);
+  const lastOpened = useRef<string | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  // The phone shell scrolls the document, never its <main>.
+  useLayoutEffect(() => {
+    const page = document.scrollingElement ?? document.documentElement;
+    if (focusId) {
+      page.scrollTop = 0;
+      if (pushedFor.current === focusId) {
+        pageRef.current
+          ?.querySelector<HTMLElement>('[data-action="back"]')
+          ?.focus({ preventScroll: true });
+      }
+      return;
+    }
+    // Back on the list, whichever way (Pipeline, the back gesture).
+    pushedFor.current = null;
+    if (lastOpened.current) {
+      page.scrollTop = listScroll.current;
+      const id = lastOpened.current;
+      lastOpened.current = null;
+      Array.from(
+        pageRef.current?.querySelectorAll<HTMLElement>(
+          "a[data-application-id]",
+        ) ?? [],
+      )
+        .find((row) => row.dataset.applicationId === id)
+        ?.focus({ preventScroll: true });
+    }
+  }, [focusId]);
+
+  function openApplication(applicationId: string) {
+    listScroll.current = (
+      document.scrollingElement ?? document.documentElement
+    ).scrollTop;
+    lastOpened.current = applicationId;
+    pushedFor.current = applicationId;
+    setFocusId(applicationId);
+    window.history.pushState(
+      null,
+      "",
+      `${PIPELINE_PATH}?focus=${encodeURIComponent(applicationId)}`,
+    );
+  }
+
+  function backToList() {
+    const wasPushed =
+      pushedFor.current !== null && pushedFor.current === focusId;
+    setFocusId(null);
+    if (wasPushed) {
+      window.history.back();
+    } else {
+      window.history.replaceState(null, "", PIPELINE_PATH);
+    }
+  }
+
+  return (
+    <div ref={pageRef}>
+      {focusId ? (
+        <ApplicationScreen
+          key={focusId}
+          applicationId={focusId}
+          onBack={backToList}
+        />
+      ) : (
+        <PipelineScreen onOpenApplication={openApplication} />
+      )}
+    </div>
+  );
+}
+
+function ApplicationsDesktopPage() {
   const { selectedCycleId, isViewingPastCycle } = useCycleContext();
   const {
     filtered,
     isLoading,
+    isError,
+    refetch,
     filters,
     updateFilter,
     clearFilters,
     hasAdvancedFilters,
+    hasAnyFilter,
     supports,
   } = useApplications(selectedCycleId);
   const { deleteApplication } = useApplicationDelete();
+  const reopenApplication = useReopenApplication();
+  // CVs and drafts live behind `cvs`: without it no CV link, no Drafts tab,
+  // no "New with CV" and no drafts request (the archived-cycle shape).
+  const { has: hasCvs, isLoading: featuresLoading } = useHasFeature("cvs");
+  // Subscribes: the copy objects below read the active language.
+  const t = useTranslations("applications");
 
   const [appAction, setAppAction] = useState<ApplicationAction>({
     action: "none",
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
+  const advancedPanelId = useId();
+
+  // `?focus=` (R-011): read once, off the incoming URL, via a LAZY
+  // useState initializer — never an effect (`react-hooks/set-state-in-effect`).
+  const searchParams = useSearchParams();
+  const [focusId] = useState<string | null>(() => searchParams.get("focus"));
+  // Guards React Strict Mode's deliberate double-invoke of effects: the
+  // notice/replaceState side effects below must fire at most once.
+  const focusResolved = useRef(false);
+  const listRef = useRef<HTMLUListElement>(null);
+  // Set once the scroll+focus effect actually runs (below). Without this, a
+  // row that gets hidden and shown again — a filter change, a cycle switch,
+  // a background refetch — would recompute `focusRowId` as truthy forever
+  // and re-steal scroll/focus on every remount (frontend-qa B1).
+  const [focusDone, setFocusDone] = useState(false);
+
+  // Derived, not stored in state, and computed EVERY render: the row to
+  // expand has to be known on the very render that first mounts it (the one
+  // where `isLoading` flips to `false`), because `ApplicationItem`'s
+  // `defaultExpanded` only seeds its OWN initial state — a prop change to an
+  // already-mounted row would not reopen it. Recomputing it in a `useState`
+  // set from an effect one render later would always be one render too late.
+  const focusRowId =
+    focusId &&
+    !focusDone &&
+    !isLoading &&
+    filtered.some((app) => app.id === focusId)
+      ? focusId
+      : null;
+
+  useEffect(() => {
+    // `isError` guards against a load failure being read as "not in the
+    // list": with `isLoading` false and `filtered` empty on error, this
+    // would otherwise show the not-in-cycle notice on every failed load
+    // (frontend-qa B3) instead of leaving the resolution for the retry.
+    if (!focusId || focusResolved.current || isLoading || isError) return;
+    focusResolved.current = true;
+
+    if (!filtered.some((app) => app.id === focusId)) {
+      toast.info(APPLICATIONS_PAGE_COPY.focusNotInCycle, {
+        id: "applications-focus-not-in-cycle",
+        richColors: false,
+        duration: 6000,
+      });
+    }
+    // Static export (`output: "export"`): `router.replace()` to the same
+    // path with only the query string changed is a no-op here (see
+    // `profile-page.tsx`'s note) — drive the History API directly.
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/applications");
+    }
+  }, [focusId, isLoading, isError, filtered]);
+
+  // Scroll the focused row into view and focus its details trigger, once the
+  // row's `<article>` is actually in the DOM (`ApplicationItem` returns
+  // `null` until `useSupports()` resolves — hence the `supports` guard AND
+  // dependency below, not just the `requestAnimationFrame`: without it the
+  // effect can run and give up a frame before `supports` ever arrives, and
+  // its `[focusRowId]` deps would never call it again, frontend-qa B2) — a
+  // single `requestAnimationFrame` after the render that first computes
+  // `focusRowId`, the same "wait a frame, then re-query by a stable data
+  // attribute" pattern used in `cv-removed-row.tsx`/`cv-changed-marker.tsx`.
+  useEffect(() => {
+    if (!focusRowId || !supports) return;
+    const container = listRef.current;
+    const frame = requestAnimationFrame(() => {
+      if (!container?.isConnected) return;
+      const row = Array.from(
+        container.querySelectorAll<HTMLLIElement>("li[data-application-id]"),
+      ).find((element) => element.dataset.applicationId === focusRowId);
+      if (!row || !row.querySelector("article")) return;
+      // Not `row.scrollIntoView()`: it also scrolls the shell's
+      // `overflow-hidden` root and shifts the whole layout up.
+      scrollIntoContainer(
+        row,
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+      );
+      row
+        .querySelector<HTMLButtonElement>(
+          '[data-slot="application-item-details-trigger"]',
+        )
+        ?.focus({ preventScroll: true });
+      setFocusDone(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusRowId, supports]);
+
+  // Drafts (PRD 0010, AC11): shown only where the create actions are — the
+  // current cycle, hidden on an archived one, per the orchestrator's decision.
+  const draftsQuery = useDrafts(hasCvs);
+  const deleteDraft = useDeleteDraft();
+
+  function handleDeleteDraft(draft: { id: string }) {
+    setDeletingDraftId(draft.id);
+    deleteDraft.mutate(draft.id, {
+      onSuccess: () => {
+        toast.success(t("pageToasts.draftDeleted"));
+        setDeletingDraftId(null);
+      },
+      onError: (error) => {
+        toast.error(
+          isAxiosError(error)
+            ? getApiError(error)
+            : t("pageToasts.draftDeleteFailed"),
+        );
+        setDeletingDraftId(null);
+      },
+    });
+  }
 
   function handleNewClick() {
     setAppAction({ action: "new", data: undefined });
@@ -84,246 +336,352 @@ export function ApplicationsPage() {
     setAppAction({ action: "finalize", data: app });
   }
 
-  function handleStepClick(app: Application) {
-    setAppAction({ action: "newStep", data: app });
-  }
-
   function handleDeleteClick(app: Application) {
     setAppAction({ action: "delete", data: app });
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground">
-              Applications
-            </h1>
-            <p className="mt-0.5 text-base text-muted-foreground">
-              {isViewingPastCycle
-                ? "Viewing archived cycle"
-                : `${filtered.length} items`}
-            </p>
-          </div>
-          {!isViewingPastCycle && (
-            <Button onClick={handleNewClick} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              New Application
-            </Button>
-          )}
+  function handleReopenClick(app: Application) {
+    setReopeningId(app.id);
+    reopenApplication.mutate(app.id, {
+      onSuccess: () => {
+        toast.success(t("pageToasts.reopened"));
+        setReopeningId(null);
+      },
+      onError: (error) => {
+        toast.error(
+          isAxiosError(error)
+            ? getApiError(error)
+            : t("pageToasts.reopenFailed"),
+        );
+        setReopeningId(null);
+      },
+    });
+  }
+
+  // AC8 / design section 6: the count shows only once the query has
+  // succeeded (0 included) — while loading or on error the tab's accessible
+  // name stays plain "Drafts" rather than falsely claiming a count of 0.
+  const draftsCount = draftsQuery.isSuccess
+    ? (draftsQuery.data?.length ?? 0)
+    : undefined;
+
+  const toolbarAndFilters = (
+    <div className="flex flex-col gap-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-0">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder={APPLICATIONS_PAGE_COPY.searchPlaceholder}
+            aria-label={APPLICATIONS_PAGE_COPY.searchLabel}
+            value={filters.search ?? ""}
+            onChange={(e) =>
+              updateFilter("search", e.target.value || undefined)
+            }
+            className="h-11 pl-10"
+          />
         </div>
 
-        {/* Filters */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative min-w-[200px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search company or role…"
-                value={filters.search ?? ""}
-                onChange={(e) =>
-                  updateFilter("search", e.target.value || undefined)
-                }
-                className="pl-9"
-              />
-            </div>
+        <Select
+          value={filters.status}
+          onValueChange={(v) =>
+            updateFilter("status", v as typeof filters.status)
+          }
+        >
+          <SelectTrigger
+            aria-label={APPLICATIONS_PAGE_COPY.statusFilterLabel}
+            className="h-11 flex-1 data-[size=default]:h-11 sm:w-44 sm:flex-none"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {APPLICATIONS_PAGE_COPY.allStatuses}
+            </SelectItem>
+            <SelectItem value="active">{t("status.active")}</SelectItem>
+            {/* G6: option label reads "Closed"; the value stays "finalized". */}
+            <SelectItem value="finalized">{t("close.closed")}</SelectItem>
+          </SelectContent>
+        </Select>
 
+        <Button
+          variant={showAdvanced || hasAdvancedFilters ? "secondary" : "outline"}
+          size="icon"
+          className="size-11"
+          onClick={() => setShowAdvanced((v) => !v)}
+          title={APPLICATIONS_PAGE_COPY.advancedFilters}
+          aria-label={APPLICATIONS_PAGE_COPY.advancedFilters}
+          aria-expanded={showAdvanced}
+          aria-controls={advancedPanelId}
+        >
+          <SlidersHorizontal aria-hidden />
+        </Button>
+      </div>
+
+      {/* Advanced filters */}
+      {showAdvanced && (
+        <div
+          id={advancedPanelId}
+          className="grid animate-fade-in-up grid-cols-2 items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-card motion-reduce:animate-none sm:flex sm:flex-wrap"
+        >
+          <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+            <Label htmlFor="applications-filter-mode">
+              {t("filters.source")}
+            </Label>
             <Select
-              value={filters.status}
+              value={filters.mode}
               onValueChange={(v) =>
-                updateFilter("status", v as typeof filters.status)
+                updateFilter("mode", v as typeof filters.mode)
               }
             >
-              <SelectTrigger className="w-36">
+              <SelectTrigger id="applications-filter-mode">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="finalized">Finalized</SelectItem>
+                <SelectItem value="all">{t("filters.allModes")}</SelectItem>
+                <SelectItem value="active">{t("item.modeActive")}</SelectItem>
+                <SelectItem value="passive">{t("item.modePassive")}</SelectItem>
               </SelectContent>
             </Select>
-
-            <Button
-              variant={
-                showAdvanced || hasAdvancedFilters ? "secondary" : "outline"
-              }
-              size="icon"
-              onClick={() => setShowAdvanced((v) => !v)}
-              title="Advanced filters"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-            </Button>
           </div>
 
-          {/* Advanced filters */}
-          {showAdvanced && (
-            <Card className="flex animate-fade-in-up flex-wrap items-end gap-4 bg-background p-3">
-              <div className="space-y-1.5 w-40">
-                <Label className="pl-1 text-sm text-muted-foreground">
-                  Source
-                </Label>
+          {(supports?.platforms?.length ?? 0) > 0 && (
+            <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+              <Label htmlFor="applications-filter-platform">
+                {t("filters.platform")}
+              </Label>
+              <Select
+                value={filters.platformId != null ? filters.platformId : "all"}
+                onValueChange={(v) =>
+                  updateFilter("platformId", v === "all" ? undefined : v)
+                }
+              >
+                <SelectTrigger id="applications-filter-platform">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("filters.allPlatforms")}
+                  </SelectItem>
+                  {supports?.platforms?.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-                <Select
-                  value={filters.mode}
-                  onValueChange={(v) =>
-                    updateFilter("mode", v as typeof filters.mode)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All modes</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="passive">Passive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+            <Label htmlFor="applications-filter-from">
+              {t("filters.from")}
+            </Label>
+            <DatePickerInput
+              id="applications-filter-from"
+              value={filters.dateRange?.start}
+              maxDate={new Date()}
+              onChange={(value) => {
+                if (!value) {
+                  updateFilter("dateRange", undefined);
+                } else {
+                  updateFilter("dateRange", {
+                    start: value,
+                    end: filters.dateRange?.end,
+                  });
+                }
+              }}
+            />
+          </div>
 
-              {(supports?.platforms?.length ?? 0) > 0 && (
-                <div className="space-y-1.5 w-40">
-                  <Label className="pl-1 text-sm text-muted-foreground">
-                    Platform
-                  </Label>
-                  <Select
-                    value={
-                      filters.platformId != null ? filters.platformId : "all"
-                    }
-                    onValueChange={(v) =>
-                      updateFilter("platformId", v === "all" ? undefined : v)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All platforms</SelectItem>
-                      {supports?.platforms?.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+          <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+            <Label htmlFor="applications-filter-to">{t("filters.to")}</Label>
+            <DatePickerInput
+              id="applications-filter-to"
+              value={filters.dateRange?.end}
+              maxDate={new Date()}
+              onChange={(value) => {
+                if (!value) {
+                  updateFilter("dateRange", undefined);
+                } else {
+                  updateFilter("dateRange", {
+                    start: filters.dateRange?.start,
+                    end: value,
+                  });
+                }
+              }}
+            />
+          </div>
 
-              <div className="space-y-1.5 w-40">
-                <Label className="pl-1 text-sm text-muted-foreground">
-                  From
-                </Label>
-                <DatePickerInput
-                  value={filters.dateRange?.start}
-                  maxDate={new Date()}
-                  onChange={(value) => {
-                    if (!value) {
-                      updateFilter("dateRange", undefined);
-                    } else {
-                      updateFilter("dateRange", {
-                        start: value,
-                        end: filters.dateRange?.end,
-                      });
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="space-y-1.5 w-40">
-                <Label className="pl-1 text-sm text-muted-foreground">To</Label>
-                <DatePickerInput
-                  value={filters.dateRange?.end}
-                  maxDate={new Date()}
-                  onChange={(value) => {
-                    if (!value) {
-                      updateFilter("dateRange", undefined);
-                    } else {
-                      updateFilter("dateRange", {
-                        start: filters.dateRange?.start,
-                        end: value,
-                      });
-                    }
-                  }}
-                />
-              </div>
-
-              {hasAdvancedFilters && (
-                <Button
-                  variant="secondary"
-                  onClick={clearFilters}
-                  className="gap-1.5 text-muted-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Clear all
-                </Button>
-              )}
-            </Card>
+          {hasAdvancedFilters && (
+            <Button
+              variant="ghost"
+              onClick={clearFilters}
+              className="col-span-2 gap-1.5 text-muted-foreground sm:col-span-1"
+            >
+              <X aria-hidden data-icon="inline-start" />
+              {APPLICATIONS_PAGE_COPY.clearFilters}
+            </Button>
           )}
         </div>
-      </div>
+      )}
+    </div>
+  );
 
-      {/* List */}
-      {isLoading ? (
-        <div className="space-y-2">
+  const applicationsList = (
+    <>
+      {isError ? (
+        <EmptyState
+          icon={RefreshCw}
+          title={t("list.loadErrorTitle")}
+          description={t("list.loadErrorBody")}
+          action={
+            <Button onClick={() => void refetch()}>
+              <RefreshCw aria-hidden />
+              {t("list.retry")}
+            </Button>
+          }
+        />
+      ) : isLoading ? (
+        <div aria-busy="true" className="flex flex-col gap-4">
           {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <ApplicationCardSkeleton key={i} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-border p-12 text-center">
-          <p className="pl-1 text-sm text-muted-foreground">
-            No applications found
-          </p>
-          <Button
-            onClick={handleNewClick}
-            variant="outline"
-            size="sm"
-            className="mt-3 gap-1.5"
-          >
-            <Plus className="h-4 w-4" /> Create your first application
-          </Button>
-        </div>
+        <EmptyState
+          icon={Briefcase}
+          title={APPLICATIONS_PAGE_COPY.emptyTitle}
+          action={
+            !isViewingPastCycle && !hasAnyFilter ? (
+              <Button onClick={handleNewClick} variant="outline">
+                <Plus aria-hidden data-icon="inline-start" />
+                {APPLICATIONS_PAGE_COPY.emptyAction}
+              </Button>
+            ) : hasAnyFilter ? (
+              <Button variant="ghost" onClick={clearFilters}>
+                {APPLICATIONS_PAGE_COPY.clearFilters}
+              </Button>
+            ) : null
+          }
+        />
       ) : (
         <>
-          <div className="text-sm text-muted-foreground mb-4">
-            Found {filtered.length} application
-            {filtered.length !== 1 ? "s" : ""}
-          </div>
-          <div className="space-y-3">
-            {filtered.map((app) => {
-              return (
+          <p className="text-sm text-muted-foreground">
+            {foundApplicationsLabel(filtered.length)}
+          </p>
+          <ul ref={listRef} className="flex flex-col gap-4">
+            {filtered.map((app) => (
+              <li
+                key={app.id}
+                data-application-id={app.id}
+                className="scroll-mt-6 md:scroll-mt-8"
+              >
                 <ApplicationItem
-                  key={app.id}
                   app={app}
+                  showCvLink={hasCvs}
+                  defaultExpanded={app.id === focusRowId}
                   onEditClick={isViewingPastCycle ? undefined : handleEditClick}
-                  onNewStepClick={
-                    isViewingPastCycle ? undefined : handleStepClick
-                  }
                   onFinalizeClick={
                     isViewingPastCycle ? undefined : handleFinalizeClick
                   }
                   onDeleteClick={
                     isViewingPastCycle ? undefined : handleDeleteClick
                   }
-                >
-                  <ApplicationStepTimeline
-                    id={app.id}
-                    isDisabled={app.finalized || isViewingPastCycle}
-                    stepsSupports={supports?.steps ?? []}
-                    onEditStep={(step) =>
-                      setAppAction({
-                        action: "editStep",
-                        data: app,
-                        stepData: step,
-                      })
-                    }
-                  />
-                </ApplicationItem>
-              );
-            })}
-          </div>
+                  onReopenClick={
+                    isViewingPastCycle ? undefined : handleReopenClick
+                  }
+                  reopenPending={
+                    reopeningId === app.id && reopenApplication.isPending
+                  }
+                />
+              </li>
+            ))}
+          </ul>
         </>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
+            {APPLICATIONS_PAGE_COPY.title}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isViewingPastCycle
+              ? APPLICATIONS_PAGE_COPY.archivedSubtitle
+              : APPLICATIONS_PAGE_COPY.subtitle}
+          </p>
+        </div>
+        {!isViewingPastCycle && (
+          <NewApplicationActions
+            onNewApplication={handleNewClick}
+            showNewWithCv={hasCvs}
+          />
+        )}
+      </div>
+
+      {/* Held until the features load: `cvs` decides whether the toolbar sits
+          inside the Tabs, and moving it later remounts the search box,
+          dropping what was typed and the focus. */}
+      {featuresLoading && !isViewingPastCycle ? (
+        <ApplicationsPageFallback />
+      ) : isViewingPastCycle || !hasCvs ? (
+        <div className="flex flex-col gap-4">
+          {toolbarAndFilters}
+          {applicationsList}
+        </div>
+      ) : (
+        <Tabs defaultValue="applications" className="gap-4">
+          <TabsList variant="line">
+            <TabsTrigger value="applications">
+              {APPLICATIONS_PAGE_COPY.applicationsTab}
+            </TabsTrigger>
+            <TabsTrigger
+              value="drafts"
+              aria-label={
+                draftsCount === undefined
+                  ? undefined
+                  : t("list.draftsTabCount", { count: draftsCount })
+              }
+            >
+              {APPLICATIONS_PAGE_COPY.draftsTab}
+              {draftsCount !== undefined && (
+                <Badge
+                  aria-hidden="true"
+                  variant="secondary"
+                  className="font-numeric"
+                >
+                  {draftsCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="applications" className="flex flex-col gap-4">
+            {toolbarAndFilters}
+            {applicationsList}
+          </TabsContent>
+          <TabsContent value="drafts">
+            <DraftsSection
+              drafts={draftsQuery.data}
+              isLoading={draftsQuery.isLoading}
+              error={
+                draftsQuery.isError
+                  ? getApiError(draftsQuery.error as AxiosError)
+                  : null
+              }
+              onRetry={() => void draftsQuery.refetch()}
+              onDelete={handleDeleteDraft}
+              deletingId={deletingDraftId}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Sheets & dialogs */}
@@ -343,32 +701,13 @@ export function ApplicationsPage() {
         />
       )}
 
-      {appAction?.action === "newStep" && (
-        <ApplicationStepFormDialog
-          application={appAction.data!}
-          steps={supports?.steps.filter((s) => !s.strict) ?? []}
-          open={appAction.action === "newStep"}
-          onOpenChange={() => setAppAction({ action: "none" })}
-        />
-      )}
-
-      {appAction?.action === "editStep" && (
-        <ApplicationStepFormDialog
-          application={appAction.data!}
-          steps={supports?.steps.filter((s) => !s.strict) ?? []}
-          open={appAction.action === "editStep"}
-          onOpenChange={() => setAppAction({ action: "none" })}
-          editStep={appAction.stepData}
-        />
-      )}
-
       {appAction?.action === "finalize" && (
-        <FinalizeDialog
+        <TimelineEventForm
+          purpose="close"
           applicationId={appAction.data!.id}
-          open={appAction.action === "finalize"}
+          open
           onOpenChange={() => setAppAction({ action: "none" })}
-          steps={supports?.steps.filter((s) => s.strict) ?? []}
-          feedbacks={supports?.feedbacks ?? []}
+          otherEvents={[]}
         />
       )}
 
@@ -379,18 +718,18 @@ export function ApplicationsPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete application?</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone.
+                {t("deleteDialog.body")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{t("deleteDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => deleteApplication(appAction.data!.id)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                variant="destructive"
               >
-                Delete
+                {t("deleteDialog.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

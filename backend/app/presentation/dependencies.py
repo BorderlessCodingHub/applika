@@ -1,47 +1,213 @@
 from typing import Annotated
 
 import redis.asyncio as aioredis
-from fastapi import Depends, Security
-from fastapi.security import APIKeyCookie
+from fastapi import Depends, Request, Security
+from fastapi.security import (
+    APIKeyCookie,
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.dto.tailored_cv import TailoringMode
 from app.application.dto.user import UserDTO
+from app.application.services.borderless_access_store import (
+    BorderlessAccessStore,
+)
+from app.application.services.borderless_oidc import (
+    BorderlessOidcClient,
+    borderless_oidc_client,
+)
+from app.application.services.clone_tailoring import CloneTailoringService
+from app.application.services.cv_rendering.diff_pdf_renderer import (
+    CVDiffPdfRenderer,
+    get_cv_diff_pdf_renderer,
+)
+from app.application.services.cv_rendering.markdown_renderer import (
+    CVMarkdownRenderer,
+    get_cv_markdown_renderer,
+)
+from app.application.services.cv_rendering.renderer import (
+    CVPdfRenderer,
+    get_cv_pdf_renderer,
+)
 from app.application.services.discord_service import DiscordService
-from app.application.services.github_service import GitHubService
+from app.application.services.github_service import GitHubOAuthService
+from app.application.services.job_queue import JobQueue
+from app.application.services.keyword_tailoring import (
+    KeywordTailoringService,
+)
+from app.application.services.session_store import SessionStore
+from app.application.services.tailoring import (
+    TailoringResolver,
+    TailoringService,
+)
+from app.application.use_cases.account_link_state import (
+    AccountLinkStateUseCase,
+)
+from app.application.use_cases.applications.read_model import (
+    ApplicationReadModel,
+)
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
+from app.application.use_cases.base_cvs.create import CreateBaseCVUseCase
+from app.application.use_cases.base_cvs.delete import DeleteBaseCVUseCase
+from app.application.use_cases.base_cvs.get import GetBaseCVUseCase
+from app.application.use_cases.base_cvs.list import ListBaseCVsUseCase
+from app.application.use_cases.base_cvs.render_markdown import (
+    RenderBaseCVMarkdownUseCase,
+)
+from app.application.use_cases.base_cvs.render_pdf import (
+    RenderBaseCVPdfUseCase,
+)
+from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
+from app.application.use_cases.borderless.badge_access import badge_access
+from app.application.use_cases.borderless.begin_login import (
+    BeginBorderlessLoginUseCase,
+)
+from app.application.use_cases.borderless.complete_login import (
+    CompleteBorderlessLoginUseCase,
+)
+from app.application.use_cases.borderless.end_grant import (
+    EndBorderlessGrantUseCase,
+)
+from app.application.use_cases.borderless.login_state import (
+    BorderlessLoginStateUseCase,
+)
+from app.application.use_cases.borderless.login_target import (
+    BorderlessLoginTargets,
+)
+from app.application.use_cases.borderless.refresh_badges import (
+    RefreshBadgesUseCase,
+)
+from app.application.use_cases.borderless.release_grant import (
+    ReleaseBorderlessGrantUseCase,
+)
+from app.application.use_cases.borderless.sign_in import (
+    BorderlessSignInUseCase,
+)
+from app.application.use_cases.cli_auth.authorize import CliAuthorizeUseCase
+from app.application.use_cases.cli_auth.device_code import DeviceCodeUseCase
+from app.application.use_cases.cli_auth.token import CliTokenUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
+from app.application.use_cases.github_restore.begin import (
+    BeginGithubRestoreUseCase,
+)
+from app.application.use_cases.github_restore.complete import (
+    CompleteGithubRestoreUseCase,
+)
+from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
+    ResolveReportWebhooksUseCase,
+)
+from app.application.use_cases.sessions.end_session import EndSessionUseCase
+from app.application.use_cases.sessions.list_my_sessions import (
+    ListMySessionsUseCase,
+)
+from app.application.use_cases.sessions.open_session import (
+    OpenSessionUseCase,
+)
+from app.application.use_cases.sessions.refresh_session import (
+    RefreshSessionUseCase,
+)
+from app.application.use_cases.sessions.revoke_other_sessions import (
+    RevokeOtherSessionsUseCase,
+)
+from app.application.use_cases.tailored_cvs.create import (
+    CreateTailoredCVUseCase,
+)
+from app.application.use_cases.tailored_cvs.delete import (
+    DeleteTailoredCVUseCase,
+)
+from app.application.use_cases.tailored_cvs.diff import (
+    ComputeTailoredCVDiffUseCase,
+)
+from app.application.use_cases.tailored_cvs.fit import (
+    GetTailoredCVFitUseCase,
+)
+from app.application.use_cases.tailored_cvs.get import GetTailoredCVUseCase
+from app.application.use_cases.tailored_cvs.render_diff_markdown import (
+    RenderTailoredCVDiffMarkdownUseCase,
+)
+from app.application.use_cases.tailored_cvs.render_diff_pdf import (
+    RenderTailoredCVDiffPdfUseCase,
+)
+from app.application.use_cases.tailored_cvs.render_markdown import (
+    RenderTailoredCVMarkdownUseCase,
+)
+from app.application.use_cases.tailored_cvs.render_pdf import (
+    RenderTailoredCVPdfUseCase,
+)
+from app.application.use_cases.tailored_cvs.update import (
+    UpdateTailoredCVUseCase,
+)
 from app.config.db import get_session
 from app.config.redis import get_redis
 from app.config.settings import ACCESS_COOKIE_NAME, envs
-from app.core.exceptions import ForbiddenAccess
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import (
+    BadgeRequired,
+    ForbiddenAccess,
+    InvalidSession,
+    MembershipLocked,
+    ResourceNotFound,
+)
+from app.core.features import NOT_FOUND_DETAIL, FeatureKey
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-from app.domain.repositories.application_step_repository import (
-    ApplicationStepRepository,
+from app.domain.repositories.base_cv_repository import BaseCVRepository
+from app.domain.repositories.borderless_account_repository import (
+    BorderlessAccountRepository,
 )
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.cycle_repository import CycleRepository
+from app.domain.repositories.feature_repository import FeatureRepository
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
+)
+from app.domain.repositories.github_connection_repository import (
+    GithubConnectionRepository,
+)
+from app.domain.repositories.job_dismissal_repository import (
+    JobDismissalRepository,
+)
+from app.domain.repositories.job_repository import JobRepository
+from app.domain.repositories.job_source_repository import (
+    JobSourceRepository,
 )
 from app.domain.repositories.platform_repository import PlatformRepository
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
 )
+from app.domain.repositories.report_webhook_repository import (
+    ReportWebhookRepository,
+)
+from app.domain.repositories.saved_job_search_repository import (
+    SavedJobSearchRepository,
+)
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
+from app.domain.repositories.tailored_cv_repository import (
+    TailoredCVRepository,
+)
+from app.domain.repositories.timeline_event_repository import (
+    TimelineEventRepository,
+)
+from app.domain.repositories.user_badge_repository import UserBadgeRepository
 from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
 )
 from app.domain.repositories.user_repository import UserRepository
+from app.domain.repositories.user_session_repository import (
+    UserSessionRepository,
+)
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )
+from app.worker.queue import TaskiqJobQueue
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 
@@ -66,8 +232,8 @@ def get_quinzenal_report_repository(session: DbSession):
     return QuinzenalReportRepository(session)
 
 
-def get_application_step_repository(session: DbSession):
-    return ApplicationStepRepository(session)
+def get_timeline_event_repository(session: DbSession):
+    return TimelineEventRepository(session)
 
 
 def get_company_repository(session: DbSession):
@@ -96,12 +262,69 @@ PlatformRepositoryDp = Annotated[
     PlatformRepository, Depends(get_platform_repository)
 ]
 
+
+def get_report_webhook_repository(session: DbSession):
+    return ReportWebhookRepository(session)
+
+
+ReportWebhookRepositoryDp = Annotated[
+    ReportWebhookRepository, Depends(get_report_webhook_repository)
+]
+
+
+def get_borderless_account_repository(session: DbSession):
+    return BorderlessAccountRepository(session)
+
+
+BorderlessAccountRepositoryDp = Annotated[
+    BorderlessAccountRepository, Depends(get_borderless_account_repository)
+]
+
+
+def get_user_badge_repository(session: DbSession):
+    return UserBadgeRepository(session)
+
+
+UserBadgeRepositoryDp = Annotated[
+    UserBadgeRepository, Depends(get_user_badge_repository)
+]
+
+
+def get_github_connection_repository(session: DbSession):
+    return GithubConnectionRepository(session)
+
+
+GithubConnectionRepositoryDp = Annotated[
+    GithubConnectionRepository, Depends(get_github_connection_repository)
+]
+
+
+def get_borderless_oidc_client() -> BorderlessOidcClient:
+    """One per process: it caches the discovery document and the JWKS
+    (ADR-0026). Tests override it with the fake Borderless."""
+    return borderless_oidc_client()
+
+
+BorderlessOidcClientDp = Annotated[
+    BorderlessOidcClient, Depends(get_borderless_oidc_client)
+]
+
+
+def get_github_oauth_service() -> GitHubOAuthService:
+    return GitHubOAuthService()
+
+
+GitHubOAuthServiceDp = Annotated[
+    GitHubOAuthService, Depends(get_github_oauth_service)
+]
+
+
 QuinzenalReportRepositoryDp = Annotated[
     QuinzenalReportRepository, Depends(get_quinzenal_report_repository)
 ]
 
-ApplicationStepRepositoryDp = Annotated[
-    ApplicationStepRepository, Depends(get_application_step_repository)
+TimelineEventRepositoryDp = Annotated[
+    TimelineEventRepository, Depends(get_timeline_event_repository)
 ]
 
 CompanyRepositoryDp = Annotated[
@@ -114,6 +337,18 @@ ApplicationRepositoryDp = Annotated[
 
 UserStatsRepositoryDp = Annotated[
     UserStatsRepository, Depends(get_user_statistics_repository)
+]
+
+
+def get_application_read_model(
+    timeline_event_repo: TimelineEventRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
+):
+    return ApplicationReadModel(timeline_event_repo, step_repo)
+
+
+ApplicationReadModelDp = Annotated[
+    ApplicationReadModel, Depends(get_application_read_model)
 ]
 
 
@@ -159,15 +394,6 @@ DiscordFeedbackServiceDp = Annotated[
 RedisDp = Annotated[aioredis.Redis, Depends(get_redis)]
 
 
-async def get_github_service(
-    redis_client: RedisDp,
-) -> GitHubService:
-    return GitHubService(redis_client)
-
-
-GitHubServiceDp = Annotated[GitHubService, Depends(get_github_service)]
-
-
 async def get_auth_handoff_state_use_case(
     redis_client: RedisDp,
 ) -> AuthHandoffStateUseCase:
@@ -179,23 +405,730 @@ AuthHandoffStateUseCaseDp = Annotated[
 ]
 
 
+async def get_account_link_state_use_case(
+    redis_client: RedisDp,
+) -> AccountLinkStateUseCase:
+    return AccountLinkStateUseCase(redis_client)
+
+
+AccountLinkStateUseCaseDp = Annotated[
+    AccountLinkStateUseCase, Depends(get_account_link_state_use_case)
+]
+
+
+async def get_job_queue(redis_client: RedisDp) -> JobQueue:
+    """The background worker's queue (ADR-0016), bound to taskiq; the lock
+    it reads lives on the API's own Redis."""
+    return TaskiqJobQueue(redis_client)
+
+
+JobQueueDp = Annotated[JobQueue, Depends(get_job_queue)]
+
+
+def get_job_source_repository(session: DbSession) -> JobSourceRepository:
+    return JobSourceRepository(session)
+
+
+JobSourceRepositoryDp = Annotated[
+    JobSourceRepository, Depends(get_job_source_repository)
+]
+
+
+def get_job_repository(session: DbSession) -> JobRepository:
+    return JobRepository(session)
+
+
+JobRepositoryDp = Annotated[JobRepository, Depends(get_job_repository)]
+
+
+def get_job_dismissal_repository(
+    session: DbSession,
+) -> JobDismissalRepository:
+    return JobDismissalRepository(session)
+
+
+JobDismissalRepositoryDp = Annotated[
+    JobDismissalRepository, Depends(get_job_dismissal_repository)
+]
+
+
+def get_saved_job_search_repository(
+    session: DbSession,
+) -> SavedJobSearchRepository:
+    return SavedJobSearchRepository(session)
+
+
+SavedJobSearchRepositoryDp = Annotated[
+    SavedJobSearchRepository, Depends(get_saved_job_search_repository)
+]
+
+
+def get_resolve_report_webhooks_use_case(
+    binding_repo: BorderlessAccountRepositoryDp,
+    badge_repo: UserBadgeRepositoryDp,
+    webhook_repo: ReportWebhookRepositoryDp,
+):
+    return ResolveReportWebhooksUseCase(binding_repo, badge_repo, webhook_repo)
+
+
+ResolveReportWebhooksUseCaseDp = Annotated[
+    ResolveReportWebhooksUseCase,
+    Depends(get_resolve_report_webhooks_use_case),
+]
+
+
+def client_ip(request: Request) -> str | None:
+    """The address uvicorn resolved (``proxy_headers`` +
+    ``FORWARDED_ALLOW_IPS``), never a raw forwarded header."""
+    return request.client.host if request.client else None
+
+
+def client_user_agent(request: Request) -> str | None:
+    return request.headers.get('user-agent')
+
+
+def get_session_store(redis_client: RedisDp) -> SessionStore:
+    """The live half of every device session, on the limiter's Redis
+    (ADR-0019)."""
+    return SessionStore(redis_client)
+
+
+SessionStoreDp = Annotated[SessionStore, Depends(get_session_store)]
+
+
+def get_user_session_repository(session: DbSession) -> UserSessionRepository:
+    return UserSessionRepository(session)
+
+
+UserSessionRepositoryDp = Annotated[
+    UserSessionRepository, Depends(get_user_session_repository)
+]
+
+# Both read without auto_error, so the order is ours: the Bearer header
+# (applika-cli 1.1.0 and later) first, then the ``__access`` cookie (the web
+# and installed CLIs 0.1.4 to 1.0.1), else 401 ``Not authenticated``.
+_bearer_scheme = HTTPBearer(auto_error=False)
+_access_cookie_scheme = APIKeyCookie(name=ACCESS_COOKIE_NAME, auto_error=False)
+
+
 async def get_current_user(
+    request: Request,
     user_repo: UserRepositoryDp,
-    access_token: str = Security(APIKeyCookie(name=ACCESS_COOKIE_NAME)),
+    session_store: SessionStoreDp,
+    bearer: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
+    access_cookie: str | None = Security(_access_cookie_scheme),
 ) -> UserDTO:
-    use_case = GetCurrentUserUseCase(user_repo)
-    return await use_case.execute(access_token)
+    access_token = bearer.credentials if bearer else access_cookie
+    if not access_token:
+        raise InvalidSession(
+            'Not authenticated', ErrorCode.AUTH_NOT_AUTHENTICATED
+        )
+    use_case = GetCurrentUserUseCase(user_repo, session_store)
+    authenticated = await use_case.execute(access_token, client_ip(request))
+    request.state.session_id = authenticated.session_id
+    return authenticated.user
 
 
 CurrentUserDp = Annotated[UserDTO, Depends(get_current_user)]
+
+
+async def get_current_session_id(
+    request: Request, _user: CurrentUserDp
+) -> int | None:
+    """The caller's own session id (the JWT's ``sid``), set by
+    ``get_current_user``. ``None`` only when a test overrides
+    ``get_current_user``."""
+    return getattr(request.state, 'session_id', None)
+
+
+CurrentSessionIdDp = Annotated[int | None, Depends(get_current_session_id)]
+
+
+def get_open_session_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> OpenSessionUseCase:
+    return OpenSessionUseCase(session_repo, store)
+
+
+OpenSessionUseCaseDp = Annotated[
+    OpenSessionUseCase, Depends(get_open_session_use_case)
+]
+
+
+def get_end_session_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> EndSessionUseCase:
+    return EndSessionUseCase(session_repo, store)
+
+
+EndSessionUseCaseDp = Annotated[
+    EndSessionUseCase, Depends(get_end_session_use_case)
+]
+
+
+def get_borderless_access_store(redis_client: RedisDp) -> BorderlessAccessStore:
+    return BorderlessAccessStore(redis_client)
+
+
+BorderlessAccessStoreDp = Annotated[
+    BorderlessAccessStore, Depends(get_borderless_access_store)
+]
+
+
+def get_borderless_login_state(
+    redis_client: RedisDp,
+) -> BorderlessLoginStateUseCase:
+    return BorderlessLoginStateUseCase(redis_client)
+
+
+BorderlessLoginStateUseCaseDp = Annotated[
+    BorderlessLoginStateUseCase, Depends(get_borderless_login_state)
+]
+
+
+def get_borderless_login_targets(
+    handoff_state: AuthHandoffStateUseCaseDp,
+) -> BorderlessLoginTargets:
+    return BorderlessLoginTargets(handoff_state)
+
+
+BorderlessLoginTargetsDp = Annotated[
+    BorderlessLoginTargets, Depends(get_borderless_login_targets)
+]
+
+
+def get_end_borderless_grant_use_case(
+    session: DbSession,
+    session_repo: UserSessionRepositoryDp,
+    store: SessionStoreDp,
+    access: BorderlessAccessStoreDp,
+) -> EndBorderlessGrantUseCase:
+    return EndBorderlessGrantUseCase(session, session_repo, store, access)
+
+
+EndBorderlessGrantUseCaseDp = Annotated[
+    EndBorderlessGrantUseCase, Depends(get_end_borderless_grant_use_case)
+]
+
+
+def get_refresh_badges_use_case(
+    session: DbSession,
+    oidc: BorderlessOidcClientDp,
+    access: BorderlessAccessStoreDp,
+    end_grant: EndBorderlessGrantUseCaseDp,
+) -> RefreshBadgesUseCase:
+    return RefreshBadgesUseCase(session, oidc, access, end_grant)
+
+
+RefreshBadgesUseCaseDp = Annotated[
+    RefreshBadgesUseCase, Depends(get_refresh_badges_use_case)
+]
+
+
+def get_release_borderless_grant_use_case(
+    session: DbSession,
+    session_repo: UserSessionRepositoryDp,
+    access: BorderlessAccessStoreDp,
+) -> ReleaseBorderlessGrantUseCase:
+    return ReleaseBorderlessGrantUseCase(session, session_repo, access)
+
+
+ReleaseBorderlessGrantUseCaseDp = Annotated[
+    ReleaseBorderlessGrantUseCase,
+    Depends(get_release_borderless_grant_use_case),
+]
+
+
+def get_borderless_sign_in_use_case(
+    session: DbSession, access: BorderlessAccessStoreDp
+) -> BorderlessSignInUseCase:
+    return BorderlessSignInUseCase(session, access)
+
+
+BorderlessSignInUseCaseDp = Annotated[
+    BorderlessSignInUseCase, Depends(get_borderless_sign_in_use_case)
+]
+
+
+def get_begin_borderless_login_use_case(
+    oidc: BorderlessOidcClientDp,
+    login_state: BorderlessLoginStateUseCaseDp,
+    targets: BorderlessLoginTargetsDp,
+) -> BeginBorderlessLoginUseCase:
+    return BeginBorderlessLoginUseCase(oidc, login_state, targets)
+
+
+BeginBorderlessLoginUseCaseDp = Annotated[
+    BeginBorderlessLoginUseCase, Depends(get_begin_borderless_login_use_case)
+]
+
+
+def get_complete_borderless_login_use_case(
+    oidc: BorderlessOidcClientDp,
+    login_state: BorderlessLoginStateUseCaseDp,
+    sign_in: BorderlessSignInUseCaseDp,
+    targets: BorderlessLoginTargetsDp,
+) -> CompleteBorderlessLoginUseCase:
+    return CompleteBorderlessLoginUseCase(oidc, login_state, sign_in, targets)
+
+
+CompleteBorderlessLoginUseCaseDp = Annotated[
+    CompleteBorderlessLoginUseCase,
+    Depends(get_complete_borderless_login_use_case),
+]
+
+
+def get_refresh_session_use_case(
+    user_repo: UserRepositoryDp,
+    session_repo: UserSessionRepositoryDp,
+    store: SessionStoreDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    refresh_badges: RefreshBadgesUseCaseDp,
+) -> RefreshSessionUseCase:
+    return RefreshSessionUseCase(
+        user_repo, session_repo, store, binding_repo, refresh_badges
+    )
+
+
+RefreshSessionUseCaseDp = Annotated[
+    RefreshSessionUseCase, Depends(get_refresh_session_use_case)
+]
+
+
+def get_list_my_sessions_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> ListMySessionsUseCase:
+    return ListMySessionsUseCase(session_repo, store)
+
+
+ListMySessionsUseCaseDp = Annotated[
+    ListMySessionsUseCase, Depends(get_list_my_sessions_use_case)
+]
+
+
+def get_revoke_other_sessions_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> RevokeOtherSessionsUseCase:
+    return RevokeOtherSessionsUseCase(session_repo, store)
+
+
+RevokeOtherSessionsUseCaseDp = Annotated[
+    RevokeOtherSessionsUseCase, Depends(get_revoke_other_sessions_use_case)
+]
+
+
+def get_cli_authorize_use_case(
+    handoff_state: AuthHandoffStateUseCaseDp,
+) -> CliAuthorizeUseCase:
+    return CliAuthorizeUseCase(handoff_state)
+
+
+CliAuthorizeUseCaseDp = Annotated[
+    CliAuthorizeUseCase, Depends(get_cli_authorize_use_case)
+]
+
+
+def get_device_code_use_case(redis_client: RedisDp) -> DeviceCodeUseCase:
+    return DeviceCodeUseCase(redis_client)
+
+
+DeviceCodeUseCaseDp = Annotated[
+    DeviceCodeUseCase, Depends(get_device_code_use_case)
+]
+
+
+def get_cli_token_use_case(
+    handoff_state: AuthHandoffStateUseCaseDp,
+    open_session: OpenSessionUseCaseDp,
+    refresh_session: RefreshSessionUseCaseDp,
+    device_codes: DeviceCodeUseCaseDp,
+) -> CliTokenUseCase:
+    return CliTokenUseCase(
+        handoff_state, open_session, refresh_session, device_codes
+    )
+
+
+CliTokenUseCaseDp = Annotated[CliTokenUseCase, Depends(get_cli_token_use_case)]
 
 
 async def get_admin_user(
     user: CurrentUserDp,
 ) -> UserDTO:
     if not user.is_admin:
-        raise ForbiddenAccess('Admin access required')
+        raise ForbiddenAccess(
+            'Admin access required', ErrorCode.ADM_ADMIN_REQUIRED
+        )
     return user
 
 
 AdminUserDp = Annotated[UserDTO, Depends(get_admin_user)]
+
+
+async def require_reports_badge(
+    user: CurrentUserDp,
+    refresh_badges: RefreshBadgesUseCaseDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    badge_repo: UserBadgeRepositoryDp,
+) -> None:
+    """The ONE dependency of every membership-gated route (ADR-0026 §8, §9),
+    administrators included. First keep the membership current: the Redis
+    access token present → no Borderless call; missing → one refresh
+    (``BORDERLESS_REFRESH_TIMEOUT_SECONDS``). Then: no live badge →
+    RPT-1001; a live badge on a binding Borderless refused
+    (``needs_reconnect``) → AUTH-1050, whatever the client."""
+    await refresh_badges.execute(
+        user.id, envs.BORDERLESS_REFRESH_TIMEOUT_SECONDS
+    )
+    access = badge_access(
+        await binding_repo.get_by_user_id(user.id),
+        await badge_repo.live_for_user(user.id),
+    )
+    if not access.badges:
+        raise BadgeRequired()
+    if not access.held:
+        raise MembershipLocked()
+
+
+RequireReportsBadgeDp = Depends(require_reports_badge)
+
+
+def get_begin_github_restore_use_case(
+    user_repo: UserRepositoryDp,
+    connections: GithubConnectionRepositoryDp,
+    state: AccountLinkStateUseCaseDp,
+    github: GitHubOAuthServiceDp,
+) -> BeginGithubRestoreUseCase:
+    return BeginGithubRestoreUseCase(user_repo, connections, state, github)
+
+
+BeginGithubRestoreUseCaseDp = Annotated[
+    BeginGithubRestoreUseCase, Depends(get_begin_github_restore_use_case)
+]
+
+
+def get_complete_github_restore_use_case(
+    session: DbSession, store: SessionStoreDp
+) -> CompleteGithubRestoreUseCase:
+    return CompleteGithubRestoreUseCase(session, store)
+
+
+CompleteGithubRestoreUseCaseDp = Annotated[
+    CompleteGithubRestoreUseCase,
+    Depends(get_complete_github_restore_use_case),
+]
+
+
+def get_feature_repository(session: DbSession) -> FeatureRepository:
+    return FeatureRepository(session)
+
+
+FeatureRepositoryDp = Annotated[
+    FeatureRepository, Depends(get_feature_repository)
+]
+
+
+async def user_has_feature(
+    key: FeatureKey, user: UserDTO, feature_repo: FeatureRepository
+) -> bool:
+    """The access rule for one request: one indexed query, never cached
+    (ADR-0018, R-012). ``user.is_admin`` is read from the database by
+    ``get_current_user`` on every request."""
+    return await feature_repo.has_feature(key.value, user.id, user.is_admin)
+
+
+def require_feature(key: FeatureKey):
+    """A dependency that answers
+    ``404 {"detail": "Not Found", "code": "GEN-1001"}`` - the same body as
+    an unknown route - when the caller lacks ``key`` (ADR-0018).
+
+    Built on ``CurrentUserDp``, so an anonymous request gets today's auth
+    error first. Put it on a router (``dependencies=[...]``) when the whole
+    router is gated, on the route when one route of a shared router is.
+    """
+
+    async def _require_feature(
+        user: CurrentUserDp, feature_repo: FeatureRepositoryDp
+    ) -> None:
+        if not await user_has_feature(key, user, feature_repo):
+            raise ResourceNotFound(NOT_FOUND_DETAIL, ErrorCode.GEN_NOT_FOUND)
+
+    return Depends(_require_feature)
+
+
+def get_base_cv_repository(session: DbSession):
+    return BaseCVRepository(session)
+
+
+BaseCVRepositoryDp = Annotated[
+    BaseCVRepository, Depends(get_base_cv_repository)
+]
+
+
+def get_create_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return CreateBaseCVUseCase(base_cv_repo)
+
+
+CreateBaseCVUseCaseDp = Annotated[
+    CreateBaseCVUseCase, Depends(get_create_base_cv_use_case)
+]
+
+
+def get_list_base_cvs_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return ListBaseCVsUseCase(base_cv_repo)
+
+
+ListBaseCVsUseCaseDp = Annotated[
+    ListBaseCVsUseCase, Depends(get_list_base_cvs_use_case)
+]
+
+
+def get_get_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return GetBaseCVUseCase(base_cv_repo)
+
+
+GetBaseCVUseCaseDp = Annotated[
+    GetBaseCVUseCase, Depends(get_get_base_cv_use_case)
+]
+
+
+def get_update_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return UpdateBaseCVUseCase(base_cv_repo)
+
+
+UpdateBaseCVUseCaseDp = Annotated[
+    UpdateBaseCVUseCase, Depends(get_update_base_cv_use_case)
+]
+
+
+def get_delete_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return DeleteBaseCVUseCase(base_cv_repo)
+
+
+DeleteBaseCVUseCaseDp = Annotated[
+    DeleteBaseCVUseCase, Depends(get_delete_base_cv_use_case)
+]
+
+
+def get_cv_pdf_renderer_service() -> CVPdfRenderer:
+    """Bind the PDF renderer. One implementation, one fixed theme.
+
+    Stateless and session-free: a render reads nothing but the CV document
+    it is handed, so there is nothing to scope per request beyond the
+    instance itself.
+    """
+    return get_cv_pdf_renderer()
+
+
+CVPdfRendererDp = Annotated[CVPdfRenderer, Depends(get_cv_pdf_renderer_service)]
+
+
+def get_render_base_cv_pdf_use_case(
+    base_cv_repo: BaseCVRepositoryDp,
+    renderer: CVPdfRendererDp,
+):
+    return RenderBaseCVPdfUseCase(base_cv_repo, renderer)
+
+
+RenderBaseCVPdfUseCaseDp = Annotated[
+    RenderBaseCVPdfUseCase, Depends(get_render_base_cv_pdf_use_case)
+]
+
+
+def get_cv_markdown_renderer_service() -> CVMarkdownRenderer:
+    """Bind the Markdown renderer. Stateless, same as the PDF renderer."""
+    return get_cv_markdown_renderer()
+
+
+CVMarkdownRendererDp = Annotated[
+    CVMarkdownRenderer, Depends(get_cv_markdown_renderer_service)
+]
+
+
+def get_cv_diff_pdf_renderer_service() -> CVDiffPdfRenderer:
+    """Bind the diff PDF renderer. Stateless, same as the CV PDF renderer."""
+    return get_cv_diff_pdf_renderer()
+
+
+CVDiffPdfRendererDp = Annotated[
+    CVDiffPdfRenderer, Depends(get_cv_diff_pdf_renderer_service)
+]
+
+
+def get_render_base_cv_markdown_use_case(
+    base_cv_repo: BaseCVRepositoryDp,
+    renderer: CVMarkdownRendererDp,
+):
+    return RenderBaseCVMarkdownUseCase(base_cv_repo, renderer)
+
+
+RenderBaseCVMarkdownUseCaseDp = Annotated[
+    RenderBaseCVMarkdownUseCase,
+    Depends(get_render_base_cv_markdown_use_case),
+]
+
+
+def get_tailored_cv_repository(session: DbSession):
+    return TailoredCVRepository(session)
+
+
+TailoredCVRepositoryDp = Annotated[
+    TailoredCVRepository, Depends(get_tailored_cv_repository)
+]
+
+
+def resolve_tailoring(tailoring: TailoringMode) -> TailoringService:
+    """Pick the tailoring binding for one request (ADR-0017).
+
+    ``'copy'`` is the verbatim clone - the default everywhere, and what every
+    installed ``applika-cli`` gets because it never sends the field.
+    ``'keywords'`` is the keyword binding. Neither uses a model.
+    """
+    if tailoring == 'keywords':
+        return KeywordTailoringService()
+    return CloneTailoringService()
+
+
+def get_tailoring_resolver() -> TailoringResolver:
+    """The per-request binding resolver; a test overrides this to fake one."""
+    return resolve_tailoring
+
+
+TailoringResolverDp = Annotated[
+    TailoringResolver, Depends(get_tailoring_resolver)
+]
+
+
+def get_create_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    base_cv_repo: BaseCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    tailoring_resolver: TailoringResolverDp,
+):
+    return CreateTailoredCVUseCase(
+        tailored_cv_repo, base_cv_repo, application_repo, tailoring_resolver
+    )
+
+
+CreateTailoredCVUseCaseDp = Annotated[
+    CreateTailoredCVUseCase, Depends(get_create_tailored_cv_use_case)
+]
+
+
+def get_get_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return GetTailoredCVUseCase(tailored_cv_repo, application_repo)
+
+
+GetTailoredCVUseCaseDp = Annotated[
+    GetTailoredCVUseCase, Depends(get_get_tailored_cv_use_case)
+]
+
+
+def get_get_tailored_cv_fit_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return GetTailoredCVFitUseCase(tailored_cv_repo, application_repo)
+
+
+GetTailoredCVFitUseCaseDp = Annotated[
+    GetTailoredCVFitUseCase, Depends(get_get_tailored_cv_fit_use_case)
+]
+
+
+def get_update_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return UpdateTailoredCVUseCase(tailored_cv_repo, application_repo)
+
+
+UpdateTailoredCVUseCaseDp = Annotated[
+    UpdateTailoredCVUseCase, Depends(get_update_tailored_cv_use_case)
+]
+
+
+def get_delete_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return DeleteTailoredCVUseCase(tailored_cv_repo, application_repo)
+
+
+DeleteTailoredCVUseCaseDp = Annotated[
+    DeleteTailoredCVUseCase, Depends(get_delete_tailored_cv_use_case)
+]
+
+
+def get_render_tailored_cv_pdf_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    renderer: CVPdfRendererDp,
+):
+    return RenderTailoredCVPdfUseCase(
+        tailored_cv_repo, application_repo, renderer
+    )
+
+
+RenderTailoredCVPdfUseCaseDp = Annotated[
+    RenderTailoredCVPdfUseCase, Depends(get_render_tailored_cv_pdf_use_case)
+]
+
+
+def get_render_tailored_cv_markdown_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    renderer: CVMarkdownRendererDp,
+):
+    return RenderTailoredCVMarkdownUseCase(
+        tailored_cv_repo, application_repo, renderer
+    )
+
+
+RenderTailoredCVMarkdownUseCaseDp = Annotated[
+    RenderTailoredCVMarkdownUseCase,
+    Depends(get_render_tailored_cv_markdown_use_case),
+]
+
+
+def get_compute_tailored_cv_diff_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    base_cv_repo: BaseCVRepositoryDp,
+):
+    return ComputeTailoredCVDiffUseCase(
+        tailored_cv_repo, application_repo, base_cv_repo
+    )
+
+
+ComputeTailoredCVDiffUseCaseDp = Annotated[
+    ComputeTailoredCVDiffUseCase,
+    Depends(get_compute_tailored_cv_diff_use_case),
+]
+
+
+def get_render_tailored_cv_diff_markdown_use_case(
+    compute_diff: ComputeTailoredCVDiffUseCaseDp,
+):
+    return RenderTailoredCVDiffMarkdownUseCase(compute_diff)
+
+
+RenderTailoredCVDiffMarkdownUseCaseDp = Annotated[
+    RenderTailoredCVDiffMarkdownUseCase,
+    Depends(get_render_tailored_cv_diff_markdown_use_case),
+]
+
+
+def get_render_tailored_cv_diff_pdf_use_case(
+    compute_diff: ComputeTailoredCVDiffUseCaseDp,
+    renderer: CVDiffPdfRendererDp,
+):
+    return RenderTailoredCVDiffPdfUseCase(compute_diff, renderer)
+
+
+RenderTailoredCVDiffPdfUseCaseDp = Annotated[
+    RenderTailoredCVDiffPdfUseCase,
+    Depends(get_render_tailored_cv_diff_pdf_use_case),
+]

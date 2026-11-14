@@ -1,0 +1,106 @@
+from sqlalchemy.exc import IntegrityError
+
+from app.application.dto.admin import AdminCompanyRowDTO
+from app.config.logging import logger
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import ErrorParams, ResourceConflict, ResourceNotFound
+from app.domain.models import CompanyModel
+from app.domain.repositories.admin_repository import AdminRepository
+from app.domain.repositories.company_repository import CompanyRepository
+
+
+def _collision_params(collision: CompanyModel) -> ErrorParams:
+    """The public row a publish would duplicate, as the 409 names it
+    (``id`` as a string: a Snowflake id is past a JS number)."""
+    return {
+        'name': f'{collision.name}',
+        'url': f'{collision.url}',
+        'id': str(collision.id),
+    }
+
+
+class PublishCompanyUseCase:
+    """``POST /admin/companies/{id}/publish`` (ADR-0014, R-025/R-026): makes
+    a private company visible to every user, keeping who added it
+    (``created_by`` is never cleared). Idempotent - publishing an already
+    public row is a no-op 200. Refused with a 409 naming the public row it
+    would duplicate on ``(lower(name), url)``."""
+
+    def __init__(
+        self,
+        company_repo: CompanyRepository,
+        admin_repo: AdminRepository,
+    ):
+        self.company_repo = company_repo
+        self.admin_repo = admin_repo
+
+    async def execute(
+        self, company_id: int, admin_id: int
+    ) -> AdminCompanyRowDTO:
+        company = await self.company_repo.get_by_id_unfiltered(company_id)
+        if not company:
+            raise ResourceNotFound(
+                'Company not found', ErrorCode.CAT_COMPANY_NOT_FOUND
+            )
+
+        if company.is_public:
+            return await self._row(company_id)
+
+        collision = await self.company_repo.find_public_collision(
+            company.name, company.url, exclude_id=company.id
+        )
+        if collision:
+            raise ResourceConflict(
+                'A public company with this name and URL already exists: '
+                f'{collision.name} ({collision.url}, id {collision.id})',
+                ErrorCode.ADM_PUBLIC_COMPANY_EXISTS,
+                params=_collision_params(collision),
+            )
+
+        # Captured before the update: a rollback on the shared session (the
+        # repo's own IntegrityError handling) expires this ORM object, and a
+        # synchronous attribute read on an expired async object raises
+        # MissingGreenlet instead of the 409 below.
+        name, url = company.name, company.url
+        company.is_public = True
+        try:
+            await self.company_repo.update(company)
+        except IntegrityError as err:
+            collision = await self.company_repo.find_public_collision(
+                name, url, exclude_id=company_id
+            )
+            if collision:
+                raise ResourceConflict(
+                    'A public company with this name and URL already '
+                    f'exists: {collision.name} '
+                    f'({collision.url}, id {collision.id})',
+                    ErrorCode.ADM_PUBLIC_COMPANY_EXISTS,
+                    params=_collision_params(collision),
+                ) from err
+            raise ResourceConflict(
+                f'A public company with this name and URL already exists: '
+                f'{name} ({url})',
+                ErrorCode.ADM_PUBLIC_COMPANY_RACE,
+                params={'name': f'{name}', 'url': f'{url}'},
+            ) from err
+
+        logger.info(
+            f'Admin published company: {company_id}',
+            extra={
+                'extra_data': {
+                    'event': 'admin_publish_company',
+                    'company_id': company_id,
+                    'admin_id': admin_id,
+                }
+            },
+        )
+
+        return await self._row(company_id)
+
+    async def _row(self, company_id: int) -> AdminCompanyRowDTO:
+        row = await self.admin_repo.get_admin_company_row(company_id)
+        if not row:
+            raise ResourceNotFound(
+                'Company not found', ErrorCode.CAT_COMPANY_NOT_FOUND
+            )
+        return AdminCompanyRowDTO(**row)

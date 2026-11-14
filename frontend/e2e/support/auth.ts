@@ -1,0 +1,277 @@
+import { expect, type Browser, type Page } from "@playwright/test";
+
+import { COOKIE_NOTICE_ACKNOWLEDGED } from "./cookie-notice";
+
+/**
+ * Real seeded sessions for the E2E suite (R-003).
+ *
+ * `frontend/scripts/e2e.sh` runs the backend's own seed script inside the API container.
+ * It creates two genuine user rows in the real database and mints real session
+ * material with the backend's own token code — a signed `__access` JWT and an
+ * opaque `__refresh` token stored in the real Redis — then exports them as the
+ * `E2E_*` variables read below.
+ *
+ * `loginAs` installs exactly the cookies a successful Borderless sign-in would
+ * set, which is the ONLY thing it bypasses. No login route is added, nothing
+ * is mocked, and every request the app makes afterwards — starting with
+ * `GET /api/users/me` — hits the real API against the real database. The
+ * sign-in itself (ADR-0026: "Continue with Borderless" → the provider's own
+ * page → the API's callback) is driven against the fake Borderless in
+ * `borderless-signin.spec.ts` (see `BORDERLESS_ACCOUNTS`, `signInWithFake`).
+ */
+
+export type SeededRole = "user" | "admin" | "discord";
+
+/**
+ * The seeded identities, stable across runs. Specs assert against these real
+ * values rather than against a browser stub.
+ *
+ * Each is bound to its fake Borderless account with that account's
+ * `seedRefreshToken`, re-set on every seed run (`e2e.sh` resets the fake
+ * first): `e2e-user` holds PSP, `e2e-admin` and `e2e-discord` hold BASE, so
+ * every seeded user sees Reports. `discord` is only the third user's role name
+ * (the beta specs' "someone else"); it links nothing.
+ */
+export const SEEDED_USERS = {
+  user: {
+    username: "e2e-user",
+    email: "e2e-user@e2e.applika.dev",
+    isAdmin: false,
+  },
+  admin: {
+    username: "e2e-admin",
+    email: "e2e-admin@e2e.applika.dev",
+    isAdmin: true,
+  },
+  discord: {
+    username: "e2e-discord",
+    email: "e2e-discord@e2e.applika.dev",
+    isAdmin: false,
+  },
+} as const satisfies Record<
+  SeededRole,
+  { username: string; email: string; isAdmin: boolean }
+>;
+
+/**
+ * The fake Borderless's synthetic accounts, mirrored from
+ * `backend/tests/fixtures/borderless/accounts.json` (the fake runs as the
+ * `borderless-fake` service; nobody calls the real Borderless). Its sign-in
+ * page has an Email + Password form and a one-click button per account,
+ * named by the account's email. `sub` names the account in the fake's
+ * `/__fake/*` controls and log.
+ * - `user`: seeded `e2e-user` (PSP). NEVER sign it in through the web: that
+ *   adds a web session `devices.spec.ts` counts.
+ * - `free` (FREE) and `starter` (STARTER): no badge.
+ * - `unverified`: PSP, an email Borderless has not verified (AUTH-1005).
+ * - `revoke` (PSP): its grant is refused on demand.
+ * - `logout` (PSP): its membership is changed on demand; its last logout
+ *   revokes its grant at the fake.
+ * None but `user` is seeded: each becomes an applika account on its first
+ * sign-in, and `borderless-signin.spec.ts` deletes it again.
+ */
+export const BORDERLESS_ACCOUNTS = {
+  user: {
+    sub: "e2e-borderless-user",
+    email: "e2e-user@e2e.applika.dev",
+    password: "e2e-user-password",
+  },
+  free: {
+    sub: "e2e-borderless-free",
+    email: "e2e-free@e2e.applika.dev",
+    password: "e2e-free-password",
+  },
+  starter: {
+    sub: "e2e-borderless-starter",
+    email: "e2e-starter@e2e.applika.dev",
+    password: "e2e-starter-password",
+  },
+  unverified: {
+    sub: "e2e-borderless-unverified",
+    email: "e2e-unverified@e2e.applika.dev",
+    password: "e2e-unverified-password",
+  },
+  revoke: {
+    sub: "e2e-borderless-revoke",
+    email: "e2e-revoke@e2e.applika.dev",
+    password: "e2e-revoke-password",
+  },
+  logout: {
+    sub: "e2e-borderless-logout",
+    email: "e2e-logout@e2e.applika.dev",
+    password: "e2e-logout-password",
+  },
+} as const;
+
+export type BorderlessAccount =
+  (typeof BORDERLESS_ACCOUNTS)[keyof typeof BORDERLESS_ACCOUNTS];
+
+/** The fake Borderless on its published port (`E2E_BORDERLESS_URL`, `:8181`). */
+export function borderlessUrl(path = ""): string {
+  const base = process.env.E2E_BORDERLESS_URL ?? "http://127.0.0.1:8181";
+  return `${base}${path}`;
+}
+
+/**
+ * The applika sign-in page's one button (ADR-0026): "Continue with
+ * Borderless" at every width. Each width has its own tree; the hidden one
+ * is out of role queries, so this is the button the viewport shows.
+ */
+export function signInWithBorderlessButton(page: Page) {
+  return page.getByRole("button", {
+    name: "Continue with Borderless",
+    exact: true,
+  });
+}
+
+/**
+ * Signs `email` in the way a person does: `/login` → the Borderless
+ * button → the fake's own sign-in page → that account's one-click
+ * button → the API's callback → back on applika, signed in (or on
+ * `/login?error=<code>`). Returns once the browser is back on the web origin.
+ *
+ * For a browser context with NO fake Borderless session: with one, the fake
+ * answers straight back without its page (AC18), and this helper would wait
+ * for a page that never shows.
+ */
+export async function signInWithFake(page: Page, email: string): Promise<void> {
+  await page.goto("/login");
+  await signInWithBorderlessButton(page).click();
+  await page.waitForURL(borderlessUrl("/**"));
+  await page.getByRole("button", { name: email, exact: true }).click();
+  await page.waitForURL(
+    (url) => url.origin !== new URL(borderlessUrl()).origin,
+  );
+}
+
+/**
+ * Deletes the applika account of a fake Borderless `account`: signs it in
+ * through the fake in its own browser context (a new account is made on the
+ * way, so this works whether or not it exists), then `DELETE /users/me`.
+ * Specs that sign a disposable account in call it in `beforeAll` AND
+ * `afterAll`, so a retry starts from a new account. Never for `user`.
+ */
+export async function deleteAccount(
+  browser: Browser,
+  account: BorderlessAccount,
+): Promise<void> {
+  const context = await browser.newContext({
+    storageState: COOKIE_NOTICE_ACKNOWLEDGED,
+  });
+  try {
+    const page = await context.newPage();
+    await signInWithFake(page, account.email);
+    await page.waitForURL(/\/(welcome|dashboard)$/);
+    const response = await page.request.delete(apiUrl("/users/me"));
+    expect(response.status(), `delete ${account.email}`).toBeLessThan(300);
+  } finally {
+    await context.close();
+  }
+}
+
+/** The env var names `frontend/scripts/e2e.sh` exports for each role. */
+const ENV_VARS = {
+  user: {
+    id: "E2E_USER_ID",
+    access: "E2E_ACCESS_TOKEN",
+    refresh: "E2E_REFRESH_TOKEN",
+  },
+  admin: {
+    id: "E2E_ADMIN_USER_ID",
+    access: "E2E_ADMIN_ACCESS_TOKEN",
+    refresh: "E2E_ADMIN_REFRESH_TOKEN",
+  },
+  discord: {
+    id: "E2E_DISCORD_USER_ID",
+    access: "E2E_DISCORD_ACCESS_TOKEN",
+    refresh: "E2E_DISCORD_REFRESH_TOKEN",
+  },
+} as const satisfies Record<
+  SeededRole,
+  { id: string; access: string; refresh: string }
+>;
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `${name} is not set. Run the suite through ` +
+        `\`frontend/scripts/e2e.sh\` from the ` +
+        `repo root — it stands up the real stack, seeds the real users and ` +
+        `exports this variable. Playwright is not meant to be run standalone ` +
+        `here (\`pnpm e2e\` alone will not work).`,
+    );
+  }
+  return value;
+}
+
+/** The seeded primary key for a role, as returned by `GET /api/users/me`. */
+export function seededUserId(role: SeededRole): string {
+  return requireEnv(ENV_VARS[role].id);
+}
+
+/**
+ * Install the REAL seeded session for `role` in the browser context.
+ *
+ * Call BEFORE `page.goto(...)`: the app resolves identity on the client (static
+ * export, no server middleware), so the cookie has to be there when the first
+ * page boots.
+ *
+ * The cookies are scoped by `domain` + `path` rather than by `url` on purpose.
+ * Applika serves the web app on `127.0.0.1:8180` and the API on
+ * `127.0.0.1:8100`; cookies ignore the port, so a host-scoped cookie is sent to
+ * both origins. Pinning to a `url` would bind them to one port and the API
+ * calls would go out unauthenticated. `secure: false` because the E2E stack is
+ * plain HTTP on loopback.
+ */
+export async function loginAs(page: Page, role: SeededRole): Promise<void> {
+  const { access, refresh } = ENV_VARS[role];
+
+  await page.context().addCookies([
+    {
+      name: "__access",
+      value: requireEnv(access),
+      domain: "127.0.0.1",
+      path: "/",
+      httpOnly: true,
+      secure: false,
+      sameSite: "Lax",
+    },
+    {
+      name: "__refresh",
+      value: requireEnv(refresh),
+      domain: "127.0.0.1",
+      path: "/",
+      httpOnly: true,
+      secure: false,
+      sameSite: "Lax",
+    },
+  ]);
+}
+
+/**
+ * The `Cookie` header carrying a real seeded session, for specs that need to
+ * talk to the API out-of-band through Playwright's `request` fixture. Not
+ * mocking: it is the same session cookie the browser carries.
+ */
+export function authCookieHeader(role: SeededRole): string {
+  const { access, refresh } = ENV_VARS[role];
+  return `__access=${requireEnv(access)}; __refresh=${requireEnv(refresh)}`;
+}
+
+/** The real API origin the browser's XHRs hit (`:8100`, not the web origin). */
+export function apiUrl(path = ""): string {
+  const base = process.env.E2E_API_URL ?? "http://127.0.0.1:8100/api";
+  return `${base}${path}`;
+}
+
+/**
+ * The `Authorization` header value of e2e-user's seeded CLI session
+ * (PRD 0014: a `cli_device` session named "e2e-cli", exported by
+ * `frontend/scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`). The CLI sends its access token
+ * as a Bearer, never as a cookie. `e2e/devices.spec.ts` revokes this session,
+ * so it is refused for the rest of the run after that spec.
+ */
+export function cliBearerHeader(): string {
+  return `Bearer ${requireEnv("E2E_CLI_ACCESS_TOKEN")}`;
+}

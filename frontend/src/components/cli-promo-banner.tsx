@@ -2,12 +2,13 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { Terminal, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { APP_CONFIG } from "@/config";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "applika.cli-banner-dismissed";
 const STORAGE_EVENT = "applika:cli-banner-dismissed";
-const PYPI_URL = "https://pypi.org/project/applika-cli/";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
@@ -29,7 +30,12 @@ function getSnapshot(): boolean {
 const getServerSnapshot = (): boolean => true;
 
 export function CliPromoBanner() {
-  const dismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const t = useTranslations("cliBanner");
+  const dismissed = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
   const [closedThisSession, setClosedThisSession] = useState(false);
 
   if (dismissed || closedThisSession) return null;
@@ -46,10 +52,11 @@ export function CliPromoBanner() {
   return (
     <div
       role="region"
-      aria-label="applika-cli announcement"
+      aria-label={t("region")}
+      // Below sm the CTA drops under the copy: beside it the copy column was ~60px wide.
       className={cn(
-        "mb-4 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm",
-        "sm:gap-4 sm:p-4",
+        "mb-4 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm",
+        "sm:flex sm:gap-4 sm:p-4",
       )}
     >
       <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -57,29 +64,36 @@ export function CliPromoBanner() {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="font-medium leading-tight">
-          Try the <span className="font-mono">applika-cli</span> command-line tool
+        <p className="leading-tight font-medium">
+          {t.rich("title", {
+            mono: (chunks) => <span className="font-mono">{chunks}</span>,
+          })}
         </p>
-        <p className="text-xs text-muted-foreground sm:text-sm">
-          A CLI to log applications from your terminal. Ships with a ready-to-use skill for AI
-          tools like Claude and Codex. See PyPI for installation and full details.
-        </p>
+        <p className="text-xs text-muted-foreground sm:text-sm">{t("body")}</p>
       </div>
 
-      <Button asChild size="sm" variant="default" className="shrink-0">
-        <a href={PYPI_URL} target="_blank" rel="noopener noreferrer">
-          View on PyPI
+      <Button
+        asChild
+        size="sm"
+        variant="default"
+        // Below md every control is at least 44px both ways (PRD 0021).
+        className="col-start-2 row-start-2 shrink-0 justify-self-start max-md:h-11"
+      >
+        <a href={APP_CONFIG.cli.url} target="_blank" rel="noopener noreferrer">
+          {t("cta")}
         </a>
       </Button>
 
       <button
         type="button"
         onClick={dismiss}
-        aria-label="Dismiss announcement"
+        aria-label={t("dismiss")}
         className={cn(
-          "shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
+          "col-start-3 row-start-1 shrink-0 self-start rounded-md p-1 text-muted-foreground transition-colors sm:self-auto",
+          // A 44px box below md, the same 24px footprint in the grid.
+          "max-md:-m-2.5 max-md:p-3.5",
           "hover:bg-accent hover:text-accent-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
         )}
       >
         <X className="size-4" />

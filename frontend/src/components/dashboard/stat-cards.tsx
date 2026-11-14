@@ -1,13 +1,15 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGeneralStats } from "@/hooks/use-statistics";
+import { useFormatNumber } from "@/i18n/format-number";
 import { Card } from "../ui/card";
 
 const STAT_COLORS = {
   total: "text-foreground",
   offers: "text-primary",
-  rate: "text-chart-success",
-  active: "text-chart-info",
+  rate: "text-chart-2",
+  active: "text-chart-1",
   denied: "text-destructive",
 } as const;
 
@@ -33,11 +35,11 @@ function StatCard({
         </div>
       ) : (
         <>
-          <span className="font-display text-base font-medium uppercase tracking-wide-label text-muted-foreground">
+          <span className="font-display text-base font-medium tracking-wide-label text-muted-foreground uppercase">
             {label}
           </span>
           <p
-            className={`mt-1 font-display text-2xl font-bold tabular-nums leading-tight ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
+            className={`mt-1 font-numeric text-2xl leading-tight font-bold ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
           >
             {value}
           </p>
@@ -49,40 +51,38 @@ function StatCard({
 
 export function StatCards({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useGeneralStats(cycleId);
-
-  const active = data
-    ? data.total_applications - (data.denials ?? 0) - (data.offers ?? 0)
-    : 0;
+  const t = useTranslations("dashboard.stats");
+  const formatNumber = useFormatNumber();
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       <StatCard
-        label="Active"
-        value={active}
+        label={t("active")}
+        value={formatNumber(data?.active ?? 0)}
         colorKey="active"
         loading={isLoading}
       />
       <StatCard
-        label="Offers"
-        value={data?.offers ?? 0}
+        label={t("offers")}
+        value={formatNumber(data?.offers ?? 0)}
         colorKey="offers"
         loading={isLoading}
       />
       <StatCard
-        label="Denials"
-        value={data?.denials ?? 0}
+        label={t("denials")}
+        value={formatNumber(data?.denials ?? 0)}
         colorKey="denied"
         loading={isLoading}
       />
       <StatCard
-        label="Total"
-        value={data?.total_applications ?? 0}
+        label={t("total")}
+        value={formatNumber(data?.total_applications ?? 0)}
         colorKey="total"
         loading={isLoading}
       />
       <StatCard
-        label="Success Rate"
-        value={`${data?.success_rate ?? 0}%`}
+        label={t("successRate")}
+        value={`${formatNumber(data?.success_rate ?? 0)}%`}
         colorKey="offers"
         loading={isLoading}
       />

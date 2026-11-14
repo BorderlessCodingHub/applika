@@ -1,0 +1,166 @@
+{
+  "name": "Identical baseline and current: zero changes",
+  "baseline": {
+    "name": "Backend CV",
+    "full_name": "Ada Example",
+    "headline": "Staff Backend Engineer",
+    "location": "Lisbon, PT",
+    "email": "ada@example.com",
+    "phone": "+1 202 555 0147",
+    "summary": "Ten years of backend engineering.",
+    "links": [
+      {
+        "id": "lnk-1",
+        "label": "GitHub",
+        "url": "https://github.com/ada"
+      }
+    ],
+    "skills": [
+      {
+        "id": "skl-1",
+        "category": "Languages",
+        "keywords": [
+          "Python",
+          "SQL"
+        ]
+      }
+    ],
+    "experience": [
+      {
+        "id": "exp-1",
+        "company": "Acme",
+        "company_description": "Anvils, mostly",
+        "role": "Staff Engineer",
+        "location": "Lisbon, PT",
+        "start": "2024-02",
+        "end": null,
+        "bullets": [
+          "Cut p99 by half",
+          "Owned the billing rewrite"
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "id": "prj-1",
+        "name": "applika",
+        "description": "Job application tracker",
+        "link": "https://applika.example.com",
+        "link_label": "applika.example.com"
+      }
+    ],
+    "education": [
+      {
+        "id": "edu-1",
+        "institution": "Riverside Institute",
+        "degree": "Master's degree",
+        "area": "Distributed Systems",
+        "start": "2016-09",
+        "end": "2018-07"
+      }
+    ],
+    "certifications": [
+      {
+        "id": "crt-1",
+        "name": "AWS SAA",
+        "issuer": "Amazon"
+      }
+    ],
+    "languages": [
+      {
+        "id": "lng-1",
+        "name": "Portuguese",
+        "level": "Native"
+      }
+    ]
+  },
+  "current": {
+    "name": "Backend CV",
+    "full_name": "Ada Example",
+    "headline": "Staff Backend Engineer",
+    "location": "Lisbon, PT",
+    "email": "ada@example.com",
+    "phone": "+1 202 555 0147",
+    "summary": "Ten years of backend engineering.",
+    "links": [
+      {
+        "id": "lnk-1",
+        "label": "GitHub",
+        "url": "https://github.com/ada"
+      }
+    ],
+    "skills": [
+      {
+        "id": "skl-1",
+        "category": "Languages",
+        "keywords": [
+          "Python",
+          "SQL"
+        ]
+      }
+    ],
+    "experience": [
+      {
+        "id": "exp-1",
+        "company": "Acme",
+        "company_description": "Anvils, mostly",
+        "role": "Staff Engineer",
+        "location": "Lisbon, PT",
+        "start": "2024-02",
+        "end": null,
+        "bullets": [
+          "Cut p99 by half",
+          "Owned the billing rewrite"
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "id": "prj-1",
+        "name": "applika",
+        "description": "Job application tracker",
+        "link": "https://applika.example.com",
+        "link_label": "applika.example.com"
+      }
+    ],
+    "education": [
+      {
+        "id": "edu-1",
+        "institution": "Riverside Institute",
+        "degree": "Master's degree",
+        "area": "Distributed Systems",
+        "start": "2016-09",
+        "end": "2018-07"
+      }
+    ],
+    "certifications": [
+      {
+        "id": "crt-1",
+        "name": "AWS SAA",
+        "issuer": "Amazon"
+      }
+    ],
+    "languages": [
+      {
+        "id": "lng-1",
+        "name": "Portuguese",
+        "level": "Native"
+      }
+    ]
+  },
+  "expected": {
+    "total": 0,
+    "sections": {
+      "identity": 0,
+      "links": 0,
+      "summary": 0,
+      "experience": 0,
+      "languages": 0,
+      "skills": 0,
+      "projects": 0,
+      "education": 0,
+      "certifications": 0
+    },
+    "changes": []
+  }
+}

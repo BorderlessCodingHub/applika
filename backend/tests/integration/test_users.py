@@ -1,8 +1,12 @@
+from datetime import UTC, datetime
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.models import GithubConnectionModel, UserBadgeModel, UserModel
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.conftest import bind_borderless
 
 
 async def test_get_me_returns_new_fields_as_none(
@@ -16,13 +20,9 @@ async def test_get_me_returns_new_fields_as_none(
     data = response.json()
     assert data['username'] == base_data()['user'].username
     assert data['current_role'] is None, msg(None, data['current_role'])
-    assert data['salary_currency'] is None, msg(
-        None, data['salary_currency']
-    )
+    assert data['salary_currency'] is None, msg(None, data['salary_currency'])
     assert data['salary_period'] is None, msg(None, data['salary_period'])
-    assert data['seniority_level'] is None, msg(
-        None, data['seniority_level']
-    )
+    assert data['seniority_level'] is None, msg(None, data['seniority_level'])
     assert data['location'] is None, msg(None, data['location'])
     assert data['availability'] is None, msg(None, data['availability'])
     assert data['bio'] is None, msg(None, data['bio'])
@@ -55,9 +55,7 @@ async def test_update_user_profile_partial(
         'Sao Paulo, Brazil', data['location']
     )
     # Fields not sent should remain unchanged
-    assert data['salary_currency'] is None, msg(
-        None, data['salary_currency']
-    )
+    assert data['salary_currency'] is None, msg(None, data['salary_currency'])
     assert data['bio'] is None, msg(None, data['bio'])
 
 
@@ -80,9 +78,7 @@ async def test_update_user_profile_with_enums(
     # Assert
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
-    assert data['salary_currency'] == 'BRL', msg(
-        'BRL', data['salary_currency']
-    )
+    assert data['salary_currency'] == 'BRL', msg('BRL', data['salary_currency'])
     assert data['salary_period'] == 'monthly', msg(
         'monthly', data['salary_period']
     )
@@ -138,10 +134,8 @@ async def test_update_user_tech_stack(
     # Assert
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
-    assert data['tech_stack'] == [
-        'Python', 'FastAPI', 'React', 'TypeScript'
-    ], msg(
-        ['Python', 'FastAPI', 'React', 'TypeScript'], data['tech_stack']
+    assert data['tech_stack'] == ['Python', 'FastAPI', 'React', 'TypeScript'], (
+        msg(['Python', 'FastAPI', 'React', 'TypeScript'], data['tech_stack'])
     )
 
 
@@ -201,11 +195,10 @@ async def test_update_user_full_profile(
     assert data['current_company'] == 'Big Tech Co', msg(
         'Big Tech Co', data['current_company']
     )
-    assert data['salary_currency'] == 'USD', msg(
-        'USD', data['salary_currency']
-    )
-    assert data['salary_period'] == 'annual', msg(
-        'annual', data['salary_period']
+    assert data['salary_currency'] == 'USD', msg('USD', data['salary_currency'])
+    # R-031: `annual` is accepted, stored and returned as annually.
+    assert data['salary_period'] == 'annually', msg(
+        'annually', data['salary_period']
     )
     assert data['experience_years'] == 12, msg(12, data['experience_years'])
     assert data['seniority_level'] == 'staff', msg(
@@ -239,3 +232,110 @@ async def test_update_user_empty_payload_no_changes(
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert data['username'] == base_data()['user'].username
+
+
+async def test_get_me_without_binding_or_github_row(
+    async_client: AsyncClient,
+):
+    data = (await async_client.get('/users/me')).json()
+    assert data['badges'] == []
+    assert data['borderless'] is None
+    assert data['github_id'] is None
+    assert data['github_restore'] == {'available': True, 'prompt': True}
+    for gone in ('discord', 'discord_linked', 'discord_id'):
+        assert gone not in data
+    # The CLI's fields are unchanged.
+    for kept in ('username', 'first_name', 'last_name', 'email'):
+        assert kept in data
+
+
+async def test_get_me_lists_badges_and_the_borderless_access(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    binding = await bind_borderless(db_session, base_data()['user'].id)
+    db_session.add(
+        UserBadgeModel(
+            user_id=base_data()['user'].id,
+            badge='borderless_base',
+            source='borderless',
+            revoked_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+
+    data = (await async_client.get('/users/me')).json()
+
+    assert [b['badge'] for b in data['badges']] == ['borderless_psp']
+    # ADR-0026: {status, email, checked_at}, never a token or an expiry.
+    assert set(data['borderless']) == {'status', 'email', 'checked_at'}
+    assert data['borderless']['status'] == 'active'
+    assert data['borderless']['email'] == binding.email
+    assert data['borderless']['checked_at'] is not None
+    assert 'token' not in str(data['borderless'])
+
+
+async def test_get_me_reports_a_refused_grant(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await bind_borderless(
+        db_session, base_data()['user'].id, status='needs_reconnect'
+    )
+    data = (await async_client.get('/users/me')).json()
+    assert data['borderless']['status'] == 'needs_reconnect'
+    assert [b['badge'] for b in data['badges']] == ['borderless_psp']
+
+
+async def test_patch_me_answers_the_same_borderless_shape(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await bind_borderless(db_session, base_data()['user'].id)
+    data = (
+        await async_client.patch('/users/me', json={'first_name': 'Ada'})
+    ).json()
+    assert set(data['borderless']) == {'status', 'email', 'checked_at'}
+
+
+async def test_github_row_sets_github_id_and_hides_the_restore(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    db_session.add(
+        GithubConnectionModel(
+            user_id=base_data()['user'].id,
+            github_id=777,
+            username='octo',
+            linked_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+    data = (await async_client.get('/users/me')).json()
+    assert data['github_id'] == 777
+    assert data['github_restore'] == {'available': False, 'prompt': False}
+    patched = (
+        await async_client.patch('/users/me', json={'first_name': 'Ada'})
+    ).json()
+    assert patched['github_id'] == 777
+    assert patched['first_name'] == 'Ada'
+
+
+async def test_dismiss_answers_the_prompt_once_and_is_idempotent(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    for _ in range(2):
+        response = await async_client.post('/users/me/github-restore/dismiss')
+        assert response.status_code == 204
+    user = await db_session.get(
+        UserModel, base_data()['user'].id, populate_existing=True
+    )
+    assert user is not None
+    assert user.github_restore_prompt_seen_at is not None
+
+
+async def test_admin_user_detail_has_no_discord_key(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    response = await admin_client.get(f'/admin/users/{base_data()["user"].id}')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert 'discord_id' not in data
+    assert 'discord_linked' not in data

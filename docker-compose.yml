@@ -1,0 +1,209 @@
+# Local development stack — the whole app on one command.
+#
+#   Up:    docker compose up -d --build --wait
+#   Logs:  docker compose logs -f api
+#   Down:  docker compose down            # keeps the database
+#   Nuke:  docker compose down -v         # drops the database too
+#
+# Six services, wired the way production serves them: `api` from
+# `backend/Dockerfile` (uvicorn under the `/api` prefix) and `web` from
+# `frontend/docker/Dockerfile` (the Next.js static export served by nginx),
+# against a real Postgres and a real Redis. The schema comes from the real
+# Alembic chain — `alembic upgrade head` runs on every `api` start.
+# `worker` and `scheduler` (ADR-0016) run the same backend image
+# with taskiq instead of uvicorn: the hourly job collection and the fit
+# recompute. They start once `api` is healthy, i.e. after the migration ran,
+# and never run Alembic themselves.
+#
+#   Worker logs:  docker compose logs -f worker
+#
+#   web  http://127.0.0.1:8080
+#   api  http://127.0.0.1:8000/api      docs at /api/docs
+#
+# Relationship to the other compose files in this repo:
+#   - `docker-compose.e2e.yml` is the ephemeral E2E stack (project `applika-e2e`,
+#     no volumes, empty DB every run). It shares nothing with this one.
+#   - `backend/docker-compose.yml` and `frontend/docker-compose.yml` are the
+#     older per-project stacks. This file supersedes both; its volumes live
+#     under the `applika` project name, so its database is SEPARATE from the one
+#     `backend/docker-compose.yml` creates.
+#
+# Copy `.env.example` to `.env` first and set the four BORDERLESS_* values — the
+# api boots without them, but every sign-in fails with AUTH-1018 until they are
+# set. `.env.example` also lists the public URLs to change behind a tunnel.
+#
+# NOTE ON THE FRONTEND: the Next.js build is a STATIC EXPORT and
+# NEXT_PUBLIC_API_BASE_URL is baked in at BUILD time, so a frontend source change
+# needs `docker compose up -d --build web` to show up. For an iterative UI loop,
+# run only the infrastructure here and `pnpm dev` on the host — see
+# "Iterating on the frontend" in README.md.
+name: applika
+
+# One environment for `api`, `worker` and `scheduler`: the worker reads the
+# same database, Redis and settings the API does (ADR-0016).
+x-api-environment: &api-environment
+  # DEV (not the Dockerfile's PROD) keeps /api/openapi.json and /api/docs
+  # reachable and makes the session cookies non-Secure, so they work over
+  # plain http — see backend/app/core/tokens.py.
+  ENVIRONMENT: DEV
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika
+  REDIS_URL: redis://redis:6379/0
+  # The browser's origin is `web`, not the api's own port.
+  CORS_ORIGINS: '${CORS_ORIGINS:-["http://127.0.0.1:8080"]}'
+  CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
+  JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
+  # Sign in with Borderless through OpenID Connect (ADR-0026): ?error=AUTH-1018
+  # until the issuer, client id, secret and key are set. Locally, the fake:
+  #   cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth
+  BORDERLESS_ISSUER: ${BORDERLESS_ISSUER:-}
+  BORDERLESS_CLIENT_ID: ${BORDERLESS_CLIENT_ID:-}
+  BORDERLESS_CLIENT_SECRET: ${BORDERLESS_CLIENT_SECRET:-}
+  BORDERLESS_REDIRECT_URI: ${BORDERLESS_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/borderless/callback}
+  BORDERLESS_TOKEN_ENCRYPTION_KEY: ${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
+  WEB_SIGNIN_URI: ${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
+  # The web pages the CLI sign-in sends the browser to: the device-code
+  # approval (`applika login --device`) and the code#state to paste
+  # (`applika login --manual`).
+  DEVICE_VERIFICATION_URI: ${DEVICE_VERIFICATION_URI:-http://127.0.0.1:8080/device}
+  CLI_MANUAL_REDIRECT_URI: ${CLI_MANUAL_REDIRECT_URI:-http://127.0.0.1:8080/cli/code}
+  # GitHub restore only (ADR-0024): 503 until the id and secret are set.
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+  GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
+  DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
+  ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
+  # ADR-0015: the rate limiter is ON by default, but this dev
+  # stack raises both limits well above anything a developer or the
+  # seed script would hit - the point here is the API being wired up
+  # end to end, not exercising 429s.
+  RATE_LIMIT_DEFAULT: "100000"
+  RATE_LIMIT_AUTH: "10000"
+
+services:
+  api:
+    container_name: applika-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # The image has no `uv` at runtime; PATH already points at /app/.venv/bin,
+    # so alembic and uvicorn are called directly. `--reload` is deliberately
+    # absent: the image copies the source in rather than mounting it.
+    command:
+      - /bin/sh
+      - -c
+      - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment: *api-environment
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      # applika has no /health route; openapi.json exists in every non-PROD
+      # environment and proves the app booted AFTER the migration ran.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/openapi.json')"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    container_name: applika-worker
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # ADR-0016: one worker service consuming the `applika:tasks` queue;
+    # `taskiq worker` forks 2 worker processes by default (`--workers`).
+    command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks"]
+    environment: *api-environment
+    depends_on:
+      api:
+        # Healthy = the migration ran: the worker never runs Alembic.
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    container_name: applika-scheduler
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # Exactly one scheduler: it enqueues `ingest_jobs` on JOBS_INGEST_CRON.
+    command: ["taskiq", "scheduler", "app.worker.broker:scheduler", "app.worker.tasks"]
+    environment: *api-environment
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    container_name: applika-web
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile
+      args:
+        # Baked into the static export at build time. The browser calls the api
+        # directly on :8000; cookies ignore the port, so the session set for
+        # host 127.0.0.1 is sent to both origins and SameSite=Lax treats the two
+        # ports as same-site.
+        API_BASE_URL: ${API_BASE_URL:-http://127.0.0.1:8000/api}
+        # Where "Create a Borderless account" on the sign-in page leads.
+        BORDERLESS_SIGN_UP: ${BORDERLESS_SIGN_UP:-https://platform.borderlesscoding.com/sign-up}
+        # Where "View on PyPI" on the CLI promo banner leads.
+        APPLIKA_CLI: ${APPLIKA_CLI:-https://pypi.org/project/applika-cli/}
+    ports:
+      - "127.0.0.1:8080:80"
+    healthcheck:
+      # 127.0.0.1, not localhost: nginx listens on IPv4 only and `localhost`
+      # resolves to ::1 first inside the container.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    container_name: applika-db
+    image: postgres:16
+    environment:
+      POSTGRES_DB: applika
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - applika_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d applika"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    container_name: applika-redis
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - applika_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  applika_db_data:
+  applika_redis_data:

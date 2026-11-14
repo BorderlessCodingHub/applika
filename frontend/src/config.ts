@@ -3,6 +3,20 @@ export const APP_CONFIG = {
     apiBaseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://applika.dev",
   },
+  borderless: {
+    /** Where a visitor without a Borderless account signs up. */
+    signUpUrl:
+      process.env.NEXT_PUBLIC_BORDERLESS_SIGN_UP ||
+      "https://platform.borderlesscoding.com/sign-up",
+    /** The Borderless community's home. */
+    homeUrl: "https://borderlesscoding.com",
+  },
+  cli: {
+    /** The applika-cli page on PyPI, linked from the CLI promo banner. */
+    url:
+      process.env.NEXT_PUBLIC_APPLIKA_CLI ||
+      "https://pypi.org/project/applika-cli/",
+  },
   name: "Applika.dev",
   shortName: "Applika.dev",
   logo: "app-logo.webp",

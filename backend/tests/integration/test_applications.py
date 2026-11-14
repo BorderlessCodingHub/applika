@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,11 +8,12 @@ from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.domain.models import ApplicationModel, CompanyModel
 from tests import msg
 from tests.base_db_setup import base_data
-
+from tests.integration.conftest import as_user
 
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _base_payload(**overrides) -> dict:
     """Minimal valid create/update payload using the existing company by ID."""
@@ -128,10 +130,18 @@ async def test_create_application_with_optional_fields(
     assert response.status_code == 201, msg(201, response.status_code)
     data = response.json()
     assert data['currency'] == 'USD', msg('USD', data['currency'])
-    assert data['salary_period'] == 'annual', msg('annual', data['salary_period'])
-    assert data['experience_level'] == 'senior', msg('senior', data['experience_level'])
+    # R-031: `annual` from an installed CLI is accepted and read back as
+    # annually.
+    assert data['salary_period'] == 'annually', msg(
+        'annually', data['salary_period']
+    )
+    assert data['experience_level'] == 'senior', msg(
+        'senior', data['experience_level']
+    )
     assert data['work_mode'] == 'remote', msg('remote', data['work_mode'])
-    assert data['country'] == 'United States', msg('United States', data['country'])
+    assert data['country'] == 'United States', msg(
+        'United States', data['country']
+    )
 
 
 async def test_create_application_without_optional_fields(
@@ -183,12 +193,14 @@ async def test_update_application_with_existing_company_id(
     await db_session.commit()
 
     # Add a second company to switch to
-    db_session.add(CompanyModel(
-        id=2,
-        name='TechCorp',
-        url='https://www.linkedin.com/company/techcorp',
-        created_by=base_data()['user'].id,
-    ))
+    db_session.add(
+        CompanyModel(
+            id=2,
+            name='TechCorp',
+            url='https://www.linkedin.com/company/techcorp',
+            created_by=base_data()['user'].id,
+        )
+    )
     await db_session.commit()
 
     update_payload = _base_payload(company=2, role='Senior Engineer')
@@ -197,7 +209,9 @@ async def test_update_application_with_existing_company_id(
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert data['company_id'] == '2', msg('2', data['company_id'])
-    assert data['company_name'] == 'TechCorp', msg('TechCorp', data['company_name'])
+    assert data['company_name'] == 'TechCorp', msg(
+        'TechCorp', data['company_name']
+    )
 
 
 async def test_update_application_with_anonymous_company(
@@ -298,8 +312,12 @@ async def test_update_application_with_enum_fields(
         'Senior Software Engineer', data['role']
     )
     assert data['currency'] == 'EUR', msg('EUR', data['currency'])
-    assert data['salary_period'] == 'monthly', msg('monthly', data['salary_period'])
-    assert data['experience_level'] == 'staff', msg('staff', data['experience_level'])
+    assert data['salary_period'] == 'monthly', msg(
+        'monthly', data['salary_period']
+    )
+    assert data['experience_level'] == 'staff', msg(
+        'staff', data['experience_level']
+    )
     assert data['work_mode'] == 'hybrid', msg('hybrid', data['work_mode'])
     assert data['country'] == 'Germany', msg('Germany', data['country'])
 
@@ -359,16 +377,18 @@ async def test_list_applications_response_has_no_old_company(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """old_company must not appear in the response schema."""
-    db_session.add(ApplicationModel(
-        id=1,
-        user_id=base_data()['user'].id,
-        platform_id=base_data()['plat_linkedin'].id,
-        company_id=base_data()['company_acme'].id,
-        company_name='Acme Corp',
-        role='Engineer',
-        mode='active',
-        application_date=date(2025, 12, 1),
-    ))
+    db_session.add(
+        ApplicationModel(
+            id=1,
+            user_id=base_data()['user'].id,
+            platform_id=base_data()['plat_linkedin'].id,
+            company_id=base_data()['company_acme'].id,
+            company_name='Acme Corp',
+            role='Engineer',
+            mode='active',
+            application_date=date(2025, 12, 1),
+        )
+    )
     await db_session.commit()
 
     response = await async_client.get('/applications')
@@ -425,8 +445,12 @@ async def test_list_applications_with_enum_fields(
 
     # Older application (id=1) has enum fields
     assert data[1]['currency'] == 'BRL', msg('BRL', data[1]['currency'])
-    assert data[1]['salary_period'] == 'monthly', msg('monthly', data[1]['salary_period'])
-    assert data[1]['experience_level'] == 'senior', msg('senior', data[1]['experience_level'])
+    assert data[1]['salary_period'] == 'monthly', msg(
+        'monthly', data[1]['salary_period']
+    )
+    assert data[1]['experience_level'] == 'senior', msg(
+        'senior', data[1]['experience_level']
+    )
     assert data[1]['work_mode'] == 'remote', msg('remote', data[1]['work_mode'])
     assert data[1]['country'] == 'Brazil', msg('Brazil', data[1]['country'])
 
@@ -460,3 +484,342 @@ async def test_delete_application(
     await db_session.run_sync(lambda s: s.expire_all())
     deleted = await db_session.get(ApplicationModel, 1)
     assert deleted is None, msg(None, deleted)
+
+
+# ---------------------------------------------------------------------------
+# job_description
+#
+# Optional, additive, at most 50 000 characters. The interesting half is the
+# PUT: every other optional field clears when omitted (the full-replace
+# semantics applika-cli 0.1.4 has always relied on), but job_description is
+# sticky, because a published CLI that has never heard of the field must not
+# wipe it. Both halves are asserted over HTTP here, because the set-ness the
+# rule depends on is created in the route and would be destroyed by a plain
+# model_dump().
+# ---------------------------------------------------------------------------
+
+JOB_DESCRIPTION = 'We are looking for a backend engineer. Python, Postgres.'
+MAX_JOB_DESCRIPTION = 50_000
+
+
+async def _create_application(client: AsyncClient, **overrides) -> dict:
+    response = await client.post(
+        '/applications', json=_base_payload(**overrides)
+    )
+    assert response.status_code == 201, msg(201, response.text)
+    return response.json()
+
+
+async def test_create_application_with_job_description(
+    async_client: AsyncClient,
+):
+    """AC8: the posting is stored on create and comes back on the wire."""
+    data = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    assert data['job_description'] == JOB_DESCRIPTION, msg(
+        JOB_DESCRIPTION, data['job_description']
+    )
+
+
+async def test_create_application_without_job_description_is_null(
+    async_client: AsyncClient,
+):
+    """AC13: the field is optional - a CLI that omits it still gets a 201."""
+    data = await _create_application(async_client)
+
+    assert data['job_description'] is None, msg(None, data['job_description'])
+
+
+async def test_create_application_job_description_too_long_is_422(
+    async_client: AsyncClient,
+):
+    """50 001 characters is one too many."""
+    response = await async_client.post(
+        '/applications',
+        json=_base_payload(job_description='x' * (MAX_JOB_DESCRIPTION + 1)),
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_create_application_job_description_at_the_limit_is_201(
+    async_client: AsyncClient,
+):
+    """Exactly 50 000 characters is accepted."""
+    response = await async_client.post(
+        '/applications',
+        json=_base_payload(job_description='x' * MAX_JOB_DESCRIPTION),
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+
+
+async def test_update_without_job_description_keeps_the_stored_text(
+    async_client: AsyncClient,
+):
+    """AC13: the applika-cli 0.1.4 PUT body, which has no such key.
+
+    This is the test that fails if the route ever goes back to a plain
+    ``model_dump()``: every key would be present in ``model_fields_set`` and
+    the stored posting would be wiped by a client that never mentioned it.
+    """
+    created = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(role='Senior Engineer'),
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['job_description'] == JOB_DESCRIPTION, msg(
+        JOB_DESCRIPTION, response.json()['job_description']
+    )
+    assert response.json()['role'] == 'Senior Engineer'
+
+
+async def test_update_with_explicit_null_clears_the_job_description(
+    async_client: AsyncClient,
+):
+    """AC8: sending ``null`` on purpose really does clear the stored text."""
+    created = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(job_description=None),
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['job_description'] is None, msg(
+        None, response.json()['job_description']
+    )
+
+
+async def test_update_replaces_the_job_description(async_client: AsyncClient):
+    """AC8: the posting is editable when updating the application."""
+    created = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(job_description='A different posting.'),
+    )
+
+    assert response.json()['job_description'] == 'A different posting.'
+
+
+async def test_update_still_clears_other_omitted_optional_fields(
+    async_client: AsyncClient,
+):
+    """The regression guard on PUT semantics for everything else.
+
+    ``observation``, ``link_to_job`` and ``expected_salary`` are full-replace
+    fields and must keep clearing when omitted. Only ``job_description`` is
+    sticky; if carrying its set-ness had leaked into the other fields, this
+    fails.
+    """
+    created = await _create_application(
+        async_client,
+        job_description=JOB_DESCRIPTION,
+        observation='A stale note',
+        link_to_job='https://example.com/job/7',
+        expected_salary=4321.0,
+    )
+    assert created['observation'] == 'A stale note'
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}', json=_base_payload()
+    )
+
+    data = response.json()
+    assert data['observation'] is None, msg(None, data['observation'])
+    assert data['link_to_job'] is None, msg(None, data['link_to_job'])
+    assert data['expected_salary'] is None, msg(None, data['expected_salary'])
+    # ...and the sticky field survived the same request.
+    assert data['job_description'] == JOB_DESCRIPTION
+
+
+async def test_update_job_description_too_long_is_422(
+    async_client: AsyncClient,
+):
+    created = await _create_application(async_client)
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(job_description='x' * (MAX_JOB_DESCRIPTION + 1)),
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_list_applications_carries_the_job_description(
+    async_client: AsyncClient,
+):
+    """AC8: the list endpoint carries the field too."""
+    await _create_application(async_client, job_description=JOB_DESCRIPTION)
+
+    response = await async_client.get('/applications')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    descriptions = [item['job_description'] for item in response.json()]
+    assert JOB_DESCRIPTION in descriptions, msg(JOB_DESCRIPTION, descriptions)
+
+
+# ---------------------------------------------------------------------------
+# ADR-0014: private companies and platforms
+# ---------------------------------------------------------------------------
+
+
+async def test_create_application_same_name_and_url_twice_reuses_company(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    company = {
+        'name': 'Repeat Employer',
+        'url': 'https://repeat-employer.example.com',
+    }
+    first = await async_client.post(
+        '/applications', json=_base_payload(company=company, role='Eng 1')
+    )
+    second = await async_client.post(
+        '/applications', json=_base_payload(company=company, role='Eng 2')
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()['company_id'] == second.json()['company_id']
+
+
+async def test_name_only_company_is_not_in_the_companies_list(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    payload = _base_payload(company={'name': 'Free Text Co', 'url': None})
+    response = await async_client.post('/applications', json=payload)
+    assert response.status_code == 201
+    assert response.json()['company_id'] is None
+
+    companies = (await async_client.get('/companies')).json()
+    names = [c['name'] for c in companies]
+    assert 'Free Text Co' not in names, msg('Free Text Co absent', names)
+
+
+async def test_create_application_with_foreign_private_company_is_404(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+
+    async with as_user(second_user.id, second_user.username):
+        create_resp = await async_client.post(
+            '/companies',
+            json={
+                'name': 'Second User Co',
+                'url': 'https://seconduserco.example.com',
+            },
+        )
+    private_company_id = create_resp.json()['id']
+
+    response = await async_client.post(
+        '/applications', json=_base_payload(company=private_company_id)
+    )
+
+    assert response.status_code == 404, msg(404, response.status_code)
+    assert response.json()['detail'] == 'Company not found'
+    assert (await async_client.get('/applications')).json() == []
+
+
+async def test_update_application_with_foreign_private_company_is_404(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+
+    created = await _create_application(async_client)
+
+    async with as_user(second_user.id, second_user.username):
+        create_resp = await async_client.post(
+            '/companies',
+            json={
+                'name': 'Second User Co 2',
+                'url': 'https://seconduserco2.example.com',
+            },
+        )
+    private_company_id = create_resp.json()['id']
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(company=private_company_id),
+    )
+
+    assert response.status_code == 404, msg(404, response.status_code)
+    assert response.json()['detail'] == 'Company not found'
+
+    # The application's own company was not touched.
+    unchanged = await async_client.get('/applications')
+    row = next(a for a in unchanged.json() if a['id'] == created['id'])
+    assert row['company_id'] == created['company_id']
+
+
+@pytest.mark.usefixtures('cvs_beta')  # ADR-0021: drafts need "cvs"
+async def test_get_applications_omits_open_draft(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """GET /applications never includes a draft (ADR-0014)."""
+    created = await async_client.post('/applications', json=_base_payload())
+    assert created.status_code == 201
+
+    draft_resp = await async_client.post(
+        '/applications/drafts',
+        json={
+            'company_id': base_data()['company_acme'].id,
+            'company_name': 'Acme Corp',
+            'role': 'Draft Role',
+            'platform_id': base_data()['plat_linkedin'].id,
+        },
+    )
+    assert draft_resp.status_code == 201, msg(201, draft_resp.text)
+
+    listed = await async_client.get('/applications')
+    ids = [row['id'] for row in listed.json()]
+    assert created.json()['id'] in ids
+    assert draft_resp.json()['id'] not in ids
+
+
+async def test_list_applications_item_never_carries_job_id(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """CLI compatibility: an application started from a job keeps
+    ``job_id`` in the database, but the ``Application`` shape every
+    published CLI reads stays unchanged - no ``job_id`` key, in the list or
+    in the OpenAPI schema."""
+    from tests.integration.jobs_seed import seed_sources
+    from tests.integration.test_jobs_api import add_job
+
+    await seed_sources(db_session)
+    job_id = await add_job(db_session)
+    db_session.add(
+        ApplicationModel(
+            id=1,
+            user_id=base_data()['user'].id,
+            platform_id=base_data()['plat_linkedin'].id,
+            company_name='Acme Corp',
+            role='Engineer',
+            mode='active',
+            application_date=date(2025, 12, 1),
+            job_id=job_id,
+        )
+    )
+    await db_session.commit()
+
+    response = await async_client.get('/applications')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert len(data) == 1
+    assert 'job_id' not in data[0], msg('no job_id', list(data[0].keys()))
+    schema = (await async_client.get('/openapi.json')).json()
+    assert (
+        'job_id'
+        not in schema['components']['schemas']['Application']['properties']
+    )

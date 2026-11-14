@@ -1,16 +1,116 @@
-from datetime import date, timedelta
+"""Biweekly reports (ADR-0024, ADR-0026): only BASE and PSP members,
+routed by badge.
 
+The tests that exercise report content run as a PSP member
+(``reports_badge``). The gate keeps the membership current first (a live
+access token: no Borderless call), then: no recorded badge → 403 RPT-1001
+(administrators included); a recorded badge on a binding Borderless
+refused (``needs_reconnect``) → 403 AUTH-1050, until the next sign-in. A
+report goes to the webhooks of the badges its author holds.
+"""
+
+from datetime import UTC, date, datetime, timedelta
+
+import pytest
 from httpx import AsyncClient
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.services.borderless_oidc import BorderlessUnavailable
+from app.core.enums import BadgeKey, EventType, InterviewType
 from app.domain.models import (
-    ApplicationModel,
-    ApplicationStepModel,
-    FeedbackDefinitionModel,
-    StepDefinitionModel,
+    BorderlessAccountModel,
+    QuinzenalReportModel,
+    ReportWebhookBadgeModel,
+    ReportWebhookModel,
+    UserBadgeModel,
 )
+from app.main import app as main_app
+from app.presentation.dependencies import get_discord_service
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.conftest import bind_borderless
+from tests.integration import timeline_seed as ts
+
+USER_ID = base_data()['user'].id
+
+LOCKED = {
+    'detail': (
+        'Your Borderless sign-in has ended. Sign in again on the applika '
+        'website to use member features'
+    ),
+    'code': 'AUTH-1050',
+}
+
+
+@pytest.fixture(autouse=True)
+async def _fresh_membership(access_store):
+    """The user's Borderless access token is live: the gate reads the
+    database alone, no Borderless call (the refresh path has its own
+    tests below and in ``test_borderless_refresh.py``)."""
+    await access_store.put(USER_ID, 'access-token', 3600)
+
+
+class RecordingDiscordService:
+    """Records each post's message and URL instead of hitting a webhook.
+    URLs in ``fail_urls`` answer as a failed post (never with the URL in
+    the error)."""
+
+    def __init__(self, fail_urls: set[str] | None = None):
+        self.urls: list[str | None] = []
+        self.messages: list[str] = []
+        self.fail_urls = fail_urls or set()
+
+    async def post_report_message(
+        self, message: str, webhook_url: str | None = None
+    ) -> tuple[bool, str | None]:
+        self.urls.append(webhook_url)
+        self.messages.append(message)
+        if webhook_url in self.fail_urls:
+            return False, 'Webhook returned status 500'
+        return True, None
+
+
+@pytest.fixture
+def recording():
+    service = RecordingDiscordService()
+    main_app.dependency_overrides[get_discord_service] = lambda: service
+    yield service
+    main_app.dependency_overrides.pop(get_discord_service, None)
+
+
+async def _hook(
+    db_session: AsyncSession,
+    url: str,
+    badge: str | list[str] | None,
+    age_days: int = 0,
+) -> None:
+    """A webhook holding ``badge`` (one, a list, or none)."""
+    if badge is None:
+        badges: list[str] = []
+    elif isinstance(badge, str):
+        badges = [badge]
+    else:
+        badges = badge
+    db_session.add(
+        ReportWebhookModel(
+            url=url,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC)
+            + timedelta(days=age_days),
+            badge_links=[ReportWebhookBadgeModel(badge=b) for b in badges],
+        )
+    )
+    await db_session.commit()
+
+
+SCREENING = {
+    'event_type': EventType.INTERVIEW,
+    'interview_type': InterviewType.INITIAL_SCREENING,
+}
+UNKNOWN_INTERVIEW = {
+    'event_type': EventType.INTERVIEW,
+    'interview_type': InterviewType.UNKNOWN,
+}
 
 
 def _payload(start_date: str | None = None) -> dict:
@@ -27,6 +127,7 @@ def _payload(start_date: str | None = None) -> dict:
     return payload
 
 
+@pytest.mark.usefixtures('reports_badge')
 async def test_list_reports(async_client: AsyncClient):
     response = await async_client.get('/reports')
 
@@ -39,115 +140,58 @@ async def test_list_reports(async_client: AsyncClient):
     )
 
 
-async def test_submit_day_one_report(async_client: AsyncClient, db_session: AsyncSession):
+@pytest.mark.usefixtures('reports_badge')
+async def test_submit_day_one_report(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-024: new reports are computed from the timeline.
+
+    App 1 (closed): initial screening, an unknown interview, an offer.
+    App 2 (open): initial screening, an unknown interview.
+    """
     today = date.today()
-    db_session.add(FeedbackDefinitionModel(id=2, name='On going', color='#47bfd7'))
-    db_session.add(
-        StepDefinitionModel(
-            id=1,
-            name='Initial Screen',
-            color='#a892d3',
-            strict=False,
-        )
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(
+            1, application_date=today, finalized_at=ts.closed_at(today)
+        ),
+        ts.application(2, application_date=today, company_name='Beta'),
+        ts.event(1, 1, event_date=today, **SCREENING),
+        ts.event(2, 1, event_date=today, **UNKNOWN_INTERVIEW),
+        ts.event(
+            3,
+            1,
+            event_date=today,
+            event_type=EventType.OFFER,
+            **ts.offer_salary('1'),
+        ),
+        ts.event(4, 2, event_date=today, **SCREENING),
+        ts.event(5, 2, event_date=today, **UNKNOWN_INTERVIEW),
     )
-    db_session.add(
-        StepDefinitionModel(id=2, name='Phase 2', color='#9373d3', strict=False)
-    )
-    db_session.add(
-        StepDefinitionModel(id=3, name='Phase 3', color='#7b52cb', strict=False)
-    )
-    db_session.add(
-        StepDefinitionModel(id=5, name='Offer', color='#31d845', strict=True)
-    )
-    db_session.add(
-        ApplicationModel(
-            id=1,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
-            application_date=today,
-            company_name='Acme',
-            role='Software Engineer',
-            mode='active',
-            feedback_id=base_data()['fb_denied'].id,
-            feedback_date=today,
-        )
-    )
-    db_session.add(
-        ApplicationModel(
-            id=2,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
-            application_date=today,
-            company_name='Beta',
-            role='Software Engineer',
-            mode='active',
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=1,
-            application_id=1,
-            step_id=1,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=2,
-            application_id=1,
-            step_id=2,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=3,
-            application_id=1,
-            step_id=5,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=4,
-            application_id=2,
-            step_id=1,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=5,
-            application_id=2,
-            step_id=3,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    await db_session.commit()
 
     response = await async_client.post(
         '/reports/1/submit',
         json=_payload(today.isoformat()),
     )
 
-    assert response.status_code == 200, msg(200, response.status_code)
+    assert response.status_code == 201, msg(201, response.status_code)
     data = response.json()
     assert data['success'] is True, msg(True, data['success'])
     assert isinstance(data['discord_posted'], bool)
 
     report_response = await async_client.get('/reports/1')
-    assert report_response.status_code == 200, msg(200, report_response.status_code)
+    assert report_response.status_code == 200, msg(
+        200, report_response.status_code
+    )
     report_data = report_response.json()
     assert report_data['report']['submitted'] is True
     assert report_data['metrics']['applications_count'] == 2
     assert report_data['metrics']['initial_screenings_count'] == 2
     assert report_data['metrics']['callback_rate'] == 100
-    assert report_data['metrics']['interviews_completed_fortnight'] == 2
+    # Interview events held, of every type.
+    assert report_data['metrics']['interviews_completed_fortnight'] == 4
+    # Open applications past their initial screening.
     assert report_data['metrics']['active_processes_count'] == 1
     assert report_data['metrics']['offers_count'] == 1
     assert report_data['metrics']['offer_rate'] == 50
@@ -156,16 +200,19 @@ async def test_submit_day_one_report(async_client: AsyncClient, db_session: Asyn
     assert report_data['metrics']['overall_conversion_rate'] == 100
 
 
+@pytest.mark.usefixtures('reports_badge')
 async def test_submit_future_report_is_forbidden(async_client: AsyncClient):
     response = await async_client.post('/reports/14/submit', json=_payload())
     assert response.status_code == 403, msg(403, response.status_code)
 
 
+@pytest.mark.usefixtures('reports_badge')
 async def test_submit_day_one_requires_start_date(async_client: AsyncClient):
     response = await async_client.post('/reports/1/submit', json=_payload())
     assert response.status_code == 400, msg(400, response.status_code)
 
 
+@pytest.mark.usefixtures('reports_badge')
 async def test_submit_same_report_twice_returns_conflict(
     async_client: AsyncClient,
     db_session: AsyncSession,
@@ -174,7 +221,7 @@ async def test_submit_same_report_twice_returns_conflict(
         '/reports/1/submit',
         json=_payload(date.today().isoformat()),
     )
-    assert first.status_code == 200, msg(200, first.status_code)
+    assert first.status_code == 201, msg(201, first.status_code)
 
     second = await async_client.post(
         '/reports/1/submit',
@@ -183,19 +230,23 @@ async def test_submit_same_report_twice_returns_conflict(
     assert second.status_code == 409, msg(409, second.status_code)
 
 
+@pytest.mark.usefixtures('reports_badge')
 async def test_submit_day_fourteen_when_released(
     async_client: AsyncClient,
     db_session: AsyncSession,
 ):
     start_date = (date.today() - timedelta(days=13)).isoformat()
 
-    first = await async_client.post('/reports/1/submit', json=_payload(start_date))
-    assert first.status_code == 200, msg(200, first.status_code)
+    first = await async_client.post(
+        '/reports/1/submit', json=_payload(start_date)
+    )
+    assert first.status_code == 201, msg(201, first.status_code)
 
     second = await async_client.post('/reports/14/submit', json=_payload())
-    assert second.status_code == 200, msg(200, second.status_code)
+    assert second.status_code == 201, msg(201, second.status_code)
 
 
+@pytest.mark.usefixtures('reports_badge')
 async def test_day_twenty_eight_uses_accumulated_rates(
     async_client: AsyncClient,
     db_session: AsyncSession,
@@ -203,71 +254,45 @@ async def test_day_twenty_eight_uses_accumulated_rates(
     start_date = date.today() - timedelta(days=27)
     fortnight_start = date.today() - timedelta(days=13)
 
-    db_session.add(
-        StepDefinitionModel(
-            id=1,
-            name='Initial Screen',
-            color='#a892d3',
-            strict=False,
-        )
-    )
-    db_session.add(
-        StepDefinitionModel(id=5, name='Offer', color='#31d845', strict=True)
-    )
-    db_session.add(
-        ApplicationModel(
-            id=1,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(
+            1,
             application_date=start_date + timedelta(days=4),
             company_name='LegacyCo',
-            role='Software Engineer',
-            mode='active',
-        )
-    )
-    db_session.add(
-        ApplicationModel(
-            id=2,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
+        ),
+        ts.application(
+            2,
             application_date=fortnight_start + timedelta(days=2),
             company_name='NewCo',
-            role='Software Engineer',
-            mode='active',
-        )
+        ),
+        ts.event(1, 1, event_date=start_date + timedelta(days=6), **SCREENING),
+        ts.event(
+            2,
+            1,
+            event_date=fortnight_start + timedelta(days=3),
+            event_type=EventType.OFFER,
+            **ts.offer_salary('1'),
+        ),
     )
-    db_session.add(
-        ApplicationStepModel(
-            id=1,
-            application_id=1,
-            step_id=1,
-            step_date=start_date + timedelta(days=6),
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=2,
-            application_id=1,
-            step_id=5,
-            step_date=fortnight_start + timedelta(days=3),
-            user_id=base_data()['user'].id,
-        )
-    )
-    await db_session.commit()
 
     day_one = await async_client.post(
         '/reports/1/submit',
         json=_payload(start_date.isoformat()),
     )
-    assert day_one.status_code == 200, msg(200, day_one.status_code)
+    assert day_one.status_code == 201, msg(201, day_one.status_code)
 
-    day_fourteen = await async_client.post('/reports/14/submit', json=_payload())
-    assert day_fourteen.status_code == 200, msg(200, day_fourteen.status_code)
+    day_fourteen = await async_client.post(
+        '/reports/14/submit', json=_payload()
+    )
+    assert day_fourteen.status_code == 201, msg(201, day_fourteen.status_code)
 
-    day_twenty_eight = await async_client.post('/reports/28/submit', json=_payload())
-    assert day_twenty_eight.status_code == 200, msg(
-        200, day_twenty_eight.status_code
+    day_twenty_eight = await async_client.post(
+        '/reports/28/submit', json=_payload()
+    )
+    assert day_twenty_eight.status_code == 201, msg(
+        201, day_twenty_eight.status_code
     )
 
     report_response = await async_client.get('/reports/28')
@@ -285,3 +310,499 @@ async def test_day_twenty_eight_uses_accumulated_rates(
     assert report_data['metrics']['callback_rate'] == 50
     assert report_data['metrics']['offer_rate'] == 100
     assert report_data['metrics']['overall_conversion_rate'] == 50
+
+
+@pytest.mark.usefixtures('reports_badge')
+async def test_unknown_only_user_reports_zero_screenings(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-024, owner 2026-09-15 "No, explicit only": interviews of type
+    unknown or any other type are not initial screenings. A former note or
+    feedback is such an unknown interview (ADR-0020): it counts in
+    ``interviews_completed_fortnight`` of a newly computed report, never in
+    ``initial_screenings_count``."""
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        ts.application(2, application_date=today, company_name='Beta'),
+        ts.event(1, 1, event_date=today, **UNKNOWN_INTERVIEW),
+        ts.event(
+            2,
+            2,
+            event_date=today,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.TECHNICAL,
+        ),
+    )
+
+    await async_client.post(
+        '/reports/1/submit', json=_payload(today.isoformat())
+    )
+    metrics = (await async_client.get('/reports/1')).json()['metrics']
+
+    assert metrics['applications_count'] == 2
+    assert metrics['initial_screenings_count'] == 0
+    assert metrics['total_initial_screenings_count'] == 0
+    assert metrics['callback_rate'] == 0
+    assert metrics['interviews_completed_fortnight'] == 2
+    assert metrics['active_processes_count'] == 0
+
+
+@pytest.mark.usefixtures('reports_badge')
+async def test_pending_report_preview_counts_only_initial_screenings(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        ts.event(1, 1, event_date=today, **UNKNOWN_INTERVIEW),
+    )
+    await async_client.post(
+        '/reports/1/submit',
+        json=_payload((today - timedelta(days=13)).isoformat()),
+    )
+
+    preview = (await async_client.get('/reports/14')).json()
+
+    assert preview['metrics']['initial_screenings_count'] == 0
+
+
+@pytest.mark.usefixtures('reports_badge')
+async def test_stored_report_is_never_recomputed(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-025: a report submitted with the steps-era numbers keeps them,
+    whatever the timeline says now."""
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        QuinzenalReportModel(
+            user_id=base_data()['user'].id,
+            report_day=1,
+            start_date=today,
+            phase=1,
+            applications_count=7,
+            callback_rate=42.5,
+            initial_screenings_count=3,
+            interviews_completed_fortnight=9,
+            active_processes_count=2,
+            offers_count=1,
+            offer_rate=33.33,
+            total_applications_count=7,
+            overall_conversion_rate=42.5,
+            total_initial_screenings_count=3,
+            mock_interviews_count=1,
+            linkedin_posts_count=1,
+            strategic_connections_count=1,
+            biggest_win='w',
+            biggest_challenge='c',
+            next_fortnight_goal='g',
+            submitted_at=ts.closed_at(today),
+        ),
+        ts.event(1, 1, event_date=today, **SCREENING),
+    )
+
+    metrics = (await async_client.get('/reports/1')).json()['metrics']
+
+    assert metrics['applications_count'] == 7
+    assert metrics['initial_screenings_count'] == 3
+    assert metrics['interviews_completed_fortnight'] == 9
+    assert metrics['callback_rate'] == 42.5
+    assert metrics['offers_count'] == 1
+
+
+# ---------------------------------------------------------------------------
+# Drafts are excluded from reports (ADR-0014)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures('reports_badge')
+async def test_report_excludes_open_draft_with_events(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A draft's application and its events never count toward a report,
+    even though it carries a real ``application_date`` and a real
+    interview event - only ``is_draft`` decides."""
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        ts.event(
+            1,
+            1,
+            event_date=today,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.INITIAL_SCREENING,
+        ),
+        ts.application(2, application_date=today, is_draft=True),
+        ts.event(
+            2,
+            2,
+            event_date=today,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.INITIAL_SCREENING,
+        ),
+    )
+
+    await async_client.post(
+        '/reports/1/submit', json=_payload(today.isoformat())
+    )
+    metrics = (await async_client.get('/reports/1')).json()['metrics']
+
+    assert metrics['applications_count'] == 1, msg(
+        1, metrics['applications_count']
+    )
+    assert metrics['initial_screenings_count'] == 1, msg(
+        1, metrics['initial_screenings_count']
+    )
+
+
+# --- ADR-0024: the badge gate ---
+
+
+ROUTES = [
+    ('get', '/reports', None),
+    ('get', '/reports/1', None),
+    ('post', '/reports/1/submit', 'payload'),
+]
+
+
+async def _call(client: AsyncClient, method: str, path: str, body):
+    if body is None:
+        return await getattr(client, method)(path)
+    return await client.post(
+        path, json=_payload(start_date=date.today().isoformat())
+    )
+
+
+@pytest.mark.parametrize(('method', 'path', 'body'), ROUTES)
+async def test_no_badge_is_403_badge_required(
+    async_client: AsyncClient, method, path, body
+):
+    response = await _call(async_client, method, path, body)
+    assert response.status_code == 403, msg(403, response.status_code)
+    assert response.json() == {
+        'detail': 'Reports are for Borderless BASE and PSP members',
+        'code': 'RPT-1001',
+    }
+
+
+@pytest.mark.parametrize(('method', 'path', 'body'), ROUTES)
+async def test_admin_without_a_badge_is_refused_too(
+    admin_client: AsyncClient, method, path, body
+):
+    response = await _call(admin_client, method, path, body)
+    assert response.status_code == 403
+    assert response.json()['code'] == 'RPT-1001'
+
+
+async def test_revoked_badge_only_is_badge_required(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await bind_borderless(db_session, USER_ID, badge=None)
+    db_session.add(
+        UserBadgeModel(
+            user_id=USER_ID,
+            badge='borderless_psp',
+            source='borderless',
+            revoked_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+    response = await async_client.get('/reports')
+    assert response.json()['code'] == 'RPT-1001'
+
+
+@pytest.mark.parametrize(('method', 'path', 'body'), ROUTES)
+async def test_a_badge_on_a_refused_grant_is_403_membership_locked(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    method,
+    path,
+    body,
+):
+    """AUTH-1050 replaces RPT-1002 (ADR-0026 §9, §13)."""
+    await bind_borderless(db_session, USER_ID, status='needs_reconnect')
+    response = await _call(async_client, method, path, body)
+    assert response.status_code == 403
+    assert response.json() == LOCKED
+
+
+async def test_the_gate_refreshes_a_missing_access_token(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_borderless,
+    access_store,
+):
+    """No access token: the gate refreshes once at Borderless (the claim
+    applies), stores the new one, and the next request calls nobody."""
+    access_store.tokens.clear()
+    await bind_borderless(db_session, USER_ID, fake=fake_borderless)
+    fake_borderless.set_account(f'bl-{USER_ID}', membership='BASE')
+
+    first = await async_client.get('/reports')
+    second = await async_client.get('/reports')
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    grants = fake_borderless.log['grants'][f'bl-{USER_ID}']
+    assert [g['grant_type'] for g in grants] == ['refresh_token']
+    live = await db_session.scalars(
+        select(UserBadgeModel.badge).where(
+            UserBadgeModel.user_id == USER_ID,
+            UserBadgeModel.revoked_at.is_(None),
+        )
+    )
+    assert list(live) == ['borderless_base']
+    assert USER_ID in access_store.tokens
+
+
+async def test_a_grant_borderless_refuses_at_the_gate_locks_it(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_borderless,
+    access_store,
+):
+    access_store.tokens.clear()
+    await bind_borderless(db_session, USER_ID, fake=fake_borderless)
+    fake_borderless.revoke_grants(f'bl-{USER_ID}')
+
+    response = await async_client.get('/reports')
+
+    assert response.status_code == 403
+    assert response.json() == LOCKED
+    binding = await db_session.scalar(
+        select(BorderlessAccountModel).where(
+            BorderlessAccountModel.user_id == USER_ID
+        )
+    )
+    assert binding is not None
+    await db_session.refresh(binding)
+    assert binding.status == 'needs_reconnect'
+    assert binding.encrypted_refresh_token is None
+
+
+async def test_borderless_down_at_the_gate_keeps_the_badge(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_borderless,
+    access_store,
+    oidc_client,
+    monkeypatch,
+):
+    access_store.tokens.clear()
+    await bind_borderless(db_session, USER_ID, fake=fake_borderless)
+
+    async def down(token, timeout=None):
+        raise BorderlessUnavailable('5xx')
+
+    monkeypatch.setattr(oidc_client, 'refresh', down)
+
+    response = await async_client.get('/reports')
+    assert response.status_code == 200
+
+
+async def test_a_new_grant_unlocks_the_reports(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    binding = await bind_borderless(
+        db_session, USER_ID, status='needs_reconnect'
+    )
+    assert (await async_client.get('/reports')).json() == LOCKED
+
+    await db_session.execute(
+        update(BorderlessAccountModel)
+        .where(BorderlessAccountModel.id == binding.id)
+        .values(status='active')
+    )
+    await db_session.commit()
+
+    assert (await async_client.get('/reports')).status_code == 200
+
+
+async def test_reports_stored_before_a_loss_come_back_on_regain(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await bind_borderless(db_session, USER_ID)
+    first = await async_client.post(
+        '/reports/1/submit',
+        json=_payload(start_date=date.today().isoformat()),
+    )
+    assert first.status_code == 201
+    await db_session.execute(
+        update(UserBadgeModel).values(revoked_at=datetime.now(UTC))
+    )
+    await db_session.commit()
+    assert (await async_client.get('/reports/1')).status_code == 403
+
+    db_session.add(
+        UserBadgeModel(
+            user_id=USER_ID, badge='borderless_base', source='borderless'
+        )
+    )
+    await db_session.commit()
+
+    listing = await async_client.get('/reports')
+    assert listing.status_code == 200
+    assert listing.json()['reports'][0]['status'] == 'submitted'
+    stored = await db_session.scalars(select(QuinzenalReportModel))
+    assert len(list(stored)) == 1
+
+
+# --- ADR-0024: report routing by badge ---
+
+
+async def test_psp_member_posts_to_psp_hooks_only_without_mention(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    recording: RecordingDiscordService,
+):
+    await bind_borderless(db_session, USER_ID)
+    await _hook(db_session, 'https://hook/psp-new', 'borderless_psp', 2)
+    await _hook(db_session, 'https://hook/psp-old', 'borderless_psp', 1)
+    await _hook(db_session, 'https://hook/base', 'borderless_base')
+    await _hook(db_session, 'https://hook/unassigned', None)
+
+    response = await async_client.post(
+        '/reports/1/submit',
+        json=_payload(start_date=date.today().isoformat()),
+    )
+
+    assert response.status_code == 201
+    assert response.json()['discord_posted'] is True
+    assert recording.urls == ['https://hook/psp-old', 'https://hook/psp-new']
+    username = base_data()['user'].username
+    for message in recording.messages:
+        assert f'- @{username}\n' in message
+        assert '<@' not in message
+
+
+async def test_base_member_posts_to_base_hooks_only(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    recording: RecordingDiscordService,
+):
+    await bind_borderless(db_session, USER_ID, badge=BadgeKey.BORDERLESS_BASE)
+    await _hook(db_session, 'https://hook/psp', 'borderless_psp')
+    await _hook(db_session, 'https://hook/base', 'borderless_base')
+
+    await async_client.post(
+        '/reports/1/submit',
+        json=_payload(start_date=date.today().isoformat()),
+    )
+
+    assert recording.urls == ['https://hook/base']
+
+
+@pytest.mark.parametrize(
+    'member', [BadgeKey.BORDERLESS_BASE, BadgeKey.BORDERLESS_PSP]
+)
+async def test_a_hook_holding_both_badges_reaches_either_member_once(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    recording: RecordingDiscordService,
+    member: BadgeKey,
+):
+    await bind_borderless(db_session, USER_ID, badge=member)
+    await _hook(
+        db_session, 'https://hook/both', ['borderless_base', 'borderless_psp']
+    )
+    await _hook(db_session, 'https://hook/psp', 'borderless_psp', 1)
+
+    response = await async_client.post(
+        '/reports/1/submit',
+        json=_payload(start_date=date.today().isoformat()),
+    )
+
+    assert response.status_code == 201
+    expected = ['https://hook/both']
+    if member is BadgeKey.BORDERLESS_PSP:
+        expected.append('https://hook/psp')
+    assert recording.urls == expected
+
+
+async def test_unassigned_hooks_receive_nothing(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    recording: RecordingDiscordService,
+):
+    await bind_borderless(db_session, USER_ID)
+    await _hook(db_session, 'https://hook/unassigned', None)
+
+    response = await async_client.post(
+        '/reports/1/submit',
+        json=_payload(start_date=date.today().isoformat()),
+    )
+
+    assert response.status_code == 201
+    assert response.json()['discord_posted'] is False
+    assert recording.urls == []
+
+
+async def test_webhook_failure_never_fails_the_submission(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    service = RecordingDiscordService(
+        fail_urls={'https://hook/a', 'https://hook/b'}
+    )
+    main_app.dependency_overrides[get_discord_service] = lambda: service
+    try:
+        await bind_borderless(db_session, USER_ID)
+        await _hook(db_session, 'https://hook/a', 'borderless_psp')
+        await _hook(db_session, 'https://hook/b', 'borderless_psp', 1)
+
+        response = await async_client.post(
+            '/reports/1/submit',
+            json=_payload(start_date=date.today().isoformat()),
+        )
+    finally:
+        main_app.dependency_overrides.pop(get_discord_service, None)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body['success'] is True
+    assert body['discord_posted'] is False
+    assert 'https://hook' not in (body['discord_error'] or '')
+    stored = await db_session.scalars(select(QuinzenalReportModel))
+    assert len(list(stored)) == 1
+
+
+async def test_one_failed_post_still_counts_discord_posted(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    service = RecordingDiscordService(fail_urls={'https://hook/b'})
+    main_app.dependency_overrides[get_discord_service] = lambda: service
+    try:
+        await bind_borderless(db_session, USER_ID)
+        await _hook(db_session, 'https://hook/a', 'borderless_psp')
+        await _hook(db_session, 'https://hook/b', 'borderless_psp', 1)
+        response = await async_client.post(
+            '/reports/1/submit',
+            json=_payload(start_date=date.today().isoformat()),
+        )
+    finally:
+        main_app.dependency_overrides.pop(get_discord_service, None)
+
+    body = response.json()
+    assert body['discord_posted'] is True
+    assert body['discord_error'] == 'Webhook returned status 500'
+
+
+async def test_binding_row_is_unchanged_by_a_report(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    binding = await bind_borderless(db_session, USER_ID)
+    before = binding.updated_at
+    await async_client.get('/reports')
+    after = await db_session.scalar(
+        select(BorderlessAccountModel.updated_at).where(
+            BorderlessAccountModel.id == binding.id
+        )
+    )
+    assert after == before

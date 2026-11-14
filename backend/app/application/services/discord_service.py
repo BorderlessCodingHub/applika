@@ -3,7 +3,6 @@ import json
 from urllib import error, request
 
 from app.config.logging import logger
-from app.config.settings import envs
 
 
 class DiscordService:
@@ -12,18 +11,18 @@ class DiscordService:
         webhook_url: str | None = None,
         timeout_seconds: int = 10,
     ):
-        self.webhook_url = webhook_url or envs.DISCORD_REPORTS_WEBHOOK
+        self.webhook_url = webhook_url
         self.timeout_seconds = timeout_seconds
 
     def _post_message(
-        self, payload: dict[str, object]
+        self, payload: dict[str, object], webhook_url: str | None
     ) -> tuple[bool, str | None]:
-        if not self.webhook_url:
+        if not webhook_url:
             return False, 'Discord webhook not configured'
 
         data = json.dumps(payload).encode('utf-8')
         req = request.Request(
-            self.webhook_url,
+            webhook_url,
             data=data,
             method='POST',
             headers={
@@ -49,18 +48,34 @@ class DiscordService:
             return False, f'Webhook request failed: {exc.reason}'
         except TimeoutError:
             return False, 'Webhook timeout'
+        except OSError as exc:
+            # A dropped connection (e.g. ``http.client.RemoteDisconnected``,
+            # a ``ConnectionResetError``) surfaces straight from
+            # ``getresponse()`` - urllib does not wrap it in ``URLError``.
+            # Never raised past here (T126: "a Discord failure never
+            # raises"); the webhook address never reaches the message.
+            return False, f'Webhook request failed: {type(exc).__name__}'
 
     async def post_report_message(
-        self, message: str
+        self,
+        message: str,
+        webhook_url: str | None = None,
     ) -> tuple[bool, str | None]:
-        payload = {
+        """Post one message to ``webhook_url``, or to the ctor's URL when
+        none is given. Mentions nobody (``allowed_mentions.parse`` empty,
+        ADR-0024); the URL never appears in a log line or a returned
+        error."""
+        payload: dict[str, object] = {
             'content': message,
             'allowed_mentions': {'parse': []},
         }
 
+        resolved_url = webhook_url or self.webhook_url
+
         discord_posted, discord_error = await asyncio.to_thread(
             self._post_message,
             payload,
+            resolved_url,
         )
 
         if discord_posted:

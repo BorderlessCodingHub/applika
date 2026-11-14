@@ -1,43 +1,65 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType
 from app.domain.models import (
     ApplicationModel,
-    ApplicationStepModel,
     CompanyModel,
-    FeedbackDefinitionModel,
+    GithubConnectionModel,
+    JobSourceModel,
     PlatformModel,
+    TimelineEventModel,
     UserModel,
 )
+from app.domain.repositories.application_filters import NOT_DRAFT
+
+
+def _has_event(event_type: EventType) -> ColumnElement[bool]:
+    """The application carries at least one event of ``event_type``.
+
+    Admin statistics read the timeline, not the retired feedback catalog
+    (PRD 0008 "Permissions and tenancy"): accepted = has an offer event,
+    rejected = has a denied event (R-022). The two are independent, so an
+    application with both counts in both.
+    """
+    return (
+        sa
+        .exists()
+        .where(
+            TimelineEventModel.application_id == ApplicationModel.id,
+            TimelineEventModel.event_type == event_type,
+        )
+        .correlate(ApplicationModel)
+    )
+
+
+def _is_open() -> ColumnElement[bool]:
+    """Open = not closed: ``finalized_at`` is NULL (R-007, R-008)."""
+    return ApplicationModel.finalized_at.is_(None)
 
 
 class AdminRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def _get_accepted_feedback_id(self) -> int | None:
-        """Get the ID of the 'Accepted' feedback definition."""
-        return await self.session.scalar(
-            select(FeedbackDefinitionModel.id).where(
-                FeedbackDefinitionModel.name == 'Accepted'
-            )
-        )
-
     async def get_platform_stats(self) -> dict:
         total_users = await self.session.scalar(
             select(func.count(UserModel.id))
         )
 
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         active_users_subq = (
             select(ApplicationModel.user_id)
-            .where(ApplicationModel.created_at >= thirty_days_ago)
+            .where(
+                ApplicationModel.created_at >= thirty_days_ago,
+                NOT_DRAFT,
+            )
             .union(
-                select(ApplicationStepModel.user_id).where(
-                    ApplicationStepModel.created_at >= thirty_days_ago
+                select(TimelineEventModel.user_id).where(
+                    TimelineEventModel.created_at >= thirty_days_ago
                 )
             )
             .subquery()
@@ -47,33 +69,32 @@ class AdminRepository:
         )
 
         total_applications = await self.session.scalar(
-            select(func.count(ApplicationModel.id))
+            select(func.count(ApplicationModel.id)).where(NOT_DRAFT)
         )
 
         total_finalized = await self.session.scalar(
             select(func.count(ApplicationModel.id)).where(
-                ApplicationModel.feedback_id.isnot(None),
+                ~_is_open(), NOT_DRAFT
             )
         )
-
-        accepted_id = await self._get_accepted_feedback_id()
-
-        total_offers = 0
-        total_denials = 0
-        if accepted_id is not None:
-            total_offers = (
-                await self.session.scalar(
-                    select(func.count(ApplicationModel.id)).where(
-                        ApplicationModel.feedback_id == accepted_id,
-                    )
+        total_offers = (
+            await self.session.scalar(
+                select(func.count(ApplicationModel.id)).where(
+                    _has_event(EventType.OFFER), NOT_DRAFT
                 )
-                or 0
             )
-            total_denials = (total_finalized or 0) - total_offers
-        else:
-            total_denials = total_finalized or 0
+            or 0
+        )
+        total_denials = (
+            await self.session.scalar(
+                select(func.count(ApplicationModel.id)).where(
+                    _has_event(EventType.DENIED), NOT_DRAFT
+                )
+            )
+            or 0
+        )
 
-        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        seven_days_ago = datetime.now(UTC) - timedelta(days=7)
         new_users_7d = await self.session.scalar(
             select(func.count(UserModel.id)).where(
                 UserModel.created_at >= seven_days_ago
@@ -84,7 +105,7 @@ class AdminRepository:
         apps_last_30d = (
             await self.session.scalar(
                 select(func.count(ApplicationModel.id)).where(
-                    ApplicationModel.created_at >= thirty_days_ago
+                    ApplicationModel.created_at >= thirty_days_ago, NOT_DRAFT
                 )
             )
             or 0
@@ -130,58 +151,55 @@ class AdminRepository:
         page: int = 1,
         per_page: int = 25,
     ) -> tuple[list, int]:
-        accepted_id = await self._get_accepted_feedback_id()
-
         # Subquery for application counts per user
         app_counts = (
             select(
                 ApplicationModel.user_id,
                 func.count(ApplicationModel.id).label('total_applications'),
-                func.count(
-                    sa.case((
-                        ApplicationModel.feedback_id == accepted_id,
-                        1,
-                    ))
-                ).label('offers'),
-                func.count(
-                    sa.case((
-                        sa.and_(
-                            ApplicationModel.feedback_id.isnot(None),
-                            ApplicationModel.feedback_id != accepted_id,
-                        ),
-                        1,
-                    ))
-                ).label('denials'),
-                func.count(
-                    sa.case((ApplicationModel.feedback_id.is_(None), 1))
-                ).label('active_applications'),
+                func.count(sa.case((_has_event(EventType.OFFER), 1))).label(
+                    'offers'
+                ),
+                func.count(sa.case((_has_event(EventType.DENIED), 1))).label(
+                    'denials'
+                ),
+                func.count(sa.case((_is_open(), 1))).label(
+                    'active_applications'
+                ),
                 func.max(ApplicationModel.created_at).label('last_activity'),
             )
+            .where(NOT_DRAFT)
             .group_by(ApplicationModel.user_id)
             .subquery('app_counts')
         )
 
-        stmt = select(
-            UserModel.id,
-            UserModel.username,
-            UserModel.email,
-            UserModel.github_id,
-            UserModel.seniority_level,
-            UserModel.location,
-            UserModel.is_admin,
-            func.coalesce(app_counts.c.total_applications, 0).label(
-                'total_applications'
-            ),
-            func.coalesce(app_counts.c.offers, 0).label('offers'),
-            func.coalesce(app_counts.c.denials, 0).label('denials'),
-            func.coalesce(app_counts.c.active_applications, 0).label(
-                'active_applications'
-            ),
-            func.coalesce(
-                app_counts.c.last_activity, UserModel.created_at
-            ).label('last_activity'),
-            UserModel.created_at.label('joined_at'),
-        ).outerjoin(app_counts, UserModel.id == app_counts.c.user_id)
+        stmt = (
+            select(
+                UserModel.id,
+                UserModel.username,
+                UserModel.email,
+                GithubConnectionModel.github_id,
+                UserModel.seniority_level,
+                UserModel.location,
+                UserModel.is_admin,
+                func.coalesce(app_counts.c.total_applications, 0).label(
+                    'total_applications'
+                ),
+                func.coalesce(app_counts.c.offers, 0).label('offers'),
+                func.coalesce(app_counts.c.denials, 0).label('denials'),
+                func.coalesce(app_counts.c.active_applications, 0).label(
+                    'active_applications'
+                ),
+                func.coalesce(
+                    app_counts.c.last_activity, UserModel.created_at
+                ).label('last_activity'),
+                UserModel.created_at.label('joined_at'),
+            )
+            .outerjoin(app_counts, UserModel.id == app_counts.c.user_id)
+            .outerjoin(
+                GithubConnectionModel,
+                GithubConnectionModel.user_id == UserModel.id,
+            )
+        )
 
         # Filters
         if search:
@@ -222,10 +240,10 @@ class AdminRepository:
         result = await self.session.execute(stmt)
         rows = result.mappings().all()
 
-        return rows, total or 0
+        return list(rows), total or 0
 
     async def get_user_growth(self, months: int = 12) -> list[dict]:
-        cutoff = datetime.utcnow() - timedelta(days=months * 30)
+        cutoff = datetime.now(UTC) - timedelta(days=months * 30)
 
         stmt = (
             select(
@@ -316,6 +334,7 @@ class AdminRepository:
                 ApplicationModel,
                 ApplicationModel.platform_id == PlatformModel.id,
             )
+            .where(NOT_DRAFT)
             .group_by(PlatformModel.name)
             .order_by(sa.desc('total_across_users'))
             .limit(limit)
@@ -337,6 +356,7 @@ class AdminRepository:
                 ApplicationModel,
                 ApplicationModel.company_id == CompanyModel.id,
             )
+            .where(NOT_DRAFT)
             .group_by(CompanyModel.name)
             .order_by(sa.desc('total_across_users'))
             .limit(limit)
@@ -346,13 +366,15 @@ class AdminRepository:
         return [dict(r) for r in result.mappings().all()]
 
     async def get_activity_heatmap(self) -> list[dict]:
+        """When users record progress: timeline events by hour and weekday
+        of ``created_at`` (the steps table before R-001)."""
         stmt = select(
             func
-            .extract('hour', ApplicationStepModel.created_at)
+            .extract('hour', TimelineEventModel.created_at)
             .cast(sa.Integer)
             .label('hour'),
             func
-            .extract('isodow', ApplicationStepModel.created_at)
+            .extract('isodow', TimelineEventModel.created_at)
             .cast(sa.Integer)
             .label('iso_dow'),
             func.count().label('count'),
@@ -380,31 +402,18 @@ class AdminRepository:
         if not user:
             return None
 
-        accepted_id = await self._get_accepted_feedback_id()
-
         app_counts = await self.session.execute(
             select(
                 func.count(ApplicationModel.id).label('total'),
-                func.count(
-                    sa.case((
-                        ApplicationModel.feedback_id == accepted_id,
-                        1,
-                    ))
-                ).label('offers'),
-                func.count(
-                    sa.case((
-                        sa.and_(
-                            ApplicationModel.feedback_id.isnot(None),
-                            ApplicationModel.feedback_id != accepted_id,
-                        ),
-                        1,
-                    ))
-                ).label('denials'),
-                func.count(
-                    sa.case((ApplicationModel.feedback_id.is_(None), 1))
-                ).label('active'),
+                func.count(sa.case((_has_event(EventType.OFFER), 1))).label(
+                    'offers'
+                ),
+                func.count(sa.case((_has_event(EventType.DENIED), 1))).label(
+                    'denials'
+                ),
+                func.count(sa.case((_is_open(), 1))).label('active'),
                 func.max(ApplicationModel.created_at).label('last_activity'),
-            ).where(ApplicationModel.user_id == user_id)
+            ).where(ApplicationModel.user_id == user_id, NOT_DRAFT)
         )
         counts = app_counts.mappings().first()
 
@@ -412,7 +421,11 @@ class AdminRepository:
             'id': user.id,
             'username': user.username,
             'email': user.email,
-            'github_id': user.github_id,
+            'github_id': await self.session.scalar(
+                select(GithubConnectionModel.github_id).where(
+                    GithubConnectionModel.user_id == user.id
+                )
+            ),
             'first_name': user.first_name,
             'last_name': user.last_name,
             'current_role': user.current_role,
@@ -428,7 +441,6 @@ class AdminRepository:
                 user.availability.value if user.availability else None
             ),
             'is_admin': user.is_admin,
-            'is_org_member': user.is_org_member,
             'total_applications': counts['total'] if counts else 0,
             'offers': counts['offers'] if counts else 0,
             'denials': counts['denials'] if counts else 0,
@@ -438,31 +450,25 @@ class AdminRepository:
             'joined_at': user.created_at,
         }
 
-    async def get_admin_companies(
-        self,
-        search: str | None = None,
-        is_active: bool | None = None,
-        sort_by: str = 'name',
-        sort_order: str = 'asc',
-        page: int = 1,
-        per_page: int = 25,
-    ) -> tuple[list, int]:
+    def _admin_company_row_query(self):
         app_counts = (
             select(
                 ApplicationModel.company_id,
                 func.count(ApplicationModel.id).label('applications_count'),
             )
-            .where(ApplicationModel.company_id.isnot(None))
+            .where(ApplicationModel.company_id.isnot(None), NOT_DRAFT)
             .group_by(ApplicationModel.company_id)
             .subquery('app_counts')
         )
 
-        stmt = (
+        return (
             select(
                 CompanyModel.id,
                 CompanyModel.name,
                 CompanyModel.url,
                 CompanyModel.is_active,
+                CompanyModel.is_public,
+                CompanyModel.created_by,
                 CompanyModel.created_at,
                 func.coalesce(app_counts.c.applications_count, 0).label(
                     'applications_count'
@@ -476,10 +482,37 @@ class AdminRepository:
             .outerjoin(UserModel, CompanyModel.created_by == UserModel.id)
         )
 
+    async def get_admin_company_row(self, company_id: int) -> dict | None:
+        """One admin company row, shaped exactly like ``get_admin_companies``
+        - used by ``PublishCompanyUseCase`` to return the row after a
+        publish without re-running the paginated list."""
+        stmt = self._admin_company_row_query().where(
+            CompanyModel.id == company_id
+        )
+        result = await self.session.execute(stmt)
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def get_admin_companies(
+        self,
+        search: str | None = None,
+        is_active: bool | None = None,
+        visibility: str | None = None,
+        sort_by: str = 'name',
+        sort_order: str = 'asc',
+        page: int = 1,
+        per_page: int = 25,
+    ) -> tuple[list, int]:
+        stmt = self._admin_company_row_query()
+
         if search:
             stmt = stmt.where(CompanyModel.name.ilike(f'%{search}%'))
         if is_active is not None:
             stmt = stmt.where(CompanyModel.is_active == is_active)
+        if visibility == 'public':
+            stmt = stmt.where(CompanyModel.is_public.is_(True))
+        elif visibility == 'private':
+            stmt = stmt.where(CompanyModel.is_public.is_(False))
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = await self.session.scalar(count_stmt)
@@ -503,25 +536,104 @@ class AdminRepository:
         result = await self.session.execute(stmt)
         rows = result.mappings().all()
 
-        return rows, total or 0
+        return list(rows), total or 0
+
+    def _admin_platform_row_query(self):
+        app_counts = (
+            select(
+                ApplicationModel.platform_id,
+                func.count(ApplicationModel.id).label('applications_count'),
+            )
+            .where(ApplicationModel.platform_id.isnot(None), NOT_DRAFT)
+            .group_by(ApplicationModel.platform_id)
+            .subquery('platform_app_counts')
+        )
+
+        return (
+            select(
+                PlatformModel.id,
+                PlatformModel.name,
+                PlatformModel.url,
+                PlatformModel.is_public,
+                PlatformModel.created_by,
+                PlatformModel.created_at,
+                func.coalesce(app_counts.c.applications_count, 0).label(
+                    'applications_count'
+                ),
+                UserModel.username.label('created_by_username'),
+            )
+            .outerjoin(
+                app_counts,
+                PlatformModel.id == app_counts.c.platform_id,
+            )
+            .outerjoin(UserModel, PlatformModel.created_by == UserModel.id)
+        )
+
+    async def get_admin_platforms(
+        self,
+        search: str | None = None,
+        visibility: str | None = None,
+        sort_by: str = 'name',
+        sort_order: str = 'asc',
+        page: int = 1,
+        per_page: int = 25,
+    ) -> tuple[list, int]:
+        """Paginated ``GET /admin/platforms`` (S7), on ``get_admin_companies``:
+        ``applications_count`` excludes drafts (R-035, ``NOT_DRAFT``)."""
+        stmt = self._admin_platform_row_query()
+
+        if search:
+            stmt = stmt.where(PlatformModel.name.ilike(f'%{search}%'))
+        if visibility == 'public':
+            stmt = stmt.where(PlatformModel.is_public.is_(True))
+        elif visibility == 'private':
+            stmt = stmt.where(PlatformModel.is_public.is_(False))
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = await self.session.scalar(count_stmt)
+
+        sort_columns = {
+            'name': PlatformModel.name,
+            'created_at': PlatformModel.created_at,
+            'applications_count': 'applications_count',
+        }
+        sort_col = sort_columns.get(sort_by, PlatformModel.name)
+        if isinstance(sort_col, str):
+            sort_col = sa.literal_column(sort_col)
+
+        if sort_order == 'asc':
+            stmt = stmt.order_by(sa.asc(sort_col))
+        else:
+            stmt = stmt.order_by(sa.desc(sort_col))
+
+        stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+
+        result = await self.session.execute(stmt)
+        rows = result.mappings().all()
+
+        return list(rows), total or 0
 
     async def count_entity_references(
         self,
         entity_type: str,
         entity_id: int,
     ) -> int:
-        """Count how many records reference the given entity."""
+        """Count how many records reference the given entity.
+
+        A platform counts its applications (drafts included) and, since
+        the job board (R-019, plan corrections 13), the job sources pointing at
+        it: deleting a source's platform would null ``job_sources.
+        platform_id`` and break job -> draft.
+        """
         if entity_type == 'platform':
-            stmt = select(func.count(ApplicationModel.id)).where(
+            applications = select(func.count(ApplicationModel.id)).where(
                 ApplicationModel.platform_id == entity_id
             )
-        elif entity_type == 'step_definition':
-            stmt = select(func.count(ApplicationStepModel.id)).where(
-                ApplicationStepModel.step_id == entity_id
+            sources = select(func.count(JobSourceModel.id)).where(
+                JobSourceModel.platform_id == entity_id
             )
-        elif entity_type == 'feedback_definition':
-            stmt = select(func.count(ApplicationModel.id)).where(
-                ApplicationModel.feedback_id == entity_id
+            return (await self.session.scalar(applications) or 0) + (
+                await self.session.scalar(sources) or 0
             )
         elif entity_type == 'company':
             stmt = select(func.count(ApplicationModel.id)).where(

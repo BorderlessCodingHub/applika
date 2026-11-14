@@ -1,234 +1,142 @@
-# Applika.dev - Backend
+# Applika.dev — Backend
 
-FastAPI backend for Applika.dev, a job application tracking system with biweekly reporting and analytics. Built with Clean Architecture, async SQLAlchemy, and PostgreSQL.
+The API behind the web app and `applika-cli`, plus a background worker that
+collects job postings. FastAPI, async SQLAlchemy, PostgreSQL and Redis, laid
+out in Clean Architecture layers.
 
-## Project Structure
+How it fits with the rest of production: [docs/infrastructure.md](../docs/infrastructure.md).
 
-```
-backend/
-├── alembic.ini
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-├── uv.lock
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── application/
-│   │   ├── dto/                  # Data Transfer Objects
-│   │   ├── services/             # External integrations (Discord)
-│   │   └── use_cases/            # Business logic
-│   │       ├── applications/
-│   │       ├── application_steps/
-│   │       ├── companies/
-│   │       ├── quinzenal_reports/
-│   │       ├── user_feedbacks/
-│   │       └── user_stats/
-│   ├── config/
-│   │   ├── db.py                 # Async SQLAlchemy engine & session
-│   │   ├── logging.py            # Request ID context + logging
-│   │   ├── middleware.py          # HTTP & WebSocket lifecycle
-│   │   └── settings.py           # Pydantic settings
-│   ├── core/
-│   │   ├── enums.py              # Domain enums
-│   │   ├── exceptions.py         # Domain exceptions
-│   │   └── tokens.py             # JWT cookie utilities
-│   ├── domain/
-│   │   ├── models.py             # SQLAlchemy ORM models
-│   │   └── repositories/         # Data access layer
-│   ├── lib/
-│   │   ├── types.py              # Snowflake ID type
-│   │   └── urls.py               # URL utilities
-│   ├── presentation/
-│   │   ├── api/                   # FastAPI route handlers
-│   │   ├── schemas/               # Request/response schemas
-│   │   ├── dependencies.py        # DI factories
-│   │   └── handlers.py            # Exception → HTTP mapping
-│   └── tests/
-│       ├── integration/
-│       └── unit/
-├── migrations/
-│   ├── env.py
-│   └── versions/
-└── scripts/
-    └── seed_mock_data.py
-```
+## Run it
 
-## Tech Stack
+The easiest way is the whole stack from the repository root — see the
+[root README](../README.md#run-it-locally). The API is then at
+<http://127.0.0.1:8000/api/docs>.
 
-- **Python 3.14** with uv package manager
-- **FastAPI** 0.115+ with async/await
-- **SQLAlchemy** 2.0 async with asyncpg
-- **PostgreSQL** 16
-- **Alembic** for migrations
-- **Pydantic** 2.0 for validation and settings
-- **Snowflake IDs** for distributed unique identifiers
-- **fastapi-sso** for GitHub OAuth
-- **Redis** 7 for refresh tokens and caching
-- **PyJWT** for token management
-- **cryptography** (Fernet) for GitHub token encryption
-
-## Required Environment Variables
-
-| Name | Description | Example | Required |
-|------|-------------|---------|----------|
-| `DATABASE_URL` | Async DB connection string | `postgresql+asyncpg://user:pass@host:5432/db` | Yes |
-| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | `<your-client-id>` | Yes |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | `<your-client-secret>` | Yes |
-
-## Optional Environment Variables
-
-| Name | Description | Default |
-|------|-------------|---------|
-| `ENVIRONMENT` | PROD, DEV, or TEST | `DEV` |
-| `JWT_SECRET` | JWT signing secret | changeme placeholder |
-| `JWT_ALGORITHM` | JWT algorithm | `HS256` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `15` |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL in days | `7` |
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
-| `GITHUB_REDIRECT_URI` | OAuth callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
-| `GITHUB_CACHE_TTL_SECONDS` | Redis cache TTL for GitHub API checks | `600` |
-| `GITHUB_TOKEN_ENCRYPTION_KEY` | Fernet key for encrypting GitHub tokens | changeme placeholder |
-| `DISCORD_REPORTS_ORGANIZATION` | GitHub org for gating Discord report webhook | `None` |
-| `LOGIN_REDIRECT_URI` | Post-login redirect | `http://127.0.0.1:8000/api/docs` |
-| `DISCORD_REPORTS_WEBHOOK` | Discord webhook for biweekly reports | `None` |
-| `DISCORD_FEEDBACK_WEBHOOK` | Discord webhook for user feedback | `None` |
-| `CORS_ORIGINS` | Allowed CORS origins | `["http://127.0.0.1:8080","http://127.0.0.1:8000"]` |
-| `CORS_HEADERS` | Allowed CORS headers | `["X-Request-ID","Content-Type"]` |
-| `CORS_METHODS` | Allowed CORS methods | `["GET","PATCH","POST","PUT","DELETE","OPTIONS"]` |
-| `API_PREFIX` | API route prefix | `/api` |
-| `LOG_LEVEL` | Logging level | `INFO` |
-| `LOG_FORMAT` | Logging format string | `[%(asctime)s] \|%(levelname)s\| ...` |
-| `LOG_FILE` | JSON log file path | `logs/app.log` |
-| `DATABASE_ECHO` | SQLAlchemy echo flag | `False` |
-
-## How to Run
-
-### With Docker (recommended)
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ProgramadoresSemPatria/application_panel.git borderless-panel
-   cd borderless-panel/backend
-   ```
-
-2. **Configure environment:**
-   - Create a `.env` file or edit variables in `docker-compose.yml`
-
-3. **Build and start:**
-   ```bash
-   docker compose up --build
-   ```
-   This starts the backend, PostgreSQL, and Redis. The entrypoint automatically runs migrations before starting the server.
-
-4. **Access the API:** `http://127.0.0.1:8000/api/docs`
-
-### Without Docker
-
-**Prerequisites:** Python 3.14+, [uv](https://docs.astral.sh/uv/) package manager, PostgreSQL 16
-
-1. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
-
-2. **Create a `.env` file** with the required environment variables.
-
-3. **Run database migrations:**
-   ```bash
-   uv run task auhead
-   ```
-
-4. **Run the application:**
-   ```bash
-   uv run task run
-   ```
-
-### Seeding Mock Data
-
-The seed script creates 55 realistic job applications for testing:
+On your machine instead (needs [uv](https://docs.astral.sh/uv/), PostgreSQL 16
+and Redis 7):
 
 ```bash
-# Full reset + seed (downgrade → upgrade → seed)
-uv run task seed
-
-# Or manually (server must be running)
-python scripts/seed_mock_data.py
+uv sync                  # Python 3.14 and the dependencies
+# create backend/.env with DATABASE_URL, REDIS_URL and the BORDERLESS_* values
+uv run task auhead       # apply the migrations
+uv run task run          # http://127.0.0.1:8000, reloads on change
 ```
 
-## Authentication
-
-The API uses GitHub OAuth with JWT access cookies and Redis-backed refresh tokens:
-
-1. `GET /api/auth/github/login` — Redirects to GitHub
-2. GitHub callback sets an `__access` HTTPOnly JWT cookie and a `__refresh` HTTPOnly cookie (opaque UUID stored in Redis)
-3. `GET /api/auth/refresh` — Validates refresh token from Redis, verifies GitHub token, re-issues access cookie
-4. `GET /api/auth/logout` — Revokes refresh token from Redis and clears both cookies
-
-GitHub access tokens are stored **encrypted** (Fernet) in the database and never exposed.
-
-### Creating a GitHub OAuth App
-
-1. Visit [GitHub Developer Settings](https://github.com/settings/developers)
-2. Click "New OAuth App"
-3. Set Authorization callback URL to `http://127.0.0.1:8000/api/auth/github/callback`
-4. Copy Client ID and Client Secret to your `.env`
-
-## API Endpoints
-
-All endpoints (except OAuth) require authentication via the `__access` cookie.
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| **OAuth** | | |
-| GET | `/auth/github/login` | GitHub login redirect |
-| GET | `/auth/github/callback` | OAuth callback |
-| GET | `/auth/refresh` | Refresh access cookie |
-| GET | `/auth/logout` | Logout |
-| **Users** | | |
-| GET | `/users/me` | Get profile |
-| PATCH | `/users/me` | Update profile |
-| **Applications** | | |
-| POST | `/applications` | Create application |
-| GET | `/applications` | List applications |
-| PUT | `/applications/{id}` | Update application |
-| DELETE | `/applications/{id}` | Delete application |
-| POST | `/applications/{id}/finalize` | Finalize with feedback |
-| **Application Steps** | | |
-| GET | `/applications/{id}/steps` | List steps |
-| POST | `/applications/{id}/steps` | Create step |
-| PUT | `/applications/{id}/steps/{step_id}` | Update step |
-| DELETE | `/applications/{id}/steps/{step_id}` | Delete step |
-| **Companies** | | |
-| GET | `/companies` | List/search companies |
-| **Statistics** | | |
-| GET | `/applications/statistics` | General stats |
-| GET | `/applications/statistics/steps/conversion_rate` | Step conversion |
-| GET | `/applications/statistics/steps/avarage_days` | Avg days per step |
-| GET | `/applications/statistics/platforms` | Per-platform stats |
-| GET | `/applications/statistics/mode` | Active vs passive |
-| GET | `/applications/statistics/trends` | Daily trends |
-| **Biweekly Reports** | | |
-| GET | `/reports` | List reports |
-| GET | `/reports/{day}` | Get report details |
-| POST | `/reports/{day}/submit` | Submit report |
-| **Feedback** | | |
-| POST | `/feedbacks` | Submit app feedback |
-| **Support** | | |
-| GET | `/supports` | Steps, feedbacks, platforms |
-
-## Development Tasks
+The job board also needs the worker and its scheduler (run exactly one scheduler):
 
 ```bash
-uv run task run            # Dev server (port 8000, hot reload)
-uv run task pytest         # Run tests with coverage
-uv run task ruff           # Lint and auto-fix
-uv run task autorevision   # Generate Alembic migration
-uv run task auhead         # Apply migrations
-uv run task adbase         # Rollback all migrations
-uv run task seed           # Reset DB + seed mock data
+uv run taskiq worker app.worker.broker:broker app.worker.tasks
+uv run taskiq scheduler app.worker.broker:scheduler app.worker.tasks
 ```
 
----
+## Commands
 
-For more details, check the source code and `CLAUDE.md`. If you have any issues, feel free to ask for help!
+```bash
+make format                # ruff format
+make lint                  # ruff check --fix
+make test                  # pytest; Docker must be running (testcontainers Postgres)
+uv run task autorevision   # new Alembic revision from the models
+uv run task auhead         # apply migrations
+uv run task adbase         # roll every migration back
+uv run task seed           # fill a running API with realistic mock data
+```
+
+Migrations never drop a column or a table — retired ones are renamed `_old` —
+and every revision has a working downgrade
+([ADR-0005](../docs/adr/0005-non-destructive-migrations.md)).
+
+## Sign-in
+
+Users sign in with their [Borderless](https://borderlesscoding.com) account
+through OpenID Connect ([ADR-0026](../docs/adr/0026-borderless-openid-connect-sign-in.md)).
+The web gets two HTTP-only cookies (`__access`, `__refresh`); the CLI gets the
+same tokens and sends `Authorization: Bearer`. Every sign-in is a device the
+user can see and revoke. A user's BASE or PSP membership at Borderless becomes
+a badge that unlocks the biweekly reports.
+
+For local runs, `make run-fake-auth` at the repository root starts a fake
+Borderless and prints the settings to use.
+
+## Settings
+
+Read from the environment or a `.env` file (`app/config/settings.py`).
+
+**Required**
+
+| Name | What it is |
+|---|---|
+| `DATABASE_URL` | `postgresql+asyncpg://user:pass@host:5432/db` |
+| `BORDERLESS_ISSUER`, `BORDERLESS_CLIENT_ID`, `BORDERLESS_CLIENT_SECRET` | applika's client at Borderless. Sign-in fails with `AUTH-1018` until they are set |
+| `BORDERLESS_TOKEN_ENCRYPTION_KEY` | A Fernet key; encrypts the stored Borderless tokens |
+
+**Public URLs** — change them together when the web or the API moves
+
+| Name | Default |
+|---|---|
+| `CORS_ORIGINS` | the local web, `http://127.0.0.1:8080` |
+| `WEB_SIGNIN_URI` — the web sign-in page every sign-in ends on | `http://127.0.0.1:8080/login` |
+| `BORDERLESS_REDIRECT_URI` — must match what is registered at Borderless | `http://127.0.0.1:8000/api/auth/borderless/callback` |
+| `DEVICE_VERIFICATION_URI` — shown by `applika login --device` | `http://127.0.0.1:8080/device` |
+| `CLI_MANUAL_REDIRECT_URI` — shown by `applika login --manual` | `http://127.0.0.1:8080/cli/code` |
+| `ACCOUNT_LINK_REDIRECT_URI` — where the GitHub data restore returns | `http://127.0.0.1:8080/profile` |
+
+**Common optional settings**
+
+| Name | Default | |
+|---|---|---|
+| `ENVIRONMENT` | `DEV` | `PROD` hides `/api/docs` and makes cookies Secure |
+| `REDIS_URL` | `redis://localhost:6379/0` | Sessions, rate limiter, task queue |
+| `JWT_SECRET` | a placeholder | Set a long random value outside development |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | `7` | A session ends this long after its last use |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | unset | Only for the one-time "restore data from GitHub" |
+| `DISCORD_FEEDBACK_WEBHOOK` | unset | Where in-app feedback is posted |
+| `RATE_LIMIT_ENABLED`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_AUTH` | `True`, `120`, `10` | Requests per minute |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | The trusted proxy (Traefik in production) |
+| `JOBS_INGEST_CRON` | `0 * * * *` | When the worker collects job postings (UTC) |
+| `JOBS_SCRAPERS` | `himalayas,remoteok` | Where it collects them from |
+
+Every other setting, with its default, is in `app/config/settings.py`.
+
+## What the API offers
+
+Everything lives under `/api`; the OpenAPI document is at `/api/docs`
+(outside `PROD`).
+
+| Area | Routes |
+|---|---|
+| Sign-in | `/auth/borderless/*`, `/auth/refresh`, `/auth/logout`; for the CLI `/auth/cli/authorize`, `/auth/token`, `/auth/revoke`, `/auth/device/*` |
+| Account | `/users/me`, `/users/me/agenda`, `/users/me/features`, `/users/me/sessions` (devices) |
+| Applications | `/applications`, their `/timeline`, `/finalize`, `/reopen`, `/applications/statistics*` |
+| Cycles, companies, platforms | `/cycles`, `/companies`, `/platforms`, `/supports` |
+| Reports | `/reports` — for Borderless BASE and PSP members |
+| CVs (beta `cvs`) | `/base-cvs`, `/applications/{id}/cv`, `/applications/drafts` |
+| Job board (beta `jobs`) | `/jobs`, `/job-searches` |
+| Admin | `/admin/*` — users, statistics, companies, platforms, report webhooks, job sources, features |
+
+Routes that published CLI versions call are never broken: an old payload is
+translated in a compatibility layer and the route is marked deprecated.
+
+## Beta features
+
+A new user-facing feature starts in beta
+([ADR-0018](../docs/adr/0018-beta-features-registry-and-allowlist.md)): only
+users on its list (and admins) get it, and everyone else gets the same 404 as
+an unknown route. To add one: a `FeatureKey` in `app/core/features.py`, a seed
+row in its migration, and `require_feature` on its routes.
+
+## Layout
+
+```
+app/
+├── presentation/   # FastAPI routers, request/response schemas, dependencies
+├── application/    # use cases (one class per operation), DTOs, services
+├── domain/         # SQLAlchemy models and repositories
+├── worker/         # taskiq broker, scheduler and tasks
+├── config/         # settings, database, Redis, logging, middleware
+└── core/           # enums, exceptions, error codes, tokens
+migrations/         # Alembic revisions
+tests/              # unit/ and integration/ (real Postgres in a container)
+```
+
+Every change is recorded in [CHANGELOG.md](CHANGELOG.md). More detail on each
+area: [AGENTS.md](AGENTS.md).

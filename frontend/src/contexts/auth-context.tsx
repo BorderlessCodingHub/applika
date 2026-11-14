@@ -1,16 +1,35 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import type { User } from "@/services/types/users";
 import { useUserProfile } from "@/hooks/use-user";
 import { services } from "@/services/services";
 import { useQuery } from "@tanstack/react-query";
+import { isTemporary, retryAfterMs } from "@/lib/rate-limit";
+import {
+  grantEndedCode,
+  refusedRefresh,
+  subscribeRefusedRefresh,
+} from "@/lib/session-ended";
 
 interface AuthContextType {
   user: User | null;
-  logout: () => Promise<void>;
+  /** Ends this session, then a full navigation to `redirectTo` (default `/`). */
+  logout: (redirectTo?: string) => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /**
+   * The code of the refused refresh that ended this session, when the
+   * sign-in page has words for it: `AUTH-1049` (Borderless refused applika's
+   * grant), from this provider's poll or from the 401 interceptor. `null`
+   * otherwise, including a plain signed-out visit.
+   */
+  sessionEndedCode: string | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   logout: () => new Promise(() => {}),
   isAuthenticated: false,
+  sessionEndedCode: null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -28,12 +48,28 @@ const DISCONNECTED_INTERVAL = 30_000; // 30 seconds on failure
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     isSuccess: isAuthSuccess,
-    isLoading: isAuthLoading,
+    // `isPending`, not `isLoading`: while a 429 retry's `retryDelay` sleep
+    // ends with the tab hidden, TanStack pauses the retry (`fetchStatus`
+    // becomes `"paused"`), and `isLoading` — `isPending && isFetching` —
+    // goes false even though the query is still `pending`. `isLoading`
+    // would then read as "done, and not authenticated", and the protected
+    // layout would redirect to `/login` on a cold load that is merely
+    // waiting out its wait in a backgrounded tab. `isPending` alone stays
+    // true until the query actually settles.
+    isPending: isAuthPending,
     isError: isAuthError,
+    error: authError,
+    dataUpdatedAt: authRefreshedAt,
   } = useQuery({
     queryKey: ["applika-auth"],
     queryFn: () => services.auth.refresh(),
-    retry: false,
+    // A 429 (R-019/R-024) or a 503 (the session store is down,
+    // ADR-0019 "fail closed") is temporary: keep retrying on the server's
+    // own wait instead of ever settling into `isError`, which would sign a
+    // still-valid session out. Any other error keeps today's behaviour —
+    // no retry, straight to `isError`.
+    retry: (_failureCount, error) => isTemporary(error),
+    retryDelay: (_failureCount, error) => retryAfterMs(error),
     staleTime: 0,
     refetchInterval: (query) =>
       query.state.error ? DISCONNECTED_INTERVAL : CONNECTED_INTERVAL,
@@ -42,17 +78,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const {
     data: user,
-    isLoading: isUserLoading,
+    isPending: isUserPending,
     isError: isUserError,
   } = useUserProfile(isAuthSuccess);
 
-  const isLoading = isAuthLoading || (isAuthSuccess && isUserLoading);
+  // The interceptor's refused refresh (a request answered 401, then the
+  // refresh it tried) lands here too, so both end the session the same way —
+  // until a refresh succeeds after it (the user signed in again in another
+  // tab, whose cookies this tab shares).
+  const interceptorRefusal = useSyncExternalStore(
+    subscribeRefusedRefresh,
+    refusedRefresh,
+    () => null,
+  );
+  const interceptorEndedCode =
+    interceptorRefusal && authRefreshedAt <= interceptorRefusal.at
+      ? interceptorRefusal.code
+      : null;
+  const sessionEndedCode =
+    (isAuthError ? grantEndedCode(authError) : null) ?? interceptorEndedCode;
 
-  const handleLogout = async () => {
+  const isLoading =
+    !sessionEndedCode && (isAuthPending || (isAuthSuccess && isUserPending));
+
+  const handleLogout = async (redirectTo = "/") => {
     try {
       await services.auth.logout();
     } finally {
-      window.location.href = "/";
+      window.location.href = redirectTo;
     }
   };
 
@@ -62,7 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: user ?? null,
         logout: handleLogout,
         isLoading,
-        isAuthenticated: !!user && !isUserError && !isAuthError,
+        isAuthenticated:
+          !!user && !isUserError && !isAuthError && !sessionEndedCode,
+        sessionEndedCode,
       }}
     >
       {children}

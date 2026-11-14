@@ -49,7 +49,7 @@ class AdminUserRowDTO(_AdminDTO):
     id: int
     username: str
     email: str
-    github_id: int
+    github_id: int | None = None
     seniority_level: str | None = None
     location: str | None = None
     is_admin: bool = False
@@ -86,7 +86,7 @@ class AdminUserDetailDTO(_AdminDTO):
     id: int
     username: str
     email: str
-    github_id: int
+    github_id: int | None = None
     first_name: str | None = None
     last_name: str | None = None
     current_role: str | None = None
@@ -98,7 +98,6 @@ class AdminUserDetailDTO(_AdminDTO):
     tech_stack: list[str] | None = None
     availability: str | None = None
     is_admin: bool = False
-    is_org_member: bool = False
     total_applications: int = 0
     offers: int = 0
     denials: int = 0
@@ -121,7 +120,9 @@ class AdminCompanyRowDTO(_AdminDTO):
     name: str
     url: str
     is_active: bool
+    is_public: bool = True
     applications_count: int = 0
+    created_by: int | None = None
     created_by_username: str | None = None
     created_at: datetime
 
@@ -143,3 +144,25 @@ class AdminCompanyUpdateDTO(BaseModel):
     name: str | None = None
     url: str | None = None
     is_active: bool | None = None
+
+
+# --- Platforms ---
+
+
+class AdminPlatformRowDTO(_AdminDTO):
+    id: int
+    name: str
+    url: str | None = None
+    is_public: bool = True
+    applications_count: int = 0
+    created_by: int | None = None
+    created_by_username: str | None = None
+    created_at: datetime
+
+
+class PaginatedPlatformsDTO(_AdminDTO):
+    items: list[AdminPlatformRowDTO]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int

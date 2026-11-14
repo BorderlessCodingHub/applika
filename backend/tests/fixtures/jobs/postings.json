@@ -1,0 +1,64 @@
+{
+  "himalayas": [
+    {
+      "external_id": "fixture-himalayas-backend-1",
+      "title": "Senior Python Backend Engineer",
+      "company_name": "Fixture Remote Co",
+      "company_url": "https://fixture-remote.example.com",
+      "location_text": "Worldwide",
+      "employment_type": "Full Time",
+      "salary_text": "USD 150,000-190,000",
+      "tags": [
+        "Python",
+        "PostgreSQL",
+        "FastAPI"
+      ],
+      "posted_days_ago": 1,
+      "job_url": "https://himalayas.app/companies/fixture-remote-co/jobs/backend-1",
+      "description_text": "Build Python services with FastAPI and PostgreSQL.\nDeploy with Docker on Kubernetes.\nPython experience with async SQLAlchemy is a plus."
+    },
+    {
+      "external_id": "fixture-himalayas-frontend-2",
+      "title": "Frontend Engineer (React)",
+      "company_name": "Fixture Design Ltd",
+      "location_text": "Europe",
+      "employment_type": "Contractor",
+      "tags": [
+        "React",
+        "TypeScript"
+      ],
+      "posted_days_ago": 3,
+      "job_url": "https://himalayas.app/companies/fixture-design-ltd/jobs/frontend-2",
+      "description_text": "React and TypeScript for a design tool.\nTailwind CSS and accessibility matter."
+    }
+  ],
+  "remoteok": [
+    {
+      "external_id": "fixture-remoteok-devops-1",
+      "title": "Platform Engineer",
+      "company_name": "Fixture Cloud Inc",
+      "location_text": "Worldwide",
+      "salary_text": "USD 120,000-160,000",
+      "tags": [
+        "DevOps",
+        "Kubernetes",
+        "AWS"
+      ],
+      "posted_days_ago": 2,
+      "job_url": "https://remoteok.com/remote-jobs/fixture-remoteok-devops-1",
+      "description_text": "Run Kubernetes on AWS with Terraform.\nOn-call rotation for the platform team."
+    },
+    {
+      "external_id": "fixture-remoteok-data-2",
+      "title": "Data Engineer",
+      "company_name": "Fixture Analytics",
+      "location_text": "Americas",
+      "tags": [
+        "Python",
+        "Spark"
+      ],
+      "job_url": "https://remoteok.com/remote-jobs/fixture-remoteok-data-2",
+      "description_text": "Python and Spark pipelines with Airflow.\nUndated posting: always inside the lookback window."
+    }
+  ]
+}

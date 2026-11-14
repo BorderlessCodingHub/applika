@@ -9,7 +9,9 @@ from logging.handlers import RotatingFileHandler
 from app.config.settings import envs
 
 # context to store request id
-request_id_ctx = contextvars.ContextVar('request_id', default=None)
+request_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    'request_id', default=None
+)
 
 # Custom logger to use throughout the app
 logger = logging.getLogger('app')

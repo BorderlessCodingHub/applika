@@ -1,14 +1,77 @@
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+
 import pytest_asyncio
 import redis.asyncio as redis
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.redis import RedisContainer
 
+from app.application.dto.user import UserDTO
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
+from app.config.db import get_session
 from app.config.redis import get_redis
+from app.domain.models import UserModel
 from app.main import app as main_app
+from app.presentation.dependencies import (
+    get_borderless_access_store,
+    get_current_user,
+)
+from tests.conftest import bind_borderless
+from tests.fixtures.borderless.fake_oidc import FakeBorderless
+
+SECOND_USER_ID = 3
+# The base user's account on the fake Borderless (``bound_user``).
+BOUND_SUB = 'bl-user'
+BOUND_EMAIL = 'test@user.com'
+
+
+@asynccontextmanager
+async def as_user(user_id: int, username: str, is_admin: bool = False):
+    """Temporarily swap ``get_current_user`` to answer as another seeded
+    user - for tests that need a second user's point of view (visibility
+    across users, ADR-0014) without a dedicated fixture per case."""
+
+    async def override():
+        return UserDTO(
+            id=user_id,
+            username=username,
+            email=f'{username}@user.com',
+            is_admin=is_admin,
+            created_at=datetime.now(timezone.utc),
+        )
+
+    previous = main_app.dependency_overrides.get(get_current_user)
+    main_app.dependency_overrides[get_current_user] = override
+    try:
+        yield
+    finally:
+        if previous is not None:
+            main_app.dependency_overrides[get_current_user] = previous
+        else:
+            main_app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest_asyncio.fixture
+async def second_user(async_engine: AsyncEngine) -> UserModel:
+    """A second seeded user, for visibility-across-users tests. Not part of
+    ``base_data`` (most tests never need it), inserted only when a test asks
+    for this fixture."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    async with maker() as session:
+        user = UserModel(
+            id=SECOND_USER_ID,
+            username='seconduser',
+            email='second@user.com',
+        )
+        session.add(user)
+        await session.commit()
+    return user
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -20,14 +83,27 @@ async def reset_pk_sequences(db_session: AsyncSession):
     to reuse id=1 and hit a unique constraint violation. This fixture
     resets every sequence to MAX(id) of its table so auto-increments work.
     """
-    tables = ['users', 'companies', 'platforms', 'feedbacks_definition',
-              'steps_definition', 'applications', 'application_steps',
-              'cycles', 'quinzenal_reports', 'user_feedbacks']
+    tables = [
+        'users',
+        'companies',
+        'platforms',
+        'feedbacks_definition',
+        'steps_definition',
+        'applications',
+        'timeline_events',
+        'cycles',
+        'quinzenal_reports',
+        'user_feedbacks',
+        'base_cvs',
+        'tailored_cvs',
+    ]
     for table in tables:
-        await db_session.execute(text(
-            f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
-            f"GREATEST(COALESCE((SELECT MAX(id) FROM {table}), 1), 1))"
-        ))
+        await db_session.execute(
+            text(
+                f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                f'GREATEST(COALESCE((SELECT MAX(id) FROM {table}), 1), 1))'
+            )
+        )
     await db_session.commit()
 
 
@@ -52,6 +128,8 @@ async def redis_client(redis_container):
         return client
 
     main_app.dependency_overrides[get_redis] = override_get_redis
+    # With a real Redis, the Borderless access tokens live in it too.
+    main_app.dependency_overrides.pop(get_borderless_access_store, None)
     yield client
     await client.flushdb()
     await client.aclose()
@@ -61,3 +139,38 @@ async def redis_client(redis_container):
 @pytest_asyncio.fixture
 async def auth_handoff_state_use_case(redis_client):
     return AuthHandoffStateUseCase(redis_client)
+
+
+@pytest_asyncio.fixture
+async def real_client(async_engine: AsyncEngine, db_session, redis_client):
+    """A client with the REAL ``get_current_user``: every
+    signed-in request goes through the session check on ``redis_client``.
+    Sign in with ``tests/sessions_seed.py``."""
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+
+    async def override_get_session():
+        async with maker() as session:
+            yield session
+
+    main_app.dependency_overrides[get_session] = override_get_session
+    main_app.dependency_overrides.pop(get_current_user, None)
+    async with AsyncClient(
+        transport=ASGITransport(app=main_app), base_url='http://test/api'
+    ) as client:
+        yield client
+    main_app.dependency_overrides.pop(get_session, None)
+
+
+@pytest_asyncio.fixture
+async def bound_user(db_session, fake_borderless: FakeBorderless):
+    """The base user bound to the fake Borderless account ``bl-user``
+    (PSP), whose refresh token the fake knows: a sign-in as ``bl-user``
+    opens the base user, and refreshes read the membership from the
+    fake."""
+    return await bind_borderless(
+        db_session,
+        1,
+        borderless_id=BOUND_SUB,
+        email=BOUND_EMAIL,
+        fake=fake_borderless,
+    )

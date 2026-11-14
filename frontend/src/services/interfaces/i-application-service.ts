@@ -1,9 +1,7 @@
 import type {
   Application,
-  ApplicationFinalizePayload,
-  ApplicationStep,
-  ApplicationStepPayload,
   CreateApplicationPayload,
+  FinalizeApplicationPayload,
 } from "@/services/types/applications";
 
 export interface IApplicationService {
@@ -14,19 +12,19 @@ export interface IApplicationService {
     data: CreateApplicationPayload,
   ): Promise<Application>;
   deleteApplication(id: string): Promise<void>;
-  getApplicationSteps(id: string): Promise<ApplicationStep[]>;
-  addStep(
-    applicationId: string,
-    data: ApplicationStepPayload,
-  ): Promise<ApplicationStep>;
-  updateStep(
-    applicationId: string,
-    stepId: string,
-    data: ApplicationStepPayload,
-  ): Promise<ApplicationStep>;
-  deleteStep(applicationId: string, stepId: string): Promise<void>;
-  finalizeApplication(
+  /**
+   * Closes the application (`POST /applications/{id}/finalize`, 200,
+   * idempotent). No payload closes with no outcome event; a payload records an
+   * `offer`/`denied` outcome as the closing timeline event. 409 if already
+   * closed... reopen first; 422 if archived; 404 if not owned.
+   */
+  finalize(
     id: string,
-    data: ApplicationFinalizePayload,
-  ): Promise<void>;
+    payload?: FinalizeApplicationPayload,
+  ): Promise<Application>;
+  /**
+   * Reopens a closed application (`POST /applications/{id}/reopen`, 200,
+   * idempotent). 422 if archived; 404 if not owned.
+   */
+  reopen(id: string): Promise<Application>;
 }

@@ -1,5 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { APP_CONFIG } from "@/config";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { recordRefusedRefresh } from "@/lib/session-ended";
 import { services } from "@/services/services";
 
 export const api = axios.create({
@@ -7,11 +9,26 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-export function getApiError(error: AxiosError) {
-  if (!error.response?.data) return "Something went wrong";
+/**
+ * The words for a refused request, in the active language: the error's
+ * `code` looked up in the messages (with its `params`), else the API's
+ * English `detail`, else the generic line (`lib/api-error-message.ts`).
+ */
+export function getApiError(error: AxiosError): string {
+  return apiErrorMessage(error.response?.data);
+}
 
-  const errorData = error.response.data as { detail: string };
-  return errorData.detail;
+/**
+ * A 401 on `/auth/*` is final (a failed `/auth/refresh` must never trigger
+ * another refresh). Signed-in calls that merely live under `/auth/` refresh
+ * and retry like any other page: the device approval routes and the GitHub
+ * restore start.
+ */
+function refreshesOn401(error: AxiosError): boolean {
+  const url = error.config?.url;
+  if (!url) return true;
+  if (!url.includes("/auth/")) return true;
+  return url.includes("/auth/device/") || url.includes("/auth/github/restore");
 }
 
 let isRefreshing = false;
@@ -35,7 +52,7 @@ api.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes("/auth/")
+      refreshesOn401(error)
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -46,11 +63,17 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      // A refresh refused with 503 (the session store is down)
+      // rejects with that 503: callers see a temporary error (`isTemporary`)
+      // and retry; nothing here signs the user out.
       try {
-        await services.auth.refresh()
+        await services.auth.refresh();
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
+        // AUTH-1049 (Borderless refused the grant) ends the session here as
+        // it does in AuthProvider's poll: the sign-in page shows its words.
+        recordRefusedRefresh(refreshError);
         processQueue(refreshError);
         return Promise.reject(refreshError);
       } finally {

@@ -3,9 +3,13 @@ import { motion } from "framer-motion";
 import { useTopPlatforms } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
+import { useAdminNumber } from "./admin-format";
 
 export function TopPlatformsPanel() {
   const { data, isLoading } = useTopPlatforms();
+  const t = useTranslations("admin.dashboard.top");
+  const n = useAdminNumber();
 
   const max = data ? Math.max(...data.map((d) => d.total_across_users)) : 1;
 
@@ -18,8 +22,8 @@ export function TopPlatformsPanel() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-orange-400" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
-            Top Platforms
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
+            {t("platforms")}
           </h3>
         </div>
 
@@ -47,10 +51,13 @@ export function TopPlatformsPanel() {
                     </span>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-muted-foreground/60">
-                        {platform.unique_users} users
+                        {t("users", {
+                          count: platform.unique_users,
+                          total: n(platform.unique_users),
+                        })}
                       </span>
-                      <span className="font-display text-sm font-bold tabular-nums text-foreground">
-                        {platform.total_across_users}
+                      <span className="font-numeric text-sm font-bold text-foreground">
+                        {n(platform.total_across_users)}
                       </span>
                     </div>
                   </div>
@@ -58,7 +65,10 @@ export function TopPlatformsPanel() {
                     <motion.div
                       className="h-full rounded-full"
                       style={{
-                        background: `linear-gradient(90deg, hsl(var(--primary)) 0%, #fbbf24 100%)`,
+                        // chart-1 -> chart-3 is a 180 deg hue sweep; sRGB and
+                        // oklab both interpolate it through grey. Land on a
+                        // near neighbour of chart-1 instead.
+                        background: `linear-gradient(90deg, var(--chart-1) 0%, color-mix(in oklab, var(--chart-1) 45%, var(--chart-3)) 100%)`,
                       }}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}

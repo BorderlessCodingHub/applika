@@ -1,0 +1,169 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useLocale } from "next-intl";
+import type { AxiosError } from "axios";
+import { toast } from "sonner";
+
+import {
+  JobSourcesHeader,
+  type JobRunNotice,
+} from "@/components/admin/job-run-controls";
+import { JOB_SOURCES_COPY } from "@/components/admin/job-sources-copy";
+import {
+  JobSourcesTable,
+  type JobSourceRow,
+} from "@/components/admin/job-sources-table";
+import {
+  useAdminJobSources,
+  useStartJobRun,
+  useUpdateAdminJobSource,
+} from "@/hooks/use-admin";
+import { serverErrorMessage } from "@/lib/api-error-message";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { AdminJobSourcesScreenView } from "@/components/phone/screens/admin-job-sources-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
+
+/** After a 202 the list refetches every 3 s for at most 60 s: the API has no "running" state. */
+export const JOB_RUN_POLL_INTERVAL_MS = 3_000;
+export const JOB_RUN_POLL_WINDOW_MS = 60_000;
+
+/** The error's words by code, else its string `detail`, else `null` (a 5xx page, a network error). */
+function serverDetail(error: AxiosError): string | null {
+  return serverErrorMessage(error.response?.data);
+}
+
+/**
+ * Admin job sources (R-033..R-035). Pattern:
+ * `admin/report-webhooks/report-webhooks-page.tsx`. The header, the notice
+ * and the table are ui-designer components (`job-run-controls.tsx`,
+ * `job-sources-table.tsx`); this component owns the query, the optimistic
+ * on/off PATCH and the run start.
+ */
+export function JobsPage() {
+  // Subscribes: the notice's words are read at render, so a language switch
+  // re-reads them from the stored error.
+  useLocale();
+  const isPhone = useIsPhone();
+  const [polling, setPolling] = useState(false);
+  const {
+    data: sources,
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+    error,
+  } = useAdminJobSources({
+    refetchInterval: polling ? JOB_RUN_POLL_INTERVAL_MS : false,
+  });
+  const updateMutation = useUpdateAdminJobSource();
+  const runMutation = useStartJobRun();
+
+  const [failure, setFailure] = useState<{
+    tone: JobRunNotice["tone"];
+    error: AxiosError;
+  } | null>(null);
+  const notice: JobRunNotice | null = failure
+    ? {
+        tone: failure.tone,
+        message: serverDetail(failure.error) ?? JOB_SOURCES_COPY.runFailed,
+      }
+    : null;
+  const [pendingIds, setPendingIds] = useState<readonly string[]>([]);
+
+  useEffect(() => {
+    if (!polling) return;
+    const timer = window.setTimeout(
+      () => setPolling(false),
+      JOB_RUN_POLL_WINDOW_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [polling]);
+
+  const handleRunNow = useCallback(() => {
+    // Cleared first: the same words twice in a row are otherwise not re-announced.
+    setFailure(null);
+    runMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast.success(JOB_SOURCES_COPY.runStarted);
+        setPolling(true);
+      },
+      onError: (error) => {
+        setFailure({
+          tone: error.response?.status === 409 ? "info" : "error",
+          error,
+        });
+      },
+    });
+  }, [runMutation]);
+
+  const handleEnabledChange = useCallback(
+    (source: JobSourceRow, enabled: boolean) => {
+      if (pendingIds.includes(source.id)) return;
+      setPendingIds((ids) => [...ids, source.id]);
+      // Not `mutate(vars, { onSettled })`: TanStack Query 5 runs per-call
+      // callbacks only for the LATEST call, so a second switch toggled before
+      // the first PATCH returns would leave the first one pending for good.
+      // The hook already toasts and rolls back a failure.
+      void updateMutation
+        .mutateAsync({ id: source.id, is_enabled: enabled })
+        .catch(() => undefined)
+        .finally(() =>
+          setPendingIds((ids) => ids.filter((id) => id !== source.id)),
+        );
+    },
+    [pendingIds, updateMutation],
+  );
+
+  // Below md the Admin board's Jobs (PRD 0021): the same query, switches and
+  // Run now as the table and header below, unchanged at md and up.
+  if (isPhone) {
+    return (
+      <AdminJobSourcesScreenView
+        sources={fromQuery({
+          data: sources,
+          isError,
+          error,
+          isFetching,
+          refetch,
+        })}
+        refreshing={isFetching && !isLoading && !isError}
+        onEnabledChange={handleEnabledChange}
+        pendingIds={pendingIds}
+        onRunNow={handleRunNow}
+        startingRun={runMutation.isPending}
+        notice={notice}
+        onDismissNotice={() => setFailure(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <motion.div
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <JobSourcesHeader
+          onRunNow={handleRunNow}
+          isStartingRun={runMutation.isPending}
+          notice={notice}
+          onDismissNotice={() => setFailure(null)}
+        />
+      </motion.div>
+
+      <JobSourcesTable
+        sources={sources}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        isRetrying={isError && isFetching}
+        isRefreshing={isFetching && !isLoading && !isError}
+        onEnabledChange={handleEnabledChange}
+        pendingIds={pendingIds}
+      />
+    </div>
+  );
+}

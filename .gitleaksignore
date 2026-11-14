@@ -1,0 +1,11 @@
+# gitleaks baseline: findings in old commits that the gate does not fail on.
+# One fingerprint per line: <commit>:<file>:<rule>:<line>. Lines starting with # are comments.
+# A new finding never goes here: take it out of the commit and rotate it (see .gitleaks.toml).
+
+# backend/docker-compose.yml, 2025-11-07: a GitHub OAuth app client id and secret written as
+# literals. Removed from the file later, still in the history of main and develop. Treat the
+# secret as public and rotate it in the GitHub OAuth app settings.
+100732379a4d5aa7bb27435104a3ecb24e43a07a:backend/docker-compose.yml:oauth-client-credential:8
+100732379a4d5aa7bb27435104a3ecb24e43a07a:backend/docker-compose.yml:oauth-client-credential:9
+dd736182047d477bc8d974040c9935f58539cee1:backend/docker-compose.yml:oauth-client-credential:8
+dd736182047d477bc8d974040c9935f58539cee1:backend/docker-compose.yml:oauth-client-credential:9

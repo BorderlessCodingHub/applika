@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Briefcase,
@@ -18,11 +19,32 @@ import { GeneralStats } from "@/services/types/statistics";
 import { SelectOptions } from "@/options";
 import { LinkedinIcon } from "../brand-icons";
 import { Badge } from "../ui/badge";
-import { getCurrencySymbol } from "./edit-form-config";
 import { useDeleteAccount } from "@/hooks/use-user";
+import { useStartGithubRestore } from "@/hooks/use-github-restore";
+import {
+  MembershipBadge,
+  membershipAccess,
+} from "@/components/badges/membership-badge";
+import { GithubRestoreCard } from "./github-restore-card";
+import { useIntlLocale } from "@/i18n/intl-locale";
+import {
+  profileBadgeStates,
+  type ProfileBadgeId,
+  type ProfileBadgeStats,
+} from "@/lib/profile-badges";
+import { formatProfileSalary } from "@/lib/profile-salary";
 
 function formatLabel(v?: string) {
   return v?.replace(/_/g, " ") ?? "";
+}
+
+/** An option's label in the active language, else the raw value made readable. */
+function optionLabel(
+  options: readonly { value: string; label: string }[],
+  value?: string | null,
+) {
+  if (!value) return "";
+  return options.find((o) => o.value === value)?.label ?? formatLabel(value);
 }
 
 interface UserProfileViewProps {
@@ -42,20 +64,22 @@ export function UserProfileView({
   userStats,
   onEditClick,
 }: UserProfileViewProps) {
-  const badges = computeBadges(userStats);
+  const t = useTranslations("profile");
+  const intlLocale = useIntlLocale("en-US");
+  const badges = computeBadges(userStats, t);
   const earnedBadges = badges.filter((b) => b.earned);
   const lockedBadges = badges.filter((b) => !b.earned);
-  const currencySymbol = getCurrencySymbol(user.salary_currency);
-  const periodLabel =
-    SelectOptions.SALARY_PERIOD.find(
-      (o) => o.value === user.salary_period,
-    )?.label?.toLowerCase() ?? "";
+  const startRestore = useStartGithubRestore();
+  // Held = a recorded badge while the Borderless binding is `active`.
+  const access = membershipAccess(user);
+  const heldBadges = access.state === "held" ? access.badges : [];
+  const salary = formatProfileSalary(user, intlLocale);
 
   return (
     <div className="mx-auto max-w-4xl animate-fade-in-up space-y-6">
       {/* Header card */}
       <div className="overflow-hidden rounded-xl bg-card shadow-card">
-        <div className="h-24 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+        <div className="h-24 bg-linear-to-br from-primary/20 via-primary/10 to-transparent" />
         <div className="-mt-12 px-6 pb-6">
           <div className="flex items-end justify-between">
             <UserProfileAvatar user={user} />
@@ -66,21 +90,24 @@ export function UserProfileView({
               onClick={onEditClick}
             >
               <Pencil className="h-3.5 w-3.5" />
-              Edit
+              {t("edit")}
             </Button>
           </div>
           <div className="mt-3">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <h1 className="min-w-0 text-lg font-semibold break-words text-foreground">
                 {user.first_name || user.last_name
                   ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
                   : user.username}
               </h1>
+              {heldBadges.map((badge) => (
+                <MembershipBadge key={badge} badge={badge} size="lg" />
+              ))}
               {user.availability && (
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${AVAILABILITY_STYLES[user.availability] ?? AVAILABILITY_STYLES.not_looking}`}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${AVAILABILITY_STYLES[user.availability] ?? AVAILABILITY_STYLES.not_looking}`}
                 >
-                  {formatLabel(user.availability)}
+                  {optionLabel(SelectOptions.AVAILABILITY, user.availability)}
                 </span>
               )}
             </div>
@@ -91,7 +118,7 @@ export function UserProfileView({
                 {user.current_company && (
                   <span>
                     {" "}
-                    at{" "}
+                    {t("at")}{" "}
                     <span className="font-medium text-foreground">
                       {user.current_company}
                     </span>
@@ -110,41 +137,47 @@ export function UserProfileView({
 
       {/* Info grid */}
       <div className="rounded-xl bg-card p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">Details</h2>
+        <h2 className="mb-4 text-sm font-semibold text-foreground">
+          {t("details")}
+        </h2>
         <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
           {user.current_company && (
             <InfoItem
               icon={Building}
-              label="Company"
+              label={t("company")}
               value={user.current_company}
             />
           )}
-          {user.current_salary != null && (
+          {salary !== null && (
             <InfoItem
               icon={Briefcase}
-              label="Salary"
-              value={`${currencySymbol}${user.current_salary.toLocaleString()}${periodLabel ? ` / ${periodLabel}` : ""}`}
+              label={t("salary")}
+              value={salary}
               tabular
             />
           )}
           {user.seniority_level && (
             <InfoItem
               icon={Award}
-              label="Seniority"
-              value={formatLabel(user.seniority_level)}
+              label={t("seniority")}
+              value={optionLabel(SelectOptions.SENIORITY, user.seniority_level)}
               capitalize
             />
           )}
           {user.experience_years != null && (
             <InfoItem
               icon={Calendar}
-              label="Experience"
-              value={`${user.experience_years} year${user.experience_years !== 1 ? "s" : ""}`}
+              label={t("experience")}
+              value={t("experienceYears", { count: user.experience_years })}
               tabular
             />
           )}
           {user.location && (
-            <InfoItem icon={MapPin} label="Location" value={user.location} />
+            <InfoItem
+              icon={MapPin}
+              label={t("location")}
+              value={user.location}
+            />
           )}
           {user.linkedin_url && (
             <div className="flex items-start gap-2">
@@ -157,7 +190,7 @@ export function UserProfileView({
                   rel="noopener noreferrer"
                   className="block max-w-[180px] truncate text-sm text-primary hover:underline"
                 >
-                  Profile
+                  {t("linkedinProfile")}
                 </a>
               </div>
             </div>
@@ -171,7 +204,7 @@ export function UserProfileView({
           <div className="mb-3 flex items-center gap-1.5">
             <Code className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold text-foreground">
-              Tech Stack
+              {t("techStack")}
             </h2>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -185,24 +218,31 @@ export function UserProfileView({
       )}
 
       {/* Badges */}
-      <div className="rounded-xl bg-card p-6 shadow-card">
+      <div className="@container/badges rounded-xl bg-card p-6 shadow-card">
         <div className="mb-4 flex items-center gap-1.5">
           <Trophy className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Badges</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            {t("badgesTitle")}
+          </h2>
           <span className="ml-auto text-xs text-muted-foreground">
-            {earnedBadges.length}/{badges.length} earned
+            {t("badgesEarned", {
+              earned: earnedBadges.length,
+              total: badges.length,
+            })}
           </span>
         </div>
         {earnedBadges.length > 0 && (
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mb-4 grid grid-cols-1 gap-3 @sm/badges:grid-cols-2 @xl/badges:grid-cols-3">
             {earnedBadges.map((b) => (
               <div
                 key={b.id}
-                className="hover:shadow-elevated flex items-center gap-2.5 rounded-lg border border-border bg-accent/50 p-3 transition-shadow"
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-accent/50 p-3 transition-shadow hover:shadow-elevated"
               >
                 <div
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: `${b.color}20` }}
+                  style={{
+                    backgroundColor: `color-mix(in oklab, ${b.color} 14%, transparent)`,
+                  }}
                 >
                   <b.icon className="h-4.5 w-4.5" style={{ color: b.color }} />
                 </div>
@@ -219,7 +259,7 @@ export function UserProfileView({
           </div>
         )}
         {lockedBadges.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 @sm/badges:grid-cols-2 @xl/badges:grid-cols-3">
             {lockedBadges.map((b) => (
               <div
                 key={b.id}
@@ -242,6 +282,14 @@ export function UserProfileView({
         )}
       </div>
 
+      {/* Restore an old GitHub-era account: only with no GitHub identity on record */}
+      {user.github_restore?.available ? (
+        <GithubRestoreCard
+          onRestore={() => startRestore.mutate()}
+          pending={startRestore.isPending || startRestore.isSuccess}
+        />
+      ) : null}
+
       {/* Delete Account */}
       <DeleteAccountCard username={user.username} />
     </div>
@@ -252,8 +300,9 @@ function DeleteAccountCard({ username }: { username: string }) {
   const [confirmValue, setConfirmValue] = useState("");
   const [expanded, setExpanded] = useState(false);
   const deleteAccount = useDeleteAccount();
+  const t = useTranslations("profile.deleteAccount");
 
-  const confirmText = `delete ${username}`;
+  const confirmText = t("phrase", { username });
   const isConfirmed = confirmValue === confirmText;
 
   return (
@@ -262,7 +311,7 @@ function DeleteAccountCard({ username }: { username: string }) {
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-destructive" />
           <h2 className="text-sm font-semibold text-destructive">
-            Delete account
+            {t("title")}
           </h2>
         </div>
       </div>
@@ -270,32 +319,27 @@ function DeleteAccountCard({ username }: { username: string }) {
       <div className="px-6 py-5">
         {!expanded ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Once you delete your account, all of your data — applications,
-              steps, reports, and profile — will be permanently removed. This
-              action cannot be undone.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("intro")}</p>
             <Button
               variant="destructive"
               size="sm"
               className="shrink-0"
               onClick={() => setExpanded(true)}
             >
-              Delete your account
+              {t("open")}
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
               <p className="text-sm font-medium text-destructive">
-                This will permanently delete your account and all associated
-                data.
+                {t("warning")}
               </p>
               <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                <li>- All your job applications and their steps</li>
-                <li>- Your biweekly reports</li>
-                <li>- Your profile information and preferences</li>
-                <li>- Companies you created (if not used by others)</li>
+                <li>{t("itemApplications")}</li>
+                <li>{t("itemReports")}</li>
+                <li>{t("itemProfile")}</li>
+                <li>{t("itemCompanies")}</li>
               </ul>
             </div>
 
@@ -304,11 +348,14 @@ function DeleteAccountCard({ username }: { username: string }) {
                 htmlFor="delete-confirm"
                 className="text-sm text-muted-foreground"
               >
-                To confirm, type{" "}
-                <span className="font-semibold text-foreground">
-                  {confirmText}
-                </span>{" "}
-                below:
+                {t.rich("confirmLabel", {
+                  phrase: confirmText,
+                  b: (chunks) => (
+                    <span className="font-semibold text-foreground">
+                      {chunks}
+                    </span>
+                  ),
+                })}
               </label>
               <Input
                 id="delete-confirm"
@@ -329,7 +376,7 @@ function DeleteAccountCard({ username }: { username: string }) {
                   setConfirmValue("");
                 }}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 variant="destructive"
@@ -337,9 +384,7 @@ function DeleteAccountCard({ username }: { username: string }) {
                 disabled={!isConfirmed || deleteAccount.isPending}
                 onClick={() => deleteAccount.mutate()}
               >
-                {deleteAccount.isPending
-                  ? "Deleting..."
-                  : "I understand, delete my account"}
+                {deleteAccount.isPending ? t("deleting") : t("confirm")}
               </Button>
             </div>
           </div>
@@ -358,64 +403,38 @@ interface BadgeDef {
   color: string;
 }
 
-function computeBadges(stats?: {
-  total_applications: number;
-  success_rate: number;
-  offers: number;
-  denials: number;
-}): BadgeDef[] {
-  const t = stats?.total_applications ?? 0;
-  const o = stats?.offers ?? 0;
-  const sr = stats?.success_rate ?? 0;
+// Volume badges ramp along the identity blue as the count grows; the two
+// outcome badges take the chart scale's green and amber.
+const BADGE_LOOK: Record<
+  ProfileBadgeId,
+  { icon: React.ElementType; color: string }
+> = {
+  first_app: {
+    icon: Star,
+    color: "color-mix(in oklab, var(--chart-1) 45%, var(--chart-5))",
+  },
+  ten_apps: {
+    icon: Flame,
+    color: "color-mix(in oklab, var(--chart-1) 65%, var(--chart-5))",
+  },
+  fifty_apps: {
+    icon: Target,
+    color: "color-mix(in oklab, var(--chart-1) 85%, var(--chart-5))",
+  },
+  hundred_apps: { icon: Award, color: "var(--chart-1)" },
+  first_offer: { icon: Trophy, color: "var(--chart-2)" },
+  high_rate: { icon: Zap, color: "var(--chart-3)" },
+};
 
-  return [
-    {
-      id: "first_app",
-      label: "First Step",
-      description: "Created your first application",
-      icon: Star,
-      earned: t >= 1,
-      color: "hsl(38 92% 50%)",
-    },
-    {
-      id: "ten_apps",
-      label: "Getting Serious",
-      description: "10 applications submitted",
-      icon: Flame,
-      earned: t >= 10,
-      color: "hsl(15 80% 55%)",
-    },
-    {
-      id: "fifty_apps",
-      label: "Persistence",
-      description: "50 applications submitted",
-      icon: Target,
-      earned: t >= 50,
-      color: "hsl(262 60% 55%)",
-    },
-    {
-      id: "hundred_apps",
-      label: "Centurion",
-      description: "100 applications submitted",
-      icon: Award,
-      earned: t >= 100,
-      color: "hsl(220 90% 50%)",
-    },
-    {
-      id: "first_offer",
-      label: "First Offer",
-      description: "Received your first offer",
-      icon: Trophy,
-      earned: o >= 1,
-      color: "hsl(142 71% 45%)",
-    },
-    {
-      id: "high_rate",
-      label: "Sharpshooter",
-      description: "Achieved 20%+ success rate",
-      icon: Zap,
-      earned: sr >= 20 && t >= 5,
-      color: "hsl(48 96% 53%)",
-    },
-  ];
+function computeBadges(
+  stats: ProfileBadgeStats | undefined,
+  tr: ReturnType<typeof useTranslations<"profile">>,
+): BadgeDef[] {
+  return profileBadgeStates(stats).map(({ id, earned }) => ({
+    id,
+    label: tr(`badge.${id}`),
+    description: tr(`badgeDescription.${id}`),
+    ...BADGE_LOOK[id],
+    earned,
+  }));
 }

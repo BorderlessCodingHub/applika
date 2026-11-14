@@ -1,61 +1,80 @@
 "use client";
 
-import { useAuth } from "@/contexts/auth-context";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { SignInLink } from "@/components/auth-buttons";
-import { ApplikaIcon } from "@/components/app-logo";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
+import { SignInScreen } from "@/components/auth/sign-in-screen";
+import { APP_CONFIG } from "@/config";
+import { useAuth } from "@/contexts/auth-context";
+import { consumeReturnTo } from "@/lib/return-to";
+import { services } from "@/services/services";
+import type { User } from "@/services/types/users";
+
+/**
+ * Where a signed-in visit to `/login` goes: a new account answers the
+ * one-time `/welcome` choice first (the return-to path waits for it);
+ * otherwise the stored return-to path, else the dashboard.
+ */
+export function signedInLandingFor(
+  user: Pick<User, "github_restore"> | null,
+): string {
+  if (user?.github_restore?.prompt) return "/welcome";
+  return consumeReturnTo() ?? "/dashboard";
+}
+
+/**
+ * `/login` (ADR-0026): one "Continue with Borderless" button per width.
+ * The browser
+ * leaves for `GET /auth/borderless/login`, Borderless's own sign-in page,
+ * and the API's callback brings it back here: signed in (the cookies are
+ * set, this page moves on) or with `?error=<code>` (`&cli=1` when the
+ * attempt came from `applika login`). No password, code or token is ever
+ * handled here.
+ */
 export function LoginPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const errorCode = searchParams.get("error");
+  const cli = searchParams.get("cli") === "1";
+  const [pending, setPending] = useState(false);
+  // The landing consumes the return-to path: navigate once.
+  const redirected = useRef(false);
+
+  // Back from Borderless can restore this page from the bfcache with the
+  // button still pending: start idle again.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setPending(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
+  // A refused CLI sign-in stays on screen even with a browser session: the
+  // words are about the terminal.
+  const redirects = !cli && !isLoading && isAuthenticated;
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, router]);
+    if (!redirects || redirected.current) return;
+    redirected.current = true;
+    router.replace(signedInLandingFor(user));
+  }, [redirects, router, user]);
 
-  if (!isLoading && isAuthenticated) {
+  if (redirects) {
     return null;
   }
 
   return (
-    <div className="noise-overlay relative flex min-h-screen items-center justify-center bg-background p-4">
-      {/* Background decoration */}
-      <div className="gradient-mesh absolute inset-0" />
-      <div className="dot-grid absolute inset-0 opacity-30" />
-
-      <div className="absolute right-4 top-4 z-10">
-        <ThemeToggle />
-      </div>
-
-      <div className="relative w-full max-w-sm animate-fade-in-up">
-        <div className="shadow-elevated rounded-2xl border border-border/60 bg-card p-10 text-center">
-          <div className="mb-8">
-            <h1 className="flex items-center justify-center font-display text-2xl font-bold tracking-tight-display text-foreground">
-              <ApplikaIcon className="h-10 w-10" />
-              pplika.dev
-            </h1>
-
-            <p className="mt-2 text-sm text-muted-foreground">
-              Track your job applications effortlessly
-            </p>
-          </div>
-          <Button
-            asChild
-            size="lg"
-            className="glow-primary h-12 w-full gap-2.5 font-display text-base font-semibold"
-          >
-            <SignInLink>Login with GitHub</SignInLink>
-          </Button>
-          <p className="mt-5 text-[11px] text-muted-foreground/70">
-            Secure authentication via GitHub OAuth
-          </p>
-        </div>
-      </div>
-    </div>
+    <SignInScreen
+      onSignIn={() => {
+        setPending(true);
+        window.location.assign(services.auth.borderlessLoginUrl());
+      }}
+      pending={pending}
+      errorCode={errorCode}
+      cli={cli}
+      createAccountHref={APP_CONFIG.borderless.signUpUrl}
+    />
   );
 }

@@ -1,0 +1,96 @@
+"use client";
+
+import type { ReactNode, Ref } from "react";
+import Link from "next/link";
+import { Menu } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { AppLogo } from "@/components/app-logo";
+import { LanguageToggle } from "@/components/language-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { AgendaDropdown } from "@/components/layout/agenda-dropdown";
+import { UserMenu } from "@/components/layout/user-menu";
+import { Button } from "@/components/ui/button";
+import type { User } from "@/services/types/users";
+import { cn } from "@/lib/utils";
+
+interface HeaderProps {
+  user: User | null;
+  onLogout: () => void;
+  onFeedback: () => void;
+  /** Opens the mobile navigation sheet. Rendered below md only. */
+  onOpenMobileNav: () => void;
+  /**
+   * Ref to the menu trigger. The shell needs it to hand focus back when the
+   * navigation sheet closes — see `onCloseAutoFocus` in `app-shell.tsx`.
+   */
+  mobileNavTriggerRef?: Ref<HTMLButtonElement>;
+  /** Cycle selector slot. Inline on md+, wraps to its own row below md. */
+  leading?: ReactNode;
+  /** Page-level actions, right aligned. */
+  actions?: ReactNode;
+  className?: string;
+}
+
+export function Header({
+  user,
+  onLogout,
+  onFeedback,
+  onOpenMobileNav,
+  mobileNavTriggerRef,
+  leading,
+  actions,
+  className,
+}: HeaderProps) {
+  const t = useTranslations("header");
+  return (
+    <header
+      className={cn(
+        "sticky top-0 z-30 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/80 px-4 py-2.5 backdrop-blur-xl md:h-[var(--app-header-height)] md:flex-nowrap md:px-6 md:py-0",
+        className,
+      )}
+    >
+      <Button
+        ref={mobileNavTriggerRef}
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={t("openNavigation")}
+        onClick={onOpenMobileNav}
+        className="md:hidden"
+      >
+        <Menu className="size-5" />
+      </Button>
+
+      {/* The rail and the sheet both make this lockup a link; below `md` this
+          is the only place it appears, so it links too. */}
+      <Link
+        href="/dashboard"
+        aria-label={t("home")}
+        className="rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 md:hidden"
+      >
+        <AppLogo mode="compact" />
+      </Link>
+
+      {leading ? (
+        <div className="order-last flex min-w-0 basis-full items-center md:order-none md:w-64 md:basis-auto">
+          {leading}
+        </div>
+      ) : null}
+
+      <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+        {actions}
+        <AgendaDropdown />
+        <ThemeToggle />
+        <LanguageToggle variant="default" />
+        <div className="md:hidden">
+          <UserMenu
+            user={user}
+            onLogout={onLogout}
+            onFeedback={onFeedback}
+            variant="avatar"
+          />
+        </div>
+      </div>
+    </header>
+  );
+}

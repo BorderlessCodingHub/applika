@@ -11,7 +11,11 @@ description: >
 # applika-cli Usage Guide
 
 `applika-cli` is a terminal tool for tracking job applications on Applika.dev.
-It uses GitHub OAuth for login and stores a session cookie locally.
+It signs in with Borderless (on Borderless's own sign-in page), gets a session of its own (a device in the web
+profile's Devices tab) and stores it locally, sent as `Authorization: Bearer`.
+
+Sections 1–12 work for every user. The CV commands are a beta feature and live
+in their own part at the end, **Beta features** (B1, B2).
 
 ## 1. Pre-flight: Verify authentication first
 
@@ -29,28 +33,47 @@ If `whoami` prints an auth error, run login before proceeding:
 applika login
 ```
 
-`applika login` opens the user's browser to GitHub OAuth. The CLI listens on a
-local loopback port for the OAuth callback — the user just clicks "Authorize"
-in the browser and the session is saved automatically.
+`applika login` opens the user's browser to Borderless's own sign-in page,
+which asks for the sign-in even when the browser is already signed in there.
+The sign-in is protected by PKCE and comes back to a local loopback callback —
+the user just signs in on Borderless and the session is saved automatically. It prints
+`Logged in as <username> on <device_name>`.
 
-**Important:** this is a browser-based flow. Claude cannot automate it. Tell
-the user to complete the browser step and confirm when done, then re-run
-`applika whoami` to verify the session is active.
+- `applika login --manual`: the browser cannot reach the local callback
+  (remote desktop, another machine). The CLI prints a URL; the browser shows a
+  `code#state` value with a Copy button; the user pastes it at the prompt.
+- `applika login --device`: no browser on this machine (SSH, container). The
+  CLI prints a web address and a short code (`XXXX-XXXX`); the user approves
+  it in any browser where they are signed in to Applika. The code lasts 10
+  minutes.
+- `--device-name "Work laptop"` names the device (default: the host name).
+
+**Important:** every flow needs the user in a browser. Claude cannot automate
+it. Tell the user to complete the browser step and confirm when done, then
+re-run `applika whoami` to verify the session is active.
 
 ### Login failure recovery
 
 | Symptom | Cause | Action |
 |---------|-------|--------|
-| `Auth error: no session found` | Not logged in | Run `applika login` |
-| `Login state mismatch` | Stale callback URL | Retry `applika login` |
-| `401` on exchange | Code expired in browser | Retry `applika login` |
-| Browser doesn't open | Headless environment | Copy the printed URL manually |
+| ``Please run `applika login` first.`` | Not logged in | Run `applika login` |
+| ``Please run `applika login` again.`` | Session ended (logged out, revoked in Devices, expired) | Run `applika login` |
+| `Login state mismatch` | Stale callback or pasted value | Retry `applika login` |
+| `Invalid or expired code` on the token exchange | Code used or older than 60 s | Retry `applika login` |
+| Browser doesn't open | Headless environment | Click the "Click here to sign in" link (outside a terminal the full URL is printed instead), or use `applika login --device` |
+| `The device code expired ...` / `The sign-in was denied ...` | `--device` code not approved in time, or denied | Run `applika login --device` again |
+| `Session service unavailable. Try again in 5 seconds.` | Server outage; the session is kept | Wait and re-run the command |
 
 ### Logout
 
 ```bash
 applika logout
 ```
+
+`applika logout` ends the session on the server, then clears it locally. If
+the server cannot end it (503, 429, no network) the session is kept and the
+command exits 1: re-run it later, or revoke the device in the web profile's
+Devices tab.
 
 ---
 
@@ -108,7 +131,7 @@ applika applications new \
 |------|-------------|
 | `--company TEXT` | Company name |
 | `--role TEXT` | Job title |
-| `--platform TEXT` | Platform name (e.g. `LinkedIn`, `Indeed`, `Glassdoor`) |
+| `--platform TEXT` | Platform name (e.g. `LinkedIn`, `RemoteOK`, `WeWorkRemotely`) |
 | `--mode` | `active` (you applied) · `passive` (recruiter reached out) |
 | `--date YYYY-MM-DD` | Date of application |
 
@@ -125,8 +148,8 @@ applika applications new \
 | `--expected-salary FLOAT` | Expected salary amount | Requires `--currency` + `--salary-period` |
 | `--salary-min FLOAT` | Salary range minimum | Requires `--currency` + `--salary-period` |
 | `--salary-max FLOAT` | Salary range maximum | Requires `--currency` + `--salary-period` |
-| `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` | Required when any salary field is set |
-| `--salary-period` | `hourly` · `monthly` · `annual` | Required when any salary field is set |
+| `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` · `CNY` · `SEK` · `NOK` · `DKK` · `PLN` · `SGD` · `HKD` · `NZD` · `MXN` · `ZAR` · `AED` (20 total) | Required when any salary field is set |
+| `--salary-period` | `hourly` · `monthly` · `annually` (`annual` still accepted — the 0.1.4 spelling — but prefer `annually`; the API always reports `annually` back) | Required when any salary field is set. |
 
 **Salary cross-field rule:** if any salary amount is provided (`--expected-salary`,
 `--salary-min`, or `--salary-max`), both `--currency` and `--salary-period` are
@@ -219,19 +242,32 @@ applika applications edit 1234567890123456789 --role "Staff Engineer"
 applika applications new \
   --company "Cloudflare" \
   --role "Systems Engineer" \
-  --platform "Email" \
+  --platform "LinkedIn" \
   --mode passive \
   --date 2026-05-11 \
   --observation "Recruiter cold-messaged on LinkedIn"
 ```
 
-### Add salary info after receiving an offer
+### Record an offer
+
+An offer is a timeline event or a finalize outcome, not an `applications edit` flag.
+`timeline add --type offer` closes the application unless `--keep-open` is given:
 
 ```bash
-applika applications edit 1234567890123456789 \
-  --expected-salary 180000 \
-  --currency USD \
-  --salary-period annual
+# Add it to the timeline without closing the application
+applika applications timeline add 1234567890123456789 \
+  --type offer --date 2026-06-18 \
+  --salary 180000 --currency USD --period annually --keep-open
+
+# Add it to the timeline and close the application with it
+applika applications timeline add 1234567890123456789 \
+  --type offer --date 2026-06-18 \
+  --salary 180000 --currency USD --period annually
+
+# Or close the application with the offer as the outcome
+applika applications finalize 1234567890123456789 \
+  --outcome offer --salary 180000 --currency USD --period annually \
+  --date 2026-06-18
 ```
 
 ---
@@ -255,10 +291,138 @@ applika whoami
 
 ---
 
-## 8. Application Steps and Finalization
+## 8. Application Timeline (use this, not "Application Steps")
 
-Application steps are timeline entries inside one application. Finalization is
-separate and irreversible.
+An application's timeline is its list of events: interviews (typed), an
+offer, or a denial. Finalizing (closing) an application is now
+**reversible** with `applications reopen` — it is no longer permanent.
+
+```bash
+# List events
+applika applications timeline list <application-id>
+applika applications timeline list <application-id> --output-format json
+
+# Add an interview (defaults --interview-type to "unknown" if omitted)
+applika applications timeline add <application-id> \
+  --type interview --interview-type technical --date 2026-06-05 \
+  --start-time 14:00 --end-time 15:00 --timezone America/Sao_Paulo
+
+# Add an offer and close the application (salary triad is required together, period is monthly or annually only)
+applika applications timeline add <application-id> \
+  --type offer --date 2026-06-10 \
+  --salary 180000 --currency USD --period annually
+
+# Add a denial with a reason and close the application (defaults --reason to "unknown" if omitted)
+applika applications timeline add <application-id> \
+  --type denied --date 2026-06-11 --reason skills_mismatch
+
+# Add an offer or a denial and keep the application open
+applika applications timeline add <application-id> \
+  --type denied --date 2026-06-11 --keep-open
+
+# Edit an event (PUT replaces the whole event; unspecified flags keep current values)
+applika applications timeline edit <application-id> <event-id> --observation "Updated"
+
+# Change a denied event's reason without touching anything else
+applika applications timeline edit <application-id> <event-id> --reason ghosted
+
+# Delete an event
+applika applications timeline delete <application-id> <event-id>
+```
+
+An `offer` or `denied` event added without `--keep-open` closes the
+application (it prints `Added event and closed application: ... status=closed
+... outcome=<offer|denied>`); its date cannot be later than today (the server
+refuses it and nothing changes). `--keep-open` is ignored with
+`--type interview`.
+
+Event types: `interview`, `offer`, `denied`. `note` and `feedback` are not
+event types: `--type note` and `--type feedback` are usage errors (exit 2),
+and the ones recorded before read as `interview` with interview type
+`unknown`. Put free-form notes in `--observation` on any event.
+Interview types: `unknown` (default), `initial_screening`, `technical`,
+`cultural`, `hiring_manager`, `take_home`, `final`. An application can have
+at most one `initial_screening` interview (409 on a second one).
+Denied reasons: `unknown` (default), `not_good_enough`, `skills_mismatch`,
+`assessment_failed`, `too_many_candidates`, `position_filled`,
+`role_closed`, `ghosted`, `salary_mismatch`, `other` (shown as Unknown, Not
+good enough, Skills mismatch, Assessment failed, Too many candidates,
+Position filled, Role closed, Ghosted, Salary mismatch, Other in
+`timeline list`/`add`/`edit` output).
+
+`--interview-type` is only valid with `--type interview`.
+`--start-time`/`--end-time`/`--timezone` are only valid with `--type
+interview` (refused for every other type, `add` and `edit` alike; the API
+returns 422 for the same reason if the check is ever bypassed).
+`--salary`/`--currency`/`--period` are only valid with `--type offer`, and
+then all three are required together; `--period` is `monthly` or `annually`
+only (an hourly offer is refused).
+`--reason` is only valid with `--type denied`; defaults to `unknown` if
+omitted on a denied event.
+
+`edit` fetches the current event and overlays the flags given: changing
+`--type` away from `offer` drops the salary fields, away from `interview`
+drops the interview type, away from `denied` drops the reason; changing to
+`interview` without `--interview-type` defaults to `unknown`; changing to
+`offer` requires the salary triad unless the event already had one;
+`--reason` is valid when `--type denied` is given, or when `--type` is
+omitted and the event is already `denied` — an edit that does not pass
+`--reason` preserves the event's current reason. The resulting type — the
+`--type` given, else the event's current type — governs `--start-time`/
+`--end-time`/`--timezone` too: changing away from `interview` never
+re-sends a stored schedule (the PUT is a full replace, so it goes out
+null), even if the event being edited still has one.
+
+If an application is closed, a write to its timeline is refused (409) with
+a hint to run `applika applications reopen <application-id>`.
+
+## 9. Finalizing (closing) an application
+
+```bash
+# Plain close, no outcome (idempotent - safe to run more than once)
+applika applications finalize <application-id>
+
+# Close with an offer
+applika applications finalize <application-id> \
+  --outcome offer --salary 180000 --currency USD --period annually \
+  --date 2026-06-18 --observation "Signed"
+
+# Close with a denial
+applika applications finalize <application-id> \
+  --outcome denied --date 2026-06-18 --observation "Not a fit"
+
+# Close with a denial and a specific reason (defaults to "unknown" if omitted)
+applika applications finalize <application-id> \
+  --outcome denied --reason position_filled
+
+# Reopen a closed application (idempotent) so its timeline is editable again
+applika applications reopen <application-id>
+```
+
+Rules:
+- No flags at all: idempotent bodyless close, no outcome recorded.
+- `--outcome offer|denied` closes with a timeline event of that outcome.
+  `--date` and `--observation` are only valid together with `--outcome`.
+- `--salary`/`--currency`/`--period` are only valid with `--outcome offer`,
+  and then all three are required; `--period` is `monthly` or `annually`
+  only.
+- `--reason` is only valid with `--outcome denied`; refused with
+  `--outcome offer`, with no `--outcome` at all, or with the deprecated
+  `--step` body. Same ten values as `timeline add|edit --reason`; defaults
+  to `unknown` if omitted.
+- `--step`, `--feedback` and `--salary-offer` are the **deprecated** 0.1.4
+  body — still work exactly as before, but print as deprecated in
+  `--help`. They cannot be combined with `--outcome`/`--salary`/
+  `--currency`/`--period`/`--reason`.
+- A 409 on an already-closed application suggests
+  `applika applications reopen <application-id>`.
+
+## 10. Application Steps and legacy finalize flags (deprecated)
+
+**Deprecated — prefer `applications timeline` (section 8) and
+`applications finalize --outcome` (section 9).** Kept only so installed
+CLIs and existing scripts keep working; every command below still works
+exactly as in 0.1.4.
 
 Important distinction:
 - Normal steps are used while the application is active.
@@ -342,13 +506,13 @@ The positional form still works: `applika applications steps delete <application
 ```bash
 applika applications finalize <application-id> \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Assessment failed" \
   --date 2026-05-18 \
   --observation "Closed after take-home"
 
 applika applications finalize <application-id> \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Not good enough" \
   --date 2026-05-18 \
   --output-format json
 
@@ -364,8 +528,13 @@ Rules:
 - `--step` must be a strict final step definition.
 - `--feedback` must be a feedback definition.
 - `--salary-offer` is optional and useful for accepted/offer outcomes.
-- Once finalized, the application and its steps are no longer editable.
+- Once finalized, the application and its steps are no longer editable —
+  unless reopened with `applika applications reopen <application-id>`
+  (section 9), after which it is editable again.
 - `--output-format` supports `table` (default summary output) and `json`.
+- Deprecated (section 9's `--outcome` replaces it): `--step`, `--feedback`
+  and `--salary-offer` cannot be combined with `--outcome`, `--salary`,
+  `--currency` or `--period`.
 
 ### Common step/finalize workflows
 
@@ -399,7 +568,7 @@ Finalize as rejected:
 ```bash
 applika applications finalize 1234567890123456789 \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Not good enough" \
   --date 2026-05-18
 ```
 
@@ -412,3 +581,208 @@ applika applications finalize 1234567890123456789 \
   --date 2026-05-18 \
   --salary-offer 180000
 ```
+
+---
+
+## 11. `--file` and the job description on applications — since 1.0.0
+
+`applications new` and `applications edit` accept the whole payload as a
+file instead of the named options. The named options still work exactly as
+before; the two inputs are mutually exclusive.
+
+```bash
+# Create from a file (API field names)
+applika applications new --file application.json
+cat application.yaml | applika applications new --file -
+
+# Edit from a file — only the keys present are updated
+applika applications edit <application-id> --file patch.yaml
+
+# The job description (plain text or Markdown)
+applika applications new --file application.json --job-description "We need…"
+applika applications new --file application.json --job-description-file jd.md
+applika applications edit <application-id> --job-description-file jd.md
+applika applications edit <application-id> --job-description ""   # clears it
+```
+
+```json
+{
+  "company": "Acme",
+  "role": "Backend Engineer",
+  "mode": "active",
+  "platform_id": "10",
+  "application_date": "2026-09-23",
+  "link_to_job": "https://jobs.example/acme",
+  "country": "Portugal",
+  "job_description": "We need a backend engineer…"
+}
+```
+
+`company` may be a company id, a company name (resolved the same way
+`--company` resolves it) or an object `{"name": …, "url": …}`.
+`job_description` is also accepted as a key in `--file`; the option wins
+when both are given. On `edit`, the key is never sent unless you asked for
+it, so the stored text is left alone.
+
+---
+
+## 12. Exit codes
+
+- **0** — success.
+- **1** — the API refused the request; the API's `detail` is printed.
+- **2** — a usage or file-validation error; nothing was sent.
+
+---
+
+# Beta features
+
+The commands below are behind the **CV builder** beta (`cvs`) on Applika.dev.
+Only users on its beta list (and admins) can use them; everyone else gets the
+same answer as an unknown route:
+
+```
+Not Found
+```
+
+with exit code **1**. That is not a bug or a bad id: the account is not in
+the beta. Tell the user so, and do not retry or work around it.
+
+- They are hidden from `applika --help` and `applika applications --help`,
+  but still installed: `applika cvs --help` and
+  `applika applications cv --help` list every command as usual.
+- Only reach for them when the user asks for master CVs or an application's
+  CV copy. Applications, the timeline and finalizing (sections 2–11) never
+  need them.
+- Losing the beta deletes nothing: the CVs come back when access does.
+
+## B1. Master CVs (`applika cvs`) — beta, since 1.0.0
+
+Up to **3** master CVs per user. A fourth is refused with a 409.
+
+```bash
+# List them (table by default)
+applika cvs list
+applika cvs list --output json          # or yaml
+applika cvs list --output md            # a Markdown table: id, name, headline, updated
+
+# Show one
+applika cvs get <cv-id>                 # human summary
+applika cvs get <cv-id> --output json   # or yaml — a document --file accepts
+applika cvs get <cv-id> --output md     # the CV as the server renders it
+
+# Create one from a file (JSON or YAML)
+applika cvs create --file cv.yaml
+applika cvs create --file cv.json --name "Backend CV"
+cat cv.json | applika cvs create --file -    # - reads JSON or YAML from stdin
+
+# Edit — partial: a section in the file replaces that section,
+# an absent key is left unchanged
+applika cvs edit <cv-id> --file headline-only.yaml
+applika cvs edit <cv-id> --name "Renamed"
+
+# Delete (--yes skips the confirmation)
+applika cvs delete <cv-id> --yes
+
+# Download as PDF or Markdown
+applika cvs download <cv-id> --type pdf
+applika cvs download <cv-id> --type md --dir ./out --filename backend-cv
+applika cvs download <cv-id> --type pdf --force    # overwrite an existing file
+```
+
+### `--file` rules (all CV commands, B1 and B2)
+
+- Format is picked by the extension: `.json`, `.yaml`, `.yml`. `-` reads
+  stdin and sniffs JSON then YAML.
+- Keys are the **API field names**: `name`, `full_name`, `headline`,
+  `location`, `email`, `phone`, `summary`, `links`, `skills`, `experience`,
+  `projects`, `education`, `certifications`, `languages`.
+- Create requires `name`, `full_name`, `headline`, `location`, `email`
+  (`--name` can supply `name`).
+- Dates are `YYYY-MM`. `start` is required on `experience` and `education`;
+  `end` absent or `null` means "present". An `end` earlier than its `start`
+  is refused.
+- Section items may carry a client `id`; missing ids are generated, given
+  ids are kept.
+- Unknown keys are an error. The server-only keys (`id`, `created_at`,
+  `updated_at`, and a copy's `application_id`, `base_cv_id`,
+  `was_ai_generated`, `adjustments`, `base_snapshot`) are accepted and
+  ignored, so `get --output json` → edit → `edit --file` round-trips.
+- `--file` never reads Markdown. `md` is output only.
+
+### Example CV file (YAML)
+
+```yaml
+name: Backend CV
+full_name: Ada Lovelace
+headline: Backend Engineer
+location: Lisbon, Portugal
+email: ada@example.com
+phone: "+351 900 000 000"
+summary: Builds APIs that stay up.
+links:
+  - label: GitHub
+    url: https://github.com/ada
+skills:
+  - category: Python
+    keywords: [FastAPI, asyncio, SQLAlchemy]
+experience:
+  - company: Acme
+    role: Senior Engineer
+    location: Remote
+    start: "2021-03"
+    end: null
+    bullets:
+      - Cut p95 latency by 40%.
+education:
+  - institution: University of Lisbon
+    degree: BSc
+    area: Computer Science
+    start: "2016-09"
+    end: "2020-07"
+languages:
+  - name: English
+    level: C2
+```
+
+### Downloads
+
+`--type pdf|md` is **required**. `--dir` defaults to the current directory
+and is created when missing. `--filename` defaults to the server's own file
+name, and the extension matching `--type` is appended when missing. An
+existing file is never overwritten unless `--force`.
+
+---
+
+## B2. An application's CV copy (`applika applications cv`) — beta, since 1.0.0
+
+One copy per application, made from a master CV (B1) and then tailored. A closed
+or archived application refuses writes (the API's message is printed); reads
+and downloads keep working.
+
+```bash
+# Copy a master CV into an application and apply the edits in ONE command
+applika applications cv create <application-id> --from <cv-id> --file tailoring.yaml
+applika applications cv create <application-id> --from <cv-id> --name "Acme — Backend"
+
+# Show it
+applika applications cv get <application-id>
+applika applications cv get <application-id> --output md     # server-rendered Markdown
+
+# Edit it (partial, same semantics as the master CV)
+applika applications cv edit <application-id> --file more-edits.json
+applika applications cv edit <application-id> --name "Acme — Staff"
+
+# Download it
+applika applications cv download <application-id> --type pdf --dir ./out
+applika applications cv download <application-id> --type md
+
+# Download the diff against the master CV it came from
+applika applications cv diff <application-id> --type md --print   # straight to stdout
+applika applications cv diff <application-id> --type pdf --dir ./out
+
+# Remove the copy
+applika applications cv delete <application-id> --yes
+```
+
+A copy with no baseline to compare against answers 409, printed as
+"nothing to compare against". `--print` is only valid with `--type md`.

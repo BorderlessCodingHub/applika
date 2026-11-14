@@ -47,7 +47,7 @@ const jsonLd = {
       name: APP_CONFIG.name,
       url: APP_CONFIG.envs.siteUrl,
       logo: `${APP_CONFIG.envs.siteUrl}/logo.webp`,
-      sameAs: ["https://github.com/applikadev"],
+      sameAs: ["https://github.com/BorderlessCodingHub/applika"],
     },
     {
       "@type": "WebSite",
@@ -79,7 +79,6 @@ export default function Page() {
     <>
       <script
         type="application/ld+json"
-         
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <HomePage />

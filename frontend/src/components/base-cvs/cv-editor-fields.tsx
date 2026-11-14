@@ -1,0 +1,270 @@
+"use client";
+
+import { useId, type ReactNode } from "react";
+import { Plus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+/** Room the absolutely positioned diff marker takes at the end of a label row. */
+export const CV_FIELD_MARKER_GUTTER = "pe-22";
+
+/** Wrapper of a marked field: positions the marker and puts an inset accent on the control it marks. */
+export const CV_FIELD_MARKED_CLASS = cn(
+  "relative",
+  "[&_[data-slot=input]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  "[&_[data-slot=textarea]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  "[&_[data-slot=select-trigger]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  "[&_[data-slot=cv-keywords-input]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+);
+
+export function hasMarker(marker: ReactNode): boolean {
+  return marker !== undefined && marker !== null && marker !== false;
+}
+
+export interface CvFieldProps {
+  /** Visible label. It is also the control's accessible name (implicit label). */
+  label: string;
+  /** Adds a decorative required marker. It is CSS content, so it never lands in the name. */
+  required?: boolean;
+  /** Validation message; replaces the hint. */
+  error?: string;
+  /** DOM id for the error line, so the control can point at it with `aria-describedby`. */
+  errorId?: string;
+  /** Helper copy under the control. */
+  hint?: ReactNode;
+  /** Diff marker, rendered after the `<label>` so it never joins the control's name. */
+  marker?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * A labelled control for the CV editor. The `<label>` WRAPS the control, so the
+ * accessible name is exactly `label` with no `htmlFor`/`id` bookkeeping —
+ * `getByLabelText("Full name")` finds it. The required marker and the
+ * error/hint line sit outside the label text on purpose, so neither leaks into
+ * the name. Only for labelable controls; use `CvSelectField` for a Radix Select.
+ */
+export function CvField({
+  label,
+  required,
+  error,
+  errorId,
+  hint,
+  marker,
+  children,
+  className,
+}: CvFieldProps) {
+  const marked = hasMarker(marker);
+
+  return (
+    <div
+      className={cn("space-y-1.5", marked && CV_FIELD_MARKED_CLASS, className)}
+    >
+      <label className="block space-y-1.5">
+        <span
+          className={cn(
+            "flex items-center gap-0.5 text-sm leading-none font-medium",
+            marked && CV_FIELD_MARKER_GUTTER,
+          )}
+        >
+          {label}
+          {required ? (
+            <span
+              aria-hidden
+              className="text-destructive after:content-['*']"
+            />
+          ) : null}
+        </span>
+        {children}
+      </label>
+      {marker}
+      {error ? (
+        <p id={errorId} className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export interface CvSelectFieldProps<T extends string> {
+  label: string;
+  value: T;
+  onValueChange: (value: T) => void;
+  options: readonly T[];
+  placeholder?: string;
+  /**
+   * The words shown for an option. The stored value stays as it is (e.g. a
+   * language level the English PDF prints); only the menu translates.
+   */
+  optionLabel?: (option: T) => string;
+  disabled?: boolean;
+  /** Diff marker; see `CvField`. */
+  marker?: ReactNode;
+  className?: string;
+}
+
+/**
+ * A labelled Radix Select. A `<label for>` cannot name a button, so the visible
+ * label is wired with `aria-labelledby` — the accessible name is exactly `label`.
+ */
+export function CvSelectField<T extends string>({
+  label,
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  optionLabel,
+  disabled,
+  marker,
+  className,
+}: CvSelectFieldProps<T>) {
+  const labelId = useId();
+
+  return (
+    // `relative` is load-bearing: Radix Select renders a visually hidden native
+    // `<select>` with `position: absolute`. Without a positioned ancestor its
+    // containing block is the viewport, so it escapes the shell's clip and
+    // stretches the DOCUMENT to its own offset — a second scrollbar.
+    <div
+      className={cn(
+        "relative space-y-1.5",
+        hasMarker(marker) && CV_FIELD_MARKED_CLASS,
+        className,
+      )}
+    >
+      <span
+        id={labelId}
+        className={cn(
+          "block text-sm leading-none font-medium",
+          hasMarker(marker) && CV_FIELD_MARKER_GUTTER,
+        )}
+      >
+        {label}
+      </span>
+      {marker}
+      <Select
+        value={value}
+        disabled={disabled}
+        onValueChange={(next) => onValueChange(next as T)}
+      >
+        <SelectTrigger aria-labelledby={labelId} className="w-full">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {optionLabel ? optionLabel(option) : option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+export interface CvStringListFieldProps {
+  /** Visible group label (e.g. "Highlights"). */
+  label: string;
+  value: string[];
+  onChange: (next: string[]) => void;
+  /** Accessible-name stem for each row, e.g. `highlight` -> "Highlight 1". */
+  noun: string;
+  addLabel: string;
+  placeholder?: string;
+  disabled?: boolean;
+  /** Diff marker; see `CvField`. */
+  marker?: ReactNode;
+  className?: string;
+}
+
+/**
+ * Editable list of free-text lines (experience highlights). One input per line
+ * with a remove control, plus one add control. Separate from `CvSkillsInput`
+ * because a highlight is a sentence that may contain commas.
+ */
+export function CvStringListField({
+  label,
+  value,
+  onChange,
+  noun,
+  addLabel,
+  placeholder,
+  disabled,
+  marker,
+  className,
+}: CvStringListFieldProps) {
+  const t = useTranslations("cvs.fields");
+  const capitalised = noun.charAt(0).toUpperCase() + noun.slice(1);
+  const marked = hasMarker(marker);
+
+  return (
+    <div
+      className={cn("space-y-2", marked && CV_FIELD_MARKED_CLASS, className)}
+    >
+      <span
+        className={cn(
+          "block text-sm leading-none font-medium",
+          marked && CV_FIELD_MARKER_GUTTER,
+        )}
+      >
+        {label}
+      </span>
+      {marker}
+      {value.length > 0 ? (
+        <ul className="space-y-2">
+          {value.map((entry, index) => (
+            <li key={index} className="flex items-center gap-2">
+              <Input
+                value={entry}
+                disabled={disabled}
+                placeholder={placeholder}
+                aria-label={`${capitalised} ${index + 1}`}
+                onChange={(event) =>
+                  onChange(
+                    value.map((item, i) =>
+                      i === index ? event.target.value : item,
+                    ),
+                  )
+                }
+              />
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                disabled={disabled}
+                aria-label={t("removeNumbered", { noun, number: index + 1 })}
+                onClick={() => onChange(value.filter((_, i) => i !== index))}
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+              >
+                <X aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => onChange([...value, ""])}
+      >
+        <Plus aria-hidden />
+        {addLabel}
+      </Button>
+    </div>
+  );
+}

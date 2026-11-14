@@ -20,7 +20,12 @@ export function UserProfileAvatar({
   user: User;
   className?: string;
 }) {
-  const avatarUrl = `https://avatars.githubusercontent.com/u/${user.github_id}?v=4`;
+  // The GitHub avatar only for an account with a GitHub identity on record;
+  // a Borderless-only account shows its initials.
+  const avatarUrl =
+    user.github_id != null
+      ? `https://avatars.githubusercontent.com/u/${user.github_id}?v=4`
+      : undefined;
   const avatarFallback =
     user.first_name && user.last_name
       ? user.first_name[0] + user.last_name[0]
@@ -29,12 +34,12 @@ export function UserProfileAvatar({
   return (
     <Avatar
       className={cn(
-        "shadow-elevated text-3xl h-20 w-20 ring-4 ring-card",
+        "h-20 w-20 text-3xl ring-4 shadow-elevated ring-card",
         className,
       )}
     >
-      <AvatarImage src={avatarUrl} />
-      <AvatarFallback className="uppercase bg-primary font-semibold text-primary-foreground">
+      {avatarUrl ? <AvatarImage src={avatarUrl} /> : null}
+      <AvatarFallback className="bg-primary font-semibold text-primary-foreground uppercase">
         {avatarFallback}
       </AvatarFallback>
     </Avatar>
@@ -60,7 +65,7 @@ export function InfoItem({
       <div>
         <span className="text-xs text-muted-foreground">{label}</span>
         <p
-          className={`text-sm text-foreground ${tabular ? "tabular-nums" : ""} ${capitalize ? "capitalize" : ""}`}
+          className={`text-sm text-foreground ${tabular ? "font-numeric" : ""} ${capitalize ? "capitalize" : ""}`}
         >
           {value}
         </p>

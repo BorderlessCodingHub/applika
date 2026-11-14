@@ -26,6 +26,7 @@ const config = [
     files: [
       "eslint.config.mjs",
       "next.config.ts",
+      "playwright.config.ts",
       "postcss.config.js",
       "tailwind.config.ts",
       "vitest.config.ts",
@@ -53,6 +54,53 @@ const config = [
     rules: {
       "import-x/order": "error",
       "import-x/newline-after-import": "error",
+    },
+  },
+  {
+    // Words on screen come from the message files (see AGENTS.md "i18n").
+    // Only symbols, brand names and the language endonyms may be JSX text.
+    files: ["src/**/*.tsx"],
+    ignores: ["src/**/*.test.tsx", "src/test/**"],
+    rules: {
+      "react/jsx-no-literals": [
+        "error",
+        {
+          ignoreProps: true,
+          allowedStrings: [
+            "—",
+            "–",
+            "-",
+            "*",
+            "•",
+            "·",
+            ",",
+            ":",
+            "%",
+            "+",
+            "@",
+            "/",
+            "(",
+            ")",
+            "“",
+            "”",
+            "…",
+            "applika",
+            ".dev",
+            "Applika",
+            "Borderless",
+            "GitHub",
+            "LinkedIn",
+            "BASE",
+            "PSP",
+            "applika-cli",
+            "Discord",
+            "English",
+            "Português",
+            "EN",
+            "BR",
+          ],
+        },
+      ],
     },
   },
 ];

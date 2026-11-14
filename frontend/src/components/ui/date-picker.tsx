@@ -3,6 +3,8 @@
 import * as React from "react";
 import { format, parse } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { dateFnsLocale } from "@/i18n/date-locale";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -21,6 +23,12 @@ interface DatePickerInputProps {
   maxDate?: Date;
   disabled?: boolean;
   className?: string;
+  /** Trigger id; `<FormControl>` passes the one its `<FormLabel>` points at. */
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-labelledby"?: string;
+  /** Hint/error ids; `<FormControl>` passes these through. */
+  "aria-describedby"?: string;
 }
 
 /**
@@ -32,7 +40,7 @@ interface DatePickerInputProps {
  * @param value - The selected date string (yyyy-MM-dd)
  * @param pattern - Optional date pattern used in onChange (default: yyyy-MM-dd)
  * @param onChange - Callback when date changes
- * @param placeholder - Placeholder text
+ * @param placeholder - Placeholder text (default `common.pickDate`)
  * @param minDate - Optional minimum selectable date
  * @param maxDate - Optional maximum selectable date
  * @param disabled - Optional function to disable specific dates
@@ -42,13 +50,21 @@ export function DatePickerInput({
   value,
   pattern = "yyyy-MM-dd",
   onChange,
-  placeholder = "Pick a date",
+  placeholder,
   minDate,
   maxDate,
   disabled,
   className,
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-labelledby": ariaLabelledby,
+  "aria-describedby": ariaDescribedby,
 }: DatePickerInputProps) {
   const [open, setOpen] = React.useState(false);
+  const t = useTranslations("common");
+  // The trigger writes the date the way the active language does; the value
+  // handed to `onChange` keeps `pattern`, language-free.
+  const locale = dateFnsLocale(useLocale());
 
   const isDateDisabled = (date: Date) => {
     // Check min date
@@ -76,14 +92,21 @@ export function DatePickerInput({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
+          data-slot="date-picker-trigger"
+          id={id}
+          aria-invalid={ariaInvalid}
+          aria-labelledby={ariaLabelledby}
+          aria-describedby={ariaDescribedby}
           variant={disabled ? "ghost" : "outline"}
           className={cn(
-            "bg-card w-full justify-start text-left font-normal",
+            "w-full justify-start bg-card text-left font-normal",
             className,
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {value ? format(formatDate(value), pattern) : placeholder}
+          <CalendarIcon className="mr-2 size-4" />
+          {value
+            ? format(formatDate(value), pattern, { locale })
+            : (placeholder ?? t("pickDate"))}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

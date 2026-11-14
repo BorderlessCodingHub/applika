@@ -2,6 +2,7 @@
 
 import type { ReportStatus } from "@/services/types/reports";
 import { Check, Clock, X, Circle, LucideIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Badge, type BadgeVariantsType } from "../ui/badge";
 
 interface ReportStatusBadgeProps {
@@ -12,7 +13,6 @@ type StatusConfigType = Record<
   ReportStatus,
   {
     icon: LucideIcon;
-    label: string;
     variant: BadgeVariantsType;
   }
 >;
@@ -20,34 +20,31 @@ type StatusConfigType = Record<
 const statusConfig = {
   submitted: {
     icon: Check,
-    label: "Submitted",
     variant: "default",
   },
   pending: {
     icon: Clock,
-    label: "Pending",
     variant: "warning",
   },
   overdue: {
     icon: X,
-    label: "Overdue",
     variant: "destructive",
   },
   future: {
     icon: Circle,
-    label: "Future",
     variant: "secondary",
   },
 } as StatusConfigType;
 
 export function ReportStatusBadge({ status }: ReportStatusBadgeProps) {
+  const t = useTranslations("reports.status");
   const config = statusConfig[status];
   const Icon = config.icon;
 
   return (
     <Badge variant={config.variant} className="gap-1">
       <Icon size={14} />
-      {config.label}
+      {t(status)}
     </Badge>
   );
 }

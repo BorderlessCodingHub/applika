@@ -1,0 +1,88 @@
+{
+  "_comment": "Synthetic client and accounts of the fake Borderless OpenID Connect provider (fake_oidc.py), for the backend tests, the E2E stack and local runs. Not real data, not a real secret. The seedRefreshToken of the three e2e-* accounts equals app/scripts/seed_e2e.py; POST /__fake/reset re-arms them.",
+  "client": {
+    "client_id": "applika-fake-client",
+    "client_secret": "applika-fake-client-secret-not-real",
+    "redirect_uris": [
+      "http://127.0.0.1:8000/api/auth/borderless/callback",
+      "http://127.0.0.1:8100/api/auth/borderless/callback"
+    ]
+  },
+  "accounts": [
+    {
+      "sub": "e2e-borderless-user",
+      "email": "e2e-user@e2e.applika.dev",
+      "password": "e2e-user-password",
+      "name": "e2e-user",
+      "preferred_username": "e2e-user",
+      "email_verified": true,
+      "membership": "PSP",
+      "seedRefreshToken": "e2eseedtokenuser0000000000000001"
+    },
+    {
+      "sub": "e2e-borderless-admin",
+      "email": "e2e-admin@e2e.applika.dev",
+      "password": "e2e-admin-password",
+      "name": "e2e-admin",
+      "preferred_username": "e2e-admin",
+      "email_verified": true,
+      "membership": "BASE",
+      "seedRefreshToken": "e2eseedtokenadmin000000000000002"
+    },
+    {
+      "sub": "e2e-borderless-discord",
+      "email": "e2e-discord@e2e.applika.dev",
+      "password": "e2e-discord-password",
+      "name": "e2e-discord",
+      "preferred_username": "e2e-discord",
+      "email_verified": true,
+      "membership": "BASE",
+      "seedRefreshToken": "e2eseedtokendiscord0000000000003"
+    },
+    {
+      "sub": "e2e-borderless-free",
+      "email": "e2e-free@e2e.applika.dev",
+      "password": "e2e-free-password",
+      "name": "E2E Free",
+      "preferred_username": "e2e-free",
+      "email_verified": true,
+      "membership": "FREE"
+    },
+    {
+      "sub": "e2e-borderless-starter",
+      "email": "e2e-starter@e2e.applika.dev",
+      "password": "e2e-starter-password",
+      "name": "E2E Starter",
+      "preferred_username": "e2e-starter",
+      "email_verified": true,
+      "membership": "STARTER"
+    },
+    {
+      "sub": "e2e-borderless-unverified",
+      "email": "e2e-unverified@e2e.applika.dev",
+      "password": "e2e-unverified-password",
+      "name": "E2E Unverified",
+      "preferred_username": "e2e-unverified",
+      "email_verified": false,
+      "membership": "PSP"
+    },
+    {
+      "sub": "e2e-borderless-revoke",
+      "email": "e2e-revoke@e2e.applika.dev",
+      "password": "e2e-revoke-password",
+      "name": "E2E Revoke",
+      "preferred_username": "e2e-revoke",
+      "email_verified": true,
+      "membership": "PSP"
+    },
+    {
+      "sub": "e2e-borderless-logout",
+      "email": "e2e-logout@e2e.applika.dev",
+      "password": "e2e-logout-password",
+      "name": "E2E Logout",
+      "preferred_username": "e2e-logout",
+      "email_verified": true,
+      "membership": "PSP"
+    }
+  ]
+}

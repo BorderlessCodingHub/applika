@@ -1,0 +1,192 @@
+"use client";
+
+import { useId } from "react";
+import Link from "next/link";
+import {
+  BadgeAlert,
+  ChevronsUpDown,
+  LogOut,
+  MessageSquareHeart,
+  User,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  MembershipBadge,
+  membershipAccess,
+} from "@/components/badges/membership-badge";
+import { UserProfileAvatar } from "@/components/profile/sub-components";
+import { useAuth } from "@/contexts/auth-context";
+import type { User as AppUser } from "@/services/types/users";
+import { cn } from "@/lib/utils";
+
+interface UserMenuProps {
+  user: AppUser | null;
+  onLogout: () => void;
+  /** Opens the shell-owned FeedbackDialog. */
+  onFeedback: () => void;
+  /** Fired after any item is chosen (the mobile sheet closes on it). */
+  onNavigate?: () => void;
+  /**
+   * "Sign in again", offered while a recorded badge waits for a new sign-in:
+   * by default ends this session and opens `/login` (`useAuth().logout`).
+   */
+  onSignInAgain?: () => void;
+  /** "card" = sidebar footer (name + email); "avatar" = compact header trigger. */
+  variant?: "card" | "avatar";
+  className?: string;
+}
+
+export function UserMenu({
+  user,
+  onLogout,
+  onFeedback,
+  onNavigate,
+  onSignInAgain,
+  variant = "card",
+  className,
+}: UserMenuProps) {
+  const t = useTranslations("userMenu");
+  const chipId = useId();
+  const { logout } = useAuth();
+  if (!user) return null;
+
+  const card = variant === "card";
+  // The chip shows only while the badge counts; a recorded badge that does
+  // not count (Borderless refused applika's grant) offers "Sign in again".
+  const access = membershipAccess(user);
+  const heldBadges = access.state === "held" ? access.badges : [];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        // The card variant shows the username as its VISIBLE label, so the
+        // accessible name has to contain it (WCAG 2.5.3 Label in Name) or a
+        // voice-control user cannot address the control by what they see.
+        aria-label={
+          card ? t("openFor", { username: user.username }) : t("open")
+        }
+        aria-describedby={card && heldBadges.length > 0 ? chipId : undefined}
+        className={cn(
+          "flex items-center rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          card
+            ? "w-full gap-2.5 p-2 text-left transition-colors hover:bg-sidebar-accent/60"
+            : "rounded-full transition-opacity hover:opacity-80",
+          className,
+        )}
+      >
+        <UserProfileAvatar
+          user={user}
+          className={cn(
+            "shrink-0 shadow-none",
+            card
+              ? "size-7 text-[11px] ring-1 ring-sidebar-border"
+              : "size-8 text-sm ring-1 ring-border",
+          )}
+        />
+
+        {card ? (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="block truncate text-xs font-medium text-sidebar-foreground">
+                  {user.username}
+                </span>
+                {heldBadges.length > 0 ? (
+                  <span id={chipId} className="flex shrink-0 gap-1">
+                    {heldBadges.map((badge) => (
+                      <MembershipBadge key={badge} badge={badge} size="sm" />
+                    ))}
+                  </span>
+                ) : null}
+              </span>
+              <span className="block truncate text-[11px] text-muted-foreground">
+                {user.email}
+              </span>
+            </span>
+            <ChevronsUpDown
+              aria-hidden
+              className="size-3.5 shrink-0 text-muted-foreground"
+            />
+          </>
+        ) : null}
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align={card ? "start" : "end"}
+        side={card ? "top" : "bottom"}
+        sideOffset={6}
+        className="w-56"
+      >
+        <DropdownMenuLabel className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="truncate text-sm font-medium"
+              title={user.username}
+            >
+              {user.username}
+            </span>
+            {heldBadges.map((badge) => (
+              <MembershipBadge key={badge} badge={badge} />
+            ))}
+          </span>
+          <span
+            className="truncate text-xs font-normal text-muted-foreground"
+            title={user.email}
+          >
+            {user.email}
+          </span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+
+        {access.state === "needs_reconnect" ? (
+          <DropdownMenuItem
+            data-slot="sign-in-again-menu-item"
+            className="cursor-pointer items-start gap-2"
+            onSelect={() => {
+              onNavigate?.();
+              if (onSignInAgain) onSignInAgain();
+              else void logout("/login");
+            }}
+          >
+            <BadgeAlert aria-hidden className="mt-0.5 text-warning" />
+            <span className="min-w-0 text-pretty">{t("signInAgain")}</span>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem asChild onSelect={onNavigate}>
+          <Link href="/profile" className="cursor-pointer gap-2">
+            <User className="size-4" />
+            {t("profile")}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer gap-2"
+          onSelect={() => {
+            onNavigate?.();
+            onFeedback();
+          }}
+        >
+          <MessageSquareHeart className="size-4" />
+          {t("feedback")}
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          className="cursor-pointer gap-2"
+          onSelect={onLogout}
+        >
+          <LogOut className="size-4" />
+          {t("logout")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

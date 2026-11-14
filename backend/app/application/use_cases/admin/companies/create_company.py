@@ -1,3 +1,5 @@
+from pydantic import HttpUrl
+
 from app.application.dto.admin import (
     AdminCompanyCreateDTO,
     AdminCompanyRowDTO,
@@ -22,10 +24,13 @@ class CreateAdminCompanyUseCase:
     ) -> AdminCompanyRowDTO:
         dto = CompanyCreateDTO(
             name=data.name,
-            url=data.url,
+            url=HttpUrl(data.url),
             created_by=created_by,
         )
-        company = await self.company_repo.create(dto)
+        # Owner decision, 2026-09-25: the admin screens are the only place a
+        # company is created public at once (R-021/R-022); it still keeps
+        # ``created_by`` (the admin who added it).
+        company = await self.company_repo.create(dto, is_public=True)
 
         logger.info(
             f'Admin created company: {company.name}',
@@ -39,9 +44,7 @@ class CreateAdminCompanyUseCase:
             },
         )
 
-        rows, _ = await self.admin_repo.get_admin_companies(
-            search=company.name, page=1, per_page=1
-        )
-        if rows:
-            return AdminCompanyRowDTO(**rows[0])
+        row = await self.admin_repo.get_admin_company_row(company.id)
+        if row:
+            return AdminCompanyRowDTO(**row)
         return AdminCompanyRowDTO.model_validate(company)
