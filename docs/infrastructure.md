@@ -133,7 +133,7 @@ encrypted with `GITHUB_TOKEN_ENCRYPTION_KEY` (Fernet).
 | Provider / region / instance name | **to confirm with Brunno** |
 | Owning account | **Brunno** (personal). **to transfer** |
 | Access | Brunno only; the API, through `DATABASE_URL` |
-| Migrations | Manual: `alembic upgrade head` inside the API container, then restart (section 5) |
+| Migrations | Automatic: Coolify runs `alembic upgrade head` as the API's post-deployment command (section 5) |
 | Backup | **to confirm with Brunno** (provider backups: frequency, retention, how to restore). The repository has no backup routine |
 | Schema rollback | `alembic downgrade <previous_revision>` inside the container, point the stack back to the previous image tag, restart |
 
@@ -156,22 +156,28 @@ flowchart LR
 
     main --> bcd
     main --> fcd
-    bcd -- "DOCKER_HUB_USER / TOKEN" --> hub[("Docker Hub<br/>Luis's account")]
-    fcd -- "DOCKER_HUB_USER / TOKEN" --> hub
-    ccd -- "PYPI_TOKEN" --> pypi[("PyPI<br/>applika-cli")]
+    bcd -- "GITHUB_TOKEN" --> ghcr[("GHCR<br/>applika-api · applika")]
+    fcd -- "GITHUB_TOKEN" --> ghcr
+    ccd -- "Trusted Publishing (OIDC)" --> pypi[("PyPI<br/>applika-cli")]
 
-    luis["Luis"] -- "SSH" --> vps["Hostinger VPS"]
-    vps -- "docker service update<br/>(pulls the new image)" --> hub
-    luis -- "docker exec api<br/>alembic upgrade head<br/>restart api" --> vps
+    bcd -- "deploy API<br/>COOLIFY_API_TOKEN" --> coolify["Coolify"]
+    fcd -- "deploy API<br/>COOLIFY_API_TOKEN" --> coolify
+    coolify -- "pulls latest" --> ghcr
+    coolify -- "post-deployment command:<br/>alembic upgrade head" --> api["api container"]
 ```
 
-1. A merge to `main` makes GitHub Actions build the images and push them to Luis's Docker Hub
-   (tags `api-latest` for the API, `latest` for the frontend).
-2. The containers are upgraded by accessing Luis's VPS over SSH (`docker service update`).
-3. Migrations are **not** automated: `alembic upgrade head` runs by hand inside the API container,
-   then the API restarts. Between steps 2 and 3, the new code runs against the old schema; that is
-   why migrations ship expand first.
-4. The CLI is published to PyPI by `cli-cd.yaml` (`uv publish`, environment `pypi`).
+1. A merge to `main` makes GitHub Actions build the images and push them to GHCR
+   (`ghcr.io/<owner>/applika-api:latest` for the API, `ghcr.io/<owner>/applika:latest` for the
+   frontend). Only `latest` is kept: the job deletes untagged versions after each push.
+2. A deploy job per resource calls Coolify's deploy API with its UUID; Coolify pulls `latest` and
+   restarts it. The backend has three optional jobs (API, worker, scheduler), each skipped when its
+   UUID variable is unset; the frontend has one, optional the same way.
+3. Coolify runs `alembic upgrade head` in the new API container as its post-deployment command,
+   right after the rolling update. Only the API carries it: the worker and scheduler never run
+   Alembic. Between steps 2 and 3, the new code already serves against the old schema for a few
+   seconds; that is why migrations ship expand first. The command's output is only in the
+   deployment's debug log in Coolify: check it after a release that ships a migration.
+4. The CLI is published to PyPI by `cli-cd.yaml` (`uv publish`, Trusted Publishing, environment `pypi`).
 
 CI runs on every PR: `backend-ci.yaml` (ruff, pytest), `frontend-ci.yaml` (lint, unit tests, build,
 and Playwright e2e against the real stack from `docker-compose.e2e.yml`), `cli-ci.yaml`.
@@ -181,7 +187,71 @@ and Playwright e2e against the real stack from `docker-compose.e2e.yml`), `cli-c
 | Hosting | **Hostinger** VPS with Docker Swarm |
 | VPS owner | **Luis** (personal). **to transfer** |
 | Access | Luis only (Hostinger panel and SSH) |
-| Image registry | Docker Hub, Luis's personal account (secret `DOCKER_HUB_USER`). **to transfer** |
+| Image registry | GitHub Container Registry, `latest` only |
+
+### 5.1 Coolify
+
+Coolify (`https://coolify.applika.dev`, version 4.7) runs the production stack on its own server
+(`localhost` in Coolify). Everything lives in one project, **Applika**, environment `production`.
+Coolify's proxy (Traefik) routes the domains and issues the certificates.
+
+```mermaid
+flowchart LR
+    browser["Browser / CLI"] --> proxy["Coolify proxy"]
+
+    subgraph prj["Coolify project Applika · production"]
+        app["applika-app<br/>ghcr.io/…/applika:latest"]
+        api["applika-api<br/>ghcr.io/…/applika-api:latest"]
+        pg[("applika-pg<br/>postgres:18-alpine")]
+        redis[("applika-redis<br/>redis:7.2")]
+    end
+
+    proxy -- "applika.dev/api" --> api
+    proxy -- "applika.dev" --> app
+    api -- "APPLIKA_ASYNC_PG" --> pg
+    api -- "APPLIKA_REDIS<br/>ACL user applika" --> redis
+```
+
+| Resource | Kind | UUID | Configuration |
+|---|---|---|---|
+| `applika-api` | Application, Docker image `ghcr.io/borderlesscodinghub/applika-api:latest` | `xdqutixwopha4sffdeqp8rpa` | Domains `https://applika.dev/api`, `https://www.applika.dev/api`; redirect to non-www; port 8000; start command from the image (`uvicorn`); post-deployment command `alembic upgrade head`; health check off |
+| `applika-app` | Application, Docker image `ghcr.io/borderlesscodinghub/applika:latest` | `oo7rcg6j3gnjisud5it5vpem` | Domains `https://applika.dev`, `https://www.applika.dev`; redirect to non-www; port 80; no environment variables (`API_BASE_URL` is baked in at build time, section 6.1); health check off |
+| `applika-pg` | Standalone PostgreSQL, `postgres:18-alpine` | `m3zregpieutzglqxsyb59bra` | Database `applika`, user `postgres`; not public |
+| `applika-redis` | Standalone Redis, `redis:7.2` | `dkfscsf1yewx2fwr3c5lsscb` | Not public; ACL user `applika` (below) |
+
+The UUIDs are what the CD workflows deploy (`COOLIFY_API_UUID`, `COOLIFY_FRONTEND_UUID`, section
+6.1). A deploy is `POST <COOLIFY_URL>/api/v1/deploy?uuid=<uuid>&force=false` with a Coolify API token
+that has the `deploy` permission as a Bearer header.
+
+**API environment.** The API's runtime variables are the ones in section 6.2, set on `applika-api`
+in Coolify (normal and preview copies), plus `ACCOUNT_LINK_REDIRECT_URI`, `DEVICE_VERIFICATION_URI`
+and `CLI_MANUAL_REDIRECT_URI`. The two connection strings are not typed on the API: they reference
+**project shared variables**, so the database and Redis credentials live in one place:
+
+| API variable | Value | Shared variable holds |
+|---|---|---|
+| `DATABASE_URL` | `{{ project.APPLIKA_ASYNC_PG }}` | `postgresql+asyncpg://` URL to `applika-pg` over its internal hostname (the UUID), port 5432 |
+| `REDIS_URL` | `{{ project.APPLIKA_REDIS }}` | `redis://applika:…@` URL to `applika-redis` over its internal hostname (the UUID), port 6379, db 0 |
+
+**Redis ACL user.** Coolify's `REDIS_USERNAME` field only shapes the connection URL it shows; it does
+not create the user in Redis, which then refuses `applika` with `invalid username-password pair`
+(the API logs `rate_limit_unavailable` and `Session store unavailable`). The user is created by the
+resource's custom Redis configuration:
+
+```
+user applika on #<sha256 of REDIS_PASSWORD> ~* &* +@all
+```
+
+Only the SHA-256 hash of the password is stored, never the password. When the password rotates,
+update this hash, `APPLIKA_REDIS`, then restart Redis and the API. Through Coolify's API (or MCP),
+`redis_conf` must be sent base64-encoded. The `default` user stays enabled with the same password:
+Coolify sets it with `--requirepass` and its health check signs in with it. The application only
+uses `applika`.
+
+**Migrations.** `applika-api`'s post-deployment command, `alembic upgrade head`, runs inside the new
+container after the rolling update (section 5, step 3). It must stay only that command: the image
+already starts `uvicorn`, so a second one there fails on port 8000. Its output is only in the
+deployment's debug log.
 
 ## 6. Secrets and configuration
 
@@ -190,26 +260,32 @@ There is no Vault, Doppler or Vercel. Secrets live in two places.
 ```mermaid
 flowchart LR
     subgraph ghs["GitHub Secrets (main repo)"]
-        dh["DOCKER_HUB_USER<br/>DOCKER_HUB_TOKEN"]
-        py["PYPI_TOKEN"]
+        dh["COOLIFY_API_TOKEN"]
+        py["PyPI Trusted Publishing<br/>(no secret)"]
     end
     subgraph ds["Docker secrets (VPS swarm)"]
         rt["DATABASE_URL · REDIS_URL · JWT_SECRET<br/>GITHUB_* · DISCORD_FEEDBACK_WEBHOOK<br/>public URLs"]
     end
-    dh --> cd["image build (CD)"]
+    dh --> cd["deploy (CD)"]
     py --> cli["CLI publish"]
     rt --> api["api service"]
 ```
 
 ### 6.1 GitHub Secrets (Settings → Secrets and variables → Actions, main repository)
 
-Three secrets. Access: admins of `ProgramadoresSemPatria/applika`. **to transfer** with the repository.
+One secret and six variables. Images go to GHCR with the workflow's own `GITHUB_TOKEN`
+(`packages: write`), and the CLI publishes to PyPI through Trusted Publishing (OIDC), so neither
+needs a stored credential.
 
-| Name | Purpose | Used in |
-|---|---|---|
-| `DOCKER_HUB_USER` | Docker Hub user that publishes the images (Luis's personal account) | `backend-cd.yaml`, `frontend-cd.yaml` |
-| `DOCKER_HUB_TOKEN` | Docker Hub access token (Luis's personal account) | `backend-cd.yaml`, `frontend-cd.yaml` |
-| `PYPI_TOKEN` | publish `applika-cli` to PyPI (environment `pypi`) | `cli-cd.yaml` |
+| Name | Kind | Purpose | Used in |
+|---|---|---|---|
+| `COOLIFY_API_TOKEN` | secret | Coolify API token with the `deploy` permission | `backend-cd.yaml`, `frontend-cd.yaml` |
+| `COOLIFY_URL` | variable | Coolify base URL, e.g. `https://coolify.example.com` | `backend-cd.yaml`, `frontend-cd.yaml` |
+| `COOLIFY_API_UUID` | variable | UUID of the Coolify API resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_WORKER_UUID` | variable | UUID of the Coolify taskiq worker resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_SCHEDULER_UUID` | variable | UUID of the Coolify taskiq scheduler resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_FRONTEND_UUID` | variable | UUID of the Coolify resource running `applika`; its deploy job is skipped when unset | `frontend-cd.yaml` |
+| `API_BASE_URL` | variable | Baked into the frontend image at build time | `frontend-cd.yaml` |
 
 ### 6.2 Runtime environment (Docker secrets on the VPS)
 
@@ -277,7 +353,7 @@ flowchart LR
 | Item | Status |
 |---|---|
 | Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli` |
-| Publishing | `cli-cd.yaml` with `uv publish`, token `PYPI_TOKEN` in environment `pypi` |
+| Publishing | `cli-cd.yaml` with `uv publish --trusted-publishing always` in environment `pypi`: the PyPI project trusts this repository, workflow `cli-cd.yaml` and environment `pypi`; no token |
 | Authors in the package | Luis Eduardo Soares, David Alecrim (`cli/pyproject.toml`) |
 | PyPI owner | **Luis** (personal). **to transfer**: create a Borderless organisation or account on PyPI and add it as owner |
 | Compatibility | Users do not upgrade in lockstep with the API, so routes a published CLI version calls are never broken |
@@ -510,8 +586,8 @@ sequenceDiagram
 
 **Release** (plan 0020 `## Release`): the revision `f823e8c34e01` ships with its code, together with
 the Borderless sign-in of PRD 0018, in one human release from `develop` to `main`. Set the six
-variables of section 6.2 on the API service before the push; then `alembic upgrade head` in the API
-container and restart it, as for every release.
+variables of section 6.2 on the API service before the push; the deploy then runs `alembic upgrade
+head` through the API's post-deployment command, as for every release.
 
 ## 11. Accounts to transfer
 

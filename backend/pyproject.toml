@@ -4,7 +4,11 @@ version = "0.1.0"
 description = ""
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi[standard]>=0.115",
+    # Not `fastapi[standard]`: that extra only adds the `fastapi` CLI (with
+    # typer, rich, pygments and the cloud CLI's sentry-sdk), jinja2 and
+    # python-multipart. The app runs under uvicorn, never parses forms, and
+    # gets jinja2 from rendercv, so the extra was dead weight in the image.
+    "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.30",

@@ -1,0 +1,11 @@
+.venv
+**/__pycache__
+.ruff_cache
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov
+tests
+.claude
+.agents
+*.md

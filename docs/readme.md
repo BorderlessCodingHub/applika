@@ -53,13 +53,19 @@ There is no Vault, Doppler or Vercel. Secrets live in two places:
 
 ### 3.1 GitHub Secrets (Settings → Secrets and variables → Actions of the main repository)
 
-Three secrets. Access: admins of `ProgramadoresSemPatria/applika`. **to transfer** with the repository.
+One secret and six variables. Images go to GHCR with the workflow's own `GITHUB_TOKEN`
+(`packages: write`), and the CLI publishes to PyPI through Trusted Publishing (OIDC), so neither
+needs a stored credential.
 
-| Name | Purpose | Used in |
-|---|---|---|
-| `DOCKER_HUB_USER` | Docker Hub user that publishes the images (Luis's personal account) | `backend-cd.yaml`, `frontend-cd.yaml` |
-| `DOCKER_HUB_TOKEN` | Docker Hub access token (Luis's personal account) | `backend-cd.yaml`, `frontend-cd.yaml` |
-| `PYPI_TOKEN` | publish `applika-cli` to PyPI (environment `pypi`) | `cli-cd.yaml` |
+| Name | Kind | Purpose | Used in |
+|---|---|---|---|
+| `COOLIFY_API_TOKEN` | secret | Coolify API token with the `deploy` permission | `backend-cd.yaml`, `frontend-cd.yaml` |
+| `COOLIFY_URL` | variable | Coolify base URL, e.g. `https://coolify.example.com` | `backend-cd.yaml`, `frontend-cd.yaml` |
+| `COOLIFY_API_UUID` | variable | UUID of the Coolify API resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_WORKER_UUID` | variable | UUID of the Coolify taskiq worker resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_SCHEDULER_UUID` | variable | UUID of the Coolify taskiq scheduler resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_FRONTEND_UUID` | variable | UUID of the Coolify resource running `applika`; its deploy job is skipped when unset | `frontend-cd.yaml` |
+| `API_BASE_URL` | variable | Baked into the frontend image at build time | `frontend-cd.yaml` |
 
 ### 3.2 Runtime environment variables (on the VPS, in the swarm stack definition)
 
@@ -84,8 +90,8 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | VPS owner | **Luis** (personal). **to transfer** |
 | Access | Luis only (Hostinger panel and SSH) |
 | Swarm services | API (uvicorn), frontend (nginx with the static export), Redis (refresh-token state and GitHub cache), Traefik in front. Postgres lives outside, with Brunno (section 2) |
-| Image registry | Docker Hub, Luis's personal account (secret `DOCKER_HUB_USER`). Tags `api-latest` and `latest`. **to transfer** |
-| Pipeline | 1. Push to `main` → GitHub Actions (`backend-cd.yaml`, `frontend-cd.yaml`) builds and publishes the images to Luis's Docker Hub. 2. The containers are upgraded by accessing Luis's VPS over SSH (`docker service update`) |
+| Image registry | GitHub Container Registry: `ghcr.io/<owner>/applika-api` and `ghcr.io/<owner>/applika`, tag `latest` only (CD deletes untagged versions) |
+| Pipeline | 1. Push to `main` → GitHub Actions (`backend-cd.yaml`, `frontend-cd.yaml`) builds and publishes the images to GHCR. 2. The deploy job calls Coolify's deploy API (`/api/v1/deploy?uuid=…`), which pulls `latest` and restarts each resource |
 | Migrations | Outside the pipeline, manual (section 2) |
 | CI | `backend-ci.yaml`, `frontend-ci.yaml` (includes e2e against the real stack), `cli-ci.yaml` |
 
@@ -115,7 +121,7 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | Item | Status |
 |---|---|
 | Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli` |
-| Publishing | `cli-cd.yaml` with `uv publish`, token `PYPI_TOKEN` in environment `pypi` |
+| Publishing | `cli-cd.yaml` with `uv publish --trusted-publishing always` in environment `pypi`: the PyPI project trusts this repository, workflow `cli-cd.yaml` and environment `pypi`; no token |
 | Authors in the package | Luis Eduardo Soares, David Alecrim (`cli/pyproject.toml`) |
 | PyPI owner | **Luis** (personal). **to transfer**: create a Borderless organisation or account on PyPI and add it as owner |
 | Recommendation | Replace the token with PyPI Trusted Publishing pointing at the new repository |

@@ -491,9 +491,11 @@ process. The API only produces tasks.
   `registry.build_registry` builds them from `JOBS_SCRAPERS`.
 - **Deploy**: compose runs `worker` and `scheduler` from the backend image,
   the API's environment, after `api` is healthy (the migration ran); they
-  never run Alembic. CD updates the swarm services named by
-  `vars.SWARM_WORKER_SERVICE_NAME`/`vars.SWARM_SCHEDULER_SERVICE_NAME` only
-  when they exist. `taskiq worker` starts **2 processes** by default
+  never run Alembic. In Coolify, only the API resource runs `alembic upgrade
+  head`, as its post-deployment command. CD pushes `ghcr.io/<owner>/applika-api:latest`
+  and asks Coolify to redeploy the API, worker and
+  scheduler, one job each, skipped when `vars.COOLIFY_API_UUID`,
+  `vars.COOLIFY_WORKER_UUID` or `vars.COOLIFY_SCHEDULER_UUID` is unset. `taskiq worker` starts **2 processes** by default
   (`--workers`).
 
 ### Beta features (ADR-0018)
