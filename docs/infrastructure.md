@@ -151,14 +151,12 @@ flowchart LR
     subgraph gha["GitHub Actions"]
         bcd["backend-cd.yaml"]
         fcd["frontend-cd.yaml"]
-        ccd["cli-cd.yaml"]
     end
 
     main --> bcd
     main --> fcd
     bcd -- "GITHUB_TOKEN" --> ghcr[("GHCR<br/>applika-api · applika")]
     fcd -- "GITHUB_TOKEN" --> ghcr
-    ccd -- "Trusted Publishing (OIDC)" --> pypi[("PyPI<br/>applika-cli")]
 
     bcd -- "deploy API<br/>COOLIFY_API_TOKEN" --> coolify["Coolify"]
     fcd -- "deploy API<br/>COOLIFY_API_TOKEN" --> coolify
@@ -177,7 +175,8 @@ flowchart LR
    Alembic. Between steps 2 and 3, the new code already serves against the old schema for a few
    seconds; that is why migrations ship expand first. The command's output is only in the
    deployment's debug log in Coolify: check it after a release that ships a migration.
-4. The CLI is published to PyPI by `cli-cd.yaml` (`uv publish`, Trusted Publishing, environment `pypi`).
+4. Nothing publishes `applika-cli` since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed, and no version is
+   published or supported, 0.1.x included.
 
 CI runs on every PR: `backend-ci.yaml` (ruff, pytest), `frontend-ci.yaml` (lint, unit tests, build,
 and Playwright e2e against the real stack from `docker-compose.e2e.yml`), `cli-ci.yaml`.
@@ -261,21 +260,19 @@ There is no Vault, Doppler or Vercel. Secrets live in two places.
 flowchart LR
     subgraph ghs["GitHub Secrets (main repo)"]
         dh["COOLIFY_API_TOKEN"]
-        py["PyPI Trusted Publishing<br/>(no secret)"]
     end
     subgraph ds["Docker secrets (VPS swarm)"]
         rt["DATABASE_URL · REDIS_URL · JWT_SECRET<br/>GITHUB_* · DISCORD_FEEDBACK_WEBHOOK<br/>public URLs"]
     end
     dh --> cd["deploy (CD)"]
-    py --> cli["CLI publish"]
     rt --> api["api service"]
 ```
 
 ### 6.1 GitHub Secrets (Settings → Secrets and variables → Actions, main repository)
 
 One secret and six variables. Images go to GHCR with the workflow's own `GITHUB_TOKEN`
-(`packages: write`), and the CLI publishes to PyPI through Trusted Publishing (OIDC), so neither
-needs a stored credential.
+(`packages: write`), so they need no stored credential. Nothing publishes `applika-cli` to PyPI
+since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md).
 
 | Name | Kind | Purpose | Used in |
 |---|---|---|---|
@@ -353,7 +350,7 @@ flowchart LR
 | Item | Status |
 |---|---|
 | Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli` |
-| Publishing | `cli-cd.yaml` with `uv publish --trusted-publishing always` in environment `pypi`: the PyPI project trusts this repository, workflow `cli-cd.yaml` and environment `pypi`; no token |
+| Publishing | None since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed, so no `applika-cli` version is published or supported, 0.1.x included |
 | Authors in the package | Luis Eduardo Soares, David Alecrim (`cli/pyproject.toml`) |
 | PyPI owner | **Luis** (personal). **to transfer**: create a Borderless organisation or account on PyPI and add it as owner |
 | Compatibility | Users do not upgrade in lockstep with the API, so routes a published CLI version calls are never broken |
