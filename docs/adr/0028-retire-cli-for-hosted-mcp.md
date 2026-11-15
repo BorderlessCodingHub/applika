@@ -137,6 +137,31 @@ It needs an ADR for these reasons:
 - The `mcp` SDK brings its own Starlette, anyio and pydantic-settings constraints into the API image.
 - The owner retires, outside the repository, the workspace rule `.claude/rules/cli-compatibility.md` and the CLI lines
   of `.claude/rules/quality-gates.md`.
+- **As built (2026-11-14, release C).** The build fills in details the Decision leaves open. No Decision sentence
+  changes, and none is contradicted.
+  - **Server.** `/mcp` is a plain Starlette `Route`, POST only, not a mount (a mount answers `POST /mcp` with a 307). It
+    runs the SDK's low-level `Server` behind `StreamableHTTPSessionManager(stateless=True, json_response=True)`, on
+    `mcp==1.30.0`. GET and DELETE answer 405: a stateless server with JSON answers has no stream to open and no session
+    to end. FastMCP was weighed and not used, because `tools/list` is filtered per caller by scope and by the `cvs` key;
+    the owner chose "Official mcp SDK (Recommended)".
+  - **Instructions.** They are written per caller. The auth guard sets the caller in a `current_caller` context
+    variable, and only a `cvs` user gets the CV part.
+  - **Tool output.** `structuredContent` is the REST answer's object. A list answer is wrapped as `{"result": [...]}`,
+    because MCP structured content is an object. A delete tool, whose REST route answers 204, answers
+    `{"deleted": true}`.
+  - **Rate limiter subject.** `mcp:<first 32 hex of its sha256>` names the subject only in the `mcp` bucket, which is
+    `/mcp`. On `/auth/*` and every REST route, a Bearer names no subject, whatever it holds. The request counts against
+    the `__access` cookie's user, else the IP. Anyone can send a fresh `applika_mcp_…` string per request, so a
+    per-token subject there would escape the per-IP cap.
+  - **Lifetime.** Redis alone decides whether an `mcp` session is live. Its Postgres `expires_at` can trail Redis by up
+    to a day, so the Devices status and ending a session judge an `mcp` row by its Redis keys.
+  - **REST refusal.** Since release C, REST reads only the `__access` cookie. An MCP token on a REST route therefore
+    answers 401 `AUTH-1001`; in release B it answered `AUTH-1012`.
+  - **Deleted pages.** `/device` and `/cli/code` answer like any unknown address. The web is a static export behind
+    nginx, whose `try_files` serves `index.html` with a 200 for any unknown address, so there is no separate static 404
+    page.
+  - **Codes no longer raised.** `AUTH-1019` to `AUTH-1042` and `APP-1004` to `APP-1008` stay in `ErrorCode` and
+    `docs/error-codes.md`, marked "not raised since ADR-0028".
 
 ## Non-goals
 
