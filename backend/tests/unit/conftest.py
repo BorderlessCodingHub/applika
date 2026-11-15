@@ -98,14 +98,11 @@ def make_step_definition(**kwargs):
 
 
 def make_read_model(
-    latest: dict | None = None,
-    offers: dict | None = None,
-    catalog: list | None = None,
+    latest: dict | None = None, catalog: list | None = None
 ) -> ApplicationReadModel:
     """A real ApplicationReadModel over mocked repositories."""
     timeline_repo = AsyncMock()
     timeline_repo.latest_for_applications.return_value = latest or {}
-    timeline_repo.latest_offer_for_applications.return_value = offers or {}
     step_repo = AsyncMock()
     step_repo.get_all.return_value = catalog or []
     return ApplicationReadModel(timeline_repo, step_repo)

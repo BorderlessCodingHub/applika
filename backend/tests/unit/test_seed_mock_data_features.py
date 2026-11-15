@@ -32,18 +32,7 @@ GATED_PREFIXES = ('/base-cvs', '/applications/drafts', '/jobs', '/job-searches')
 NO_JOBS_WHY = 'No "jobs" feature for the seed user'
 NO_CVS_WHY = 'No "cvs" feature for the seed user'
 
-SUPPORTS = {
-    'platforms': [{'id': 1, 'name': 'LinkedIn'}],
-    'steps': [
-        {'id': 1, 'name': 'Applied', 'strict': False},
-        {'id': 2, 'name': 'Offer', 'strict': True},
-        {'id': 3, 'name': 'Denied', 'strict': True},
-    ],
-    'feedbacks': [
-        {'id': 1, 'name': 'Accepted'},
-        {'id': 2, 'name': 'Rejected'},
-    ],
-}
+SUPPORTS = {'platforms': [{'id': 1, 'name': 'LinkedIn'}]}
 
 
 @pytest.fixture
@@ -109,7 +98,6 @@ def _wire(monkeypatch, seed, api: FakeApi) -> None:
         seed, 'RetryOn429Transport', lambda: httpx.MockTransport(api)
     )
     monkeypatch.setattr(seed, 'seed_timeline', lambda *_a, **_k: False)
-    monkeypatch.setattr(seed, 'seed_legacy_steps', lambda *_a, **_k: False)
 
 
 def _record_steps(monkeypatch, seed) -> list[str]:

@@ -92,12 +92,9 @@ def error_answer(exc: Exception) -> ErrorAnswer | None:
         # by the Borderless callback), ``BadgeRequired`` (RPT-1001) and
         # ``MembershipLocked`` (AUTH-1050, 403).
         return ErrorAnswer(exc.status_code, exc.body(), exc.headers or None)
-    if isinstance(exc, exceptions.OAuthError):
-        return ErrorAnswer(400, {'error': exc.error, **exc.body()})
     if isinstance(exc, exceptions.SessionServiceUnavailable):
         # Fail closed (ADR-0019): 503 + Retry-After, never 401 - a 401 would
-        # send the web and every CLI to refresh, and a failed refresh signs
-        # them out.
+        # send the web to refresh, and a failed refresh signs it out.
         return ErrorAnswer(
             503,
             exc.body(),
@@ -209,8 +206,7 @@ async def _session_service_unavailable_handler(
     request: Request, exc: Exception
 ):
     # Fail closed (ADR-0019): 503 + Retry-After, never 401 - a 401 would
-    # send the web and every CLI to refresh, and a failed refresh signs
-    # them out.
+    # send the web to refresh, and a failed refresh signs it out.
     assert isinstance(exc, exceptions.SessionServiceUnavailable)
     return _answer(exc)
 
@@ -222,11 +218,6 @@ async def _invalid_session_handler(request: Request, exc: Exception):
 
 async def _invalid_request_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.InvalidRequest)
-    return _answer(exc)
-
-
-async def _oauth_error_handler(request: Request, exc: Exception):
-    assert isinstance(exc, exceptions.OAuthError)
     return _answer(exc)
 
 
@@ -280,7 +271,6 @@ def register_handlers(app: FastAPI):
     app.add_exception_handler(
         exceptions.InvalidSession, _invalid_session_handler
     )
-    app.add_exception_handler(exceptions.OAuthError, _oauth_error_handler)
     app.add_exception_handler(
         exceptions.InvalidRequest, _invalid_request_handler
     )

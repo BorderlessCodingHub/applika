@@ -25,7 +25,7 @@ goes to the API, everything else goes to the frontend.
 ```mermaid
 flowchart LR
     browser["Browser"]
-    cli["applika-cli<br/>(user's machine)"]
+    mcp["AI app<br/>(MCP client)"]
 
     subgraph vps["Hostinger VPS · Docker Swarm (Luis)"]
         traefik["Traefik<br/>TLS: Let's Encrypt"]
@@ -40,7 +40,7 @@ flowchart LR
     discord["Discord feedback webhook<br/>(Brunno)"]
 
     browser -- "https://applika.dev/*" --> traefik
-    cli -- "https://applika.dev/api" --> traefik
+    mcp -- "https://applika.dev/api/mcp" --> traefik
     traefik -- "/api" --> api
     traefik -- "everything else" --> web
     browser -. "loads JS, then calls /api" .-> traefik
@@ -58,11 +58,11 @@ flowchart LR
 | `api` | swarm service, image `<DOCKER_HUB_USER>/<backend image>:api-latest` | FastAPI under the `/api` prefix. All business logic, auth, CV PDF rendering (RenderCV + Typst inside the container) |
 | Redis | swarm service on the VPS | Refresh-token / login state and the GitHub data cache |
 | PostgreSQL | managed database, Brunno's account | All persistent data |
-| `applika-cli` | the user's machine, installed from PyPI | Talks to the same API as the web, at `https://applika.dev/api` |
+| AI apps (MCP clients) | the user's machine or the app's own cloud | Call the hosted MCP server, `https://applika.dev/api/mcp`, with a token the user creates in Profile › MCP ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)). They replace `applika-cli`, retired (section 9) |
 
 ## 2. How a request flows
 
-The browser and the CLI never talk to the database or Redis. Everything goes through the API.
+The browser and the AI apps never talk to the database or Redis. Everything goes through the API.
 
 ```mermaid
 sequenceDiagram
@@ -97,7 +97,9 @@ sequenceDiagram
 and the CLI, as below. **Not in production yet**: Sign in with Borderless through OpenID Connect
 replaces it ([ADR-0026](adr/0026-borderless-openid-connect-sign-in.md), amending ADR-0024 and ADR-0019): applika is a
 confidential client of Borderless, the GitHub login goes, and GitHub only restores a pre-Borderless
-account's data once. The flow, the token storage and the release are in section 10.5.
+account's data once. The flow, the token storage and the release are in section 10.5. The CLI and
+every sign-in flow of its own are retired ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)): the web is the only place to sign in, and AI apps
+use an MCP token instead.
 
 ```mermaid
 sequenceDiagram
@@ -120,9 +122,10 @@ sequenceDiagram
     A-->>B: set __access / __refresh cookies, redirect to LOGIN_REDIRECT_URI
 ```
 
-The CLI (`applika login`) uses the same GitHub OAuth App through a hand-off: the API opens the
-login in the browser and the CLI receives its tokens at the end. The GitHub token the API keeps is
-encrypted with `GITHUB_TOKEN_ENCRYPTION_KEY` (Fernet).
+Until its retirement ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)), the CLI (`applika login`) used the same GitHub OAuth App through a
+hand-off: the API opened the login in the browser and the CLI received its tokens at the end. On
+`develop` the hand-off is gone. The GitHub token the API keeps is encrypted with
+`GITHUB_TOKEN_ENCRYPTION_KEY` (Fernet).
 
 ## 4. Database
 
@@ -178,8 +181,9 @@ flowchart LR
 4. Nothing publishes `applika-cli` since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed, and no version is
    published or supported, 0.1.x included.
 
-CI runs on every PR: `backend-ci.yaml` (ruff, pytest), `frontend-ci.yaml` (lint, unit tests, build,
-and Playwright e2e against the real stack from `docker-compose.e2e.yml`), `cli-ci.yaml`.
+CI runs on every PR: `backend-ci.yaml` (ruff, pytest) and `frontend-ci.yaml` (lint, unit tests,
+build, and Playwright e2e against the real stack from `docker-compose.e2e.yml`). `cli-ci.yaml` left
+with the CLI's source ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)).
 
 | Item | Status |
 |---|---|
@@ -196,7 +200,7 @@ Coolify's proxy (Traefik) routes the domains and issues the certificates.
 
 ```mermaid
 flowchart LR
-    browser["Browser / CLI"] --> proxy["Coolify proxy"]
+    browser["Browser / AI app (MCP)"] --> proxy["Coolify proxy"]
 
     subgraph prj["Coolify project Applika · production"]
         app["applika-app<br/>ghcr.io/…/applika:latest"]
@@ -223,8 +227,9 @@ The UUIDs are what the CD workflows deploy (`COOLIFY_API_UUID`, `COOLIFY_FRONTEN
 that has the `deploy` permission as a Bearer header.
 
 **API environment.** The API's runtime variables are the ones in section 6.2, set on `applika-api`
-in Coolify (normal and preview copies), plus `ACCOUNT_LINK_REDIRECT_URI`, `DEVICE_VERIFICATION_URI`
-and `CLI_MANUAL_REDIRECT_URI`. The two connection strings are not typed on the API: they reference
+in Coolify (normal and preview copies), plus `ACCOUNT_LINK_REDIRECT_URI`. `DEVICE_VERIFICATION_URI`
+and `CLI_MANUAL_REDIRECT_URI` are still set there, but no code reads them since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md) (the settings
+ignore unknown variables): remove them when convenient. The two connection strings are not typed on the API: they reference
 **project shared variables**, so the database and Redis credentials live in one place:
 
 | API variable | Value | Shared variable holds |
@@ -319,7 +324,7 @@ password era are gone.
 
 | Item | Status |
 |---|---|
-| Domain | `applika.dev` (site) and `applika.dev/api` (API, the CLI's default) |
+| Domain | `applika.dev` (site) and `applika.dev/api` (API; the MCP server at `applika.dev/api/mcp`) |
 | Registrar | **Hostinger** |
 | Registration owner | **Luis** (personal). **to transfer** |
 | DNS | **Hostinger** (same account as the registration) |
@@ -337,24 +342,18 @@ password era are gone.
 | Analytics | None: the cookie policy states there are no analytics cookies | — | — |
 | AI APIs | None: fit score and tailoring are computed in the backend, without an LLM | — | — |
 
-## 9. CLI
+## 9. CLI (retired)
 
-```mermaid
-flowchart LR
-    user["User"] -- "uv tool install applika-cli<br/>pipx install applika-cli" --> pypi[("PyPI")]
-    pypi --> cli["applika command"]
-    cli -- "HTTPS, Bearer token" --> api["https://applika.dev/api"]
-    cli -- "applika login<br/>(opens the browser)" --> gh["GitHub OAuth"]
-```
+`applika-cli` is retired for the hosted MCP server ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)). AI apps use Applika through
+`https://applika.dev/api/mcp` with a token from Profile › MCP.
 
 | Item | Status |
 |---|---|
-| Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli` |
-| Publishing | None since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed, so no `applika-cli` version is published or supported, 0.1.x included |
-| Authors in the package | Luis Eduardo Soares, David Alecrim (`cli/pyproject.toml`) |
-| PyPI owner | **Luis** (personal). **to transfer**: create a Borderless organisation or account on PyPI and add it as owner |
-| Compatibility | Users do not upgrade in lockstep with the API, so routes a published CLI version calls are never broken |
-| Recommendation | Replace the token with PyPI Trusted Publishing pointing at the new repository |
+| Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli`. No version is published or supported, 0.1.x included |
+| Publishing | None since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed |
+| Source, tests, CI and gate | Removed from the repository in the sunset release: `cli/`, `cli-ci.yaml` and its `make` gate. Git history keeps them, `cli/CHANGELOG.md` included |
+| API | The sunset release deletes every route, field and page only the CLI used. An installed copy gets "not found" when it signs in and fails its next renewal, within 15 minutes, with no message |
+| PyPI owner | **Luis** (personal). Nothing is published there any more (section 11) |
 
 ## 10. On `develop` only (not in production yet)
 
@@ -372,7 +371,8 @@ releases it to everyone from `/admin/features` ([ADR-0018](adr/0018-beta-feature
 | Worker (taskiq) | Background tasks, same image as the API ([ADR-0016](adr/0016-taskiq-worker-for-background-jobs.md)). Exists **for the Jobs feature** | Redis (queue `applika:tasks`), Postgres | A swarm service; the CD already updates `SWARM_WORKER_SERVICE_NAME` if it exists |
 | Scheduler (taskiq) | Enqueues `ingest_jobs` on `JOBS_INGEST_CRON` (hourly). Exactly one runs | Redis | A swarm service (`SWARM_SCHEDULER_SERVICE_NAME`) |
 | Rate limiter | Per-user limit with IP fallback, fixed window in Redis ([ADR-0015](adr/0015-redis-api-rate-limiter.md)) | Redis | env `RATE_LIMIT_*`, `FORWARDED_ALLOW_IPS` (Traefik as trusted proxy) |
-| Device sessions and new CLI sign-in | CLI 1.1.0: PKCE and device-code login, list and revoke devices ([ADR-0019](adr/0019-device-sessions-and-cli-oauth.md)) | Redis, Postgres | env `DEVICE_VERIFICATION_URI`, `CLI_MANUAL_REDIRECT_URI` |
+| Device sessions | List and revoke devices in Profile › Devices ([ADR-0019](adr/0019-device-sessions-and-cli-oauth.md)). The CLI sign-in it added (PKCE and device code) is retired with the CLI ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)) | Redis, Postgres | Nothing new |
+| Hosted MCP server | `POST /api/mcp`: AI apps use Applika with a token the user creates in Profile › MCP, scoped read, write or delete; not gated; replaces `applika-cli` ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)) | API, Redis, Postgres | Nothing new (the same API service) |
 | Discord account link and report routing | User connects Discord on the profile; reports go to the Discord servers configured in the admin panel that the user is a member of ([ADR-0008](adr/0008-discord-linked-account.md), [ADR-0013](adr/0013-discord-connection-and-report-webhook-routing.md)) | Discord Application, the report webhooks configured at `/admin` | env `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_LINK_REDIRECT_URI`, `DISCORD_TOKEN_ENCRYPTION_KEY`, `ACCOUNT_LINK_REDIRECT_URI`; Discord Application on Luis's personal account (**to transfer**) |
 
 ### 10.2 Target topology
@@ -382,7 +382,7 @@ What the stack looks like once the `develop` work ships. Dashed parts are the ne
 ```mermaid
 flowchart LR
     browser["Browser"] --> traefik["Traefik"]
-    cli["applika-cli 1.1+"] --> traefik
+    mcp["AI app<br/>(MCP client)"]:::new --> traefik
 
     subgraph vps["Hostinger VPS · Docker Swarm"]
         traefik -- "/api" --> api["api"]
@@ -505,17 +505,14 @@ flowchart LR
 - `GET /api/auth/borderless/login` sends the browser to Borderless's authorize endpoint (from the
   issuer's discovery document) with a fresh `state` (a random UUID), a `nonce` and a PKCE S256
   challenge. The attempt lives ten minutes in Redis (`applika:borderless:login:<state>`), single use,
-  with the target to redirect to after sign-in (the web sign-in page, or the CLI's loopback or
-  manual-code page), bound to the browser by applika's own HttpOnly `__applika_login` cookie. A web
-  sign-in sends no `prompt` (a Borderless browser
-  session makes it one click); a CLI sign-in (`/api/auth/cli/authorize`, `/api/auth/cli/login/{id}`)
-  sends `prompt=login`, so Borderless always asks. `applika login --device` does not use Borderless.
+  with the target to redirect to after sign-in (the web sign-in page), bound to the browser by
+  applika's own HttpOnly `__applika_login` cookie. It sends no `prompt` (a Borderless browser
+  session makes it one click). The CLI's sign-ins through Borderless are retired ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)).
 - `GET /api/auth/borderless/callback` checks the cookie, the `state`, the stored target (checked again
   against the allowed targets; any other is refused, never followed, and no query value decides it)
   and `iss`, exchanges the code with HTTP Basic, the verifier and the redirect URI, and verifies the
-  id_token (EdDSA, issuer, audience, expiry, nonce). It redirects to the stored target. Web: a
-  `borderless` session and its cookies. CLI: the code goes back to the CLI's loopback or manual-code
-  page. A refusal lands on `/login?error=<code>`. The request log
+  id_token (EdDSA, issuer, audience, expiry, nonce). It redirects to the stored target with a
+  `borderless` session and its cookies. A refusal lands on `/login?error=<code>`. The request log
   writes the callback's query as `?[redacted]`.
 - One Borderless grant per user. The **refresh token** lives only in Postgres
   (`borderless_accounts.encrypted_refresh_token`), Fernet-encrypted, rotated on every use. The
@@ -526,8 +523,7 @@ flowchart LR
   gone, at a session refresh or a member-gated request (the reports): about one Borderless call per
   hour per active user. No scheduled job. Borderless slow or down never ends a session.
 - `invalid_grant` (30 days after the sign-in, or access revoked): every web session of the user ends
-  `borderless_revoked` and the web asks for a new sign-in (AUTH-1049); CLI sessions stay signed in
-  and their member-gated requests answer AUTH-1050 until the next sign-in.
+  `borderless_revoked` and the web asks for a new sign-in (AUTH-1049).
 - The user's last session ending (logout, device revocation, account deletion) revokes the refresh
   token at Borderless, best effort, after answering. The Borderless browser session is never touched.
 - Tests, the E2E stack and local runs use the fake Borderless
@@ -552,7 +548,7 @@ sequenceDiagram
     A->>BL: discovery (cached)
     A->>R: attempt: state (UUID) → verifier, nonce, cookie hash, redirect target (10 min)
     A-->>B: 307 authorize URL + __applika_login cookie
-    B->>BL: sign in (no prompt on the web, prompt=login for the CLI)
+    B->>BL: sign in (no prompt)
     BL-->>B: 307 /api/auth/borderless/callback?code&state&iss
     B->>A: callback (with the cookie)
     A->>R: consume the attempt (single use), check its redirect target
@@ -561,7 +557,7 @@ sequenceDiagram
     A->>A: verify the id_token (EdDSA, iss, aud, exp, nonce)
     A->>P: bind the account, refresh token (encrypted), badge from the claim
     A->>R: access token (encrypted, EX expires_in)
-    A-->>B: 307 to the stored target: /login + session cookies (web) or the CLI's loopback
+    A-->>B: 307 to the stored target: /login + session cookies
 
     Note over A,BL: Later, at a session refresh or a member-gated request
     A->>R: access token present?
@@ -574,7 +570,7 @@ sequenceDiagram
             A->>R: new access token
         else invalid_grant
             A->>P: web sessions end borderless_revoked, needs_reconnect
-            A-->>B: web: 401 AUTH-1049 · CLI: member routes 403 AUTH-1050
+            A-->>B: web: 401 AUTH-1049
         else slow or failing
             A-->>B: go on with the badges as last read
         end
@@ -596,7 +592,7 @@ flowchart LR
         l1["Hostinger: VPS, domain, DNS"]
         l2["Docker Hub"]
         l3["GitHub OAuth App"]
-        l4["PyPI applika-cli"]
+        l4["PyPI applika-cli<br/>(retired, nothing published)"]
         l5["Discord Application<br/>(develop only, reports)"]
         l6["Let's Encrypt e-mail"]
     end
@@ -627,15 +623,13 @@ flowchart LR
 | PostgreSQL and backups | Brunno (personal) | Borderless | to transfer |
 | Domain registration `applika.dev` (Hostinger) | Luis (personal) | Borderless | to transfer |
 | DNS (Hostinger) | Luis (personal) | Borderless | to transfer |
-| PyPI `applika-cli` | Luis (personal) | Borderless PyPI organisation | to transfer |
+| PyPI `applika-cli` (retired: nothing published since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)) | Luis (personal) | Borderless PyPI organisation | to transfer |
 | Borderless OpenID Connect client of applika (client id, secret, redirect URI) | Borderless, registered on the owner's request | stays with Borderless; the owner asks Borderless for any change (a new redirect URI, a new secret) | nothing to transfer |
 
 Repository notes:
 
 - `github.com/luis0ares/applika` is Luis's personal fork, used for development. It is not the
   production repository.
-- `cli/pyproject.toml` already declares `github.com/ApplikaDev/applika` as the repository URL;
-  update it to the BorderlessCodingHub URL after the move.
 - A GitHub repository transfer keeps the secrets; a re-created repository does not. In that case
-  re-create the three secrets of section 6.1 and the `pypi` environment.
+  re-create the secret and the variables of section 6.1.
 - Archive `ProgramadoresSemPatria/applika`, or leave a notice in its README pointing to the new one.

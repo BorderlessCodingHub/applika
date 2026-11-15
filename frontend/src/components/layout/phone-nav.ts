@@ -68,7 +68,6 @@ export const PHONE_SCREEN_PATHS: ReadonlySet<string> = new Set([
   "/account",
   "/insights",
   "/welcome",
-  "/device",
   "/profile",
   "/cycles",
   "/reports",
@@ -143,7 +142,6 @@ const ACCOUNT_CHILDREN: readonly string[] = [
   "/cycles",
   "/reports",
   "/profile",
-  "/device",
   "/admin",
 ];
 
@@ -176,7 +174,6 @@ export interface AccountHubRow {
     | "profile"
     | "mcp"
     | "devices"
-    | "device"
     | "admin";
   href: string;
   label: string;
@@ -196,9 +193,9 @@ const WORKSPACE_ORDER = [
  * (`navItemsFor` in the protected layout): a row shows only when its entry is
  * there, so the feature keys, the Reports badge and `is_admin` decide exactly
  * as they do for the desktop rail, and a feature taken away drops its row on
- * the next load. MCP, Devices & CLI and Sign in a device are open to every
- * signed-in user, with no beta gate (the profile's MCP and Devices tabs,
- * `/device`; ADR-0028). Labels are read now: call it during render.
+ * the next load. MCP and Devices are open to every signed-in user, with no
+ * beta gate (the profile's MCP and Devices tabs; ADR-0028). Labels are read
+ * now: call it during render.
  */
 export function accountRows(navItems: readonly NavItem[]): {
   workspace: AccountHubRow[];
@@ -235,7 +232,6 @@ export function accountRows(navItems: readonly NavItem[]): {
       href: "/profile?tab=devices",
       label: word("phone.account.devices"),
     },
-    { key: "device", href: "/device", label: word("device.title") },
   );
   const admin = byHref.get(ADMIN_NAV.href);
   if (admin) {

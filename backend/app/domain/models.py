@@ -529,13 +529,6 @@ class StepDefinitionModel(BaseMixin, Base):
     )
 
 
-class FeedbackDefinitionModel(BaseMixin, Base):
-    __tablename__ = 'feedbacks_definition'
-
-    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
-    color: Mapped[str] = mapped_column(sa.String(7), default='#28a745')
-
-
 class CycleModel(BaseMixin, Base):
     __tablename__ = 'cycles'
 

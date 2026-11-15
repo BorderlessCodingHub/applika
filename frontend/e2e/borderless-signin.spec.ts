@@ -1,6 +1,3 @@
-import { createHash, randomBytes } from "node:crypto";
-import { connect } from "node:net";
-
 import {
   expect,
   request as playwrightRequest,
@@ -121,10 +118,6 @@ function signInError(page: Page, tree: SignInTree = "sign-in-desktop") {
   return page.locator(`[data-slot="${tree}"] [data-slot="sign-in-error"]`);
 }
 
-function cliHint(page: Page, tree: SignInTree) {
-  return page.locator(`[data-slot="${tree}"] [data-slot="sign-in-cli-hint"]`);
-}
-
 function primaryNav(page: Page) {
   return page.locator("aside").getByRole("navigation", { name: "Primary" });
 }
@@ -156,41 +149,6 @@ function trackNavigations(page: Page): string[] {
   });
   return urls;
 }
-
-/** The CLI's PKCE pair (RFC 7636), as `applika login` makes it. */
-function pkce() {
-  const verifier = randomBytes(32).toString("base64url");
-  const challenge = createHash("sha256").update(verifier).digest("base64url");
-  return { verifier, challenge };
-}
-
-/**
- * A loopback port nothing listens on, for the CLI's callback URL. Found by
- * CONNECTING (refused), never by listening: `applika login` opens its own
- * listener there, this test opens none. The API's 307 to it is observed as
- * the browser's own request instead (see the CLI test).
- */
-async function closedLoopbackPort(): Promise<number> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const port = 20_000 + Math.floor(Math.random() * 40_000);
-    const refused = await new Promise<boolean>((resolve) => {
-      const socket = connect({ host: "127.0.0.1", port });
-      socket.once("connect", () => {
-        socket.destroy();
-        resolve(false);
-      });
-      socket.once("error", (error: NodeJS.ErrnoException) =>
-        resolve(error.code === "ECONNREFUSED"),
-      );
-    });
-    if (refused) return port;
-  }
-  throw new Error("no closed loopback port found on 127.0.0.1");
-}
-
-type CliTokens = { access_token: string; refresh_token: string };
-/** e2e-revoke's command-line session, opened in the CLI test and used by the refusal test. */
-let revokeCli: CliTokens | null = null;
 
 test.beforeAll(async ({ browser }) => {
   // A retry (CI) starts again from accounts that do not exist yet.
@@ -574,118 +532,13 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
     ).toHaveCount(0);
   });
 
-  test("applika login asks on Borderless even with a Borderless session, and leaves the browser's applika session alone (AC19, AC20)", async ({
+  test("a refused grant ends the web session with words, and the next web sign-in restores it (AC13, AC15, AC23)", async ({
     page,
     request,
   }) => {
     const account = BORDERLESS_ACCOUNTS.revoke;
     await signInWithFake(page, account.email);
     await landSignedIn(page, { isNew: true });
-    const sessionBefore = (await page.context().cookies())
-      .filter((cookie) => ["__access", "__refresh"].includes(cookie.name))
-      .map((cookie) => `${cookie.name}=${cookie.value}`)
-      .sort();
-    expect(sessionBefore).toHaveLength(2);
-
-    const { verifier, challenge } = pkce();
-    const port = await closedLoopbackPort();
-    const loopbackOrigin = `http://127.0.0.1:${port}`;
-    const callback = `${loopbackOrigin}/callback`;
-    const state = `e2e-${randomBytes(8).toString("hex")}`;
-
-    const authorize = new URL(apiUrl("/auth/cli/authorize"));
-    authorize.searchParams.set("redirect_uri", callback);
-    authorize.searchParams.set("code_challenge", challenge);
-    authorize.searchParams.set("code_challenge_method", "S256");
-    authorize.searchParams.set("state", state);
-    await page.goto(authorize.toString());
-
-    // The fake's page shows despite its session: `prompt=login`.
-    await page.waitForURL(borderlessUrl("/**"));
-    await expect(
-      page.getByRole("heading", { name: "Sign in to Borderless (fake)" }),
-    ).toBeVisible();
-    expect((await fakeLog(request)).authorize.at(-1)).toMatchObject({
-      prompt: "login",
-      redirect_uri: WEB_CALLBACK,
-      code_challenge_method: "S256",
-    });
-
-    // The callback 307s the browser to the CLI's loopback. Nothing listens
-    // there: Playwright raises a request for every redirect hop (a route
-    // never sees a redirect target), so the hop is read as the browser
-    // makes it, and its navigation is left to fail.
-    const toLoopback = (hop: Request) =>
-      hop.url().startsWith(`${loopbackOrigin}/`);
-    const hopSeen = page.waitForRequest(toLoopback);
-    const hopFailed = page.waitForEvent("requestfailed", toLoopback);
-    await page
-      .getByRole("button", { name: account.email, exact: true })
-      .click();
-    const hop = await hopSeen;
-
-    // The hop is the API callback's own 307, reached from Borderless's answer.
-    expect(hop.isNavigationRequest()).toBe(true);
-    expect(hop.method()).toBe("GET");
-    const fromCallback = hop.redirectedFrom();
-    expect(fromCallback, "the hop before the loopback").toBeTruthy();
-    const callbackUrl = new URL(fromCallback!.url());
-    expect(`${callbackUrl.origin}${callbackUrl.pathname}`).toBe(WEB_CALLBACK);
-    expect((await fromCallback!.response())?.status()).toBe(307);
-    const fromFake = fromCallback!.redirectedFrom();
-    expect(fromFake, "the hop before the callback").toBeTruthy();
-    expect(new URL(fromFake!.url()).origin).toBe(FAKE_ORIGIN);
-    // Nobody served it: no listener on the port.
-    expect((await hopFailed).failure()?.errorText).toBe(
-      "net::ERR_CONNECTION_REFUSED",
-    );
-
-    const url = new URL(hop.url());
-    expect(url.pathname).toBe("/callback");
-    const code = url.searchParams.get("code");
-    expect(code).toBeTruthy();
-    expect(url.searchParams.get("state")).toBe(state);
-    expect([...url.searchParams.keys()].sort()).toEqual(["code", "state"]);
-
-    // The browser's own applika session: not opened, ended or replaced.
-    const sessionAfter = (await page.context().cookies())
-      .filter((cookie) => ["__access", "__refresh"].includes(cookie.name))
-      .map((cookie) => `${cookie.name}=${cookie.value}`)
-      .sort();
-    expect(sessionAfter).toEqual(sessionBefore);
-    // The tab that followed the hop is still committing the browser's error
-    // page; a new tab of the same browser opens the dashboard on that session.
-    const tab = await page.context().newPage();
-    await tab.goto("/dashboard");
-    await expect(
-      tab.getByRole("heading", { name: "Dashboard", level: 1 }),
-    ).toBeVisible();
-    await tab.close();
-
-    // The CLI redeems the code with its verifier, as every version does.
-    const token = await request.post(apiUrl("/auth/token"), {
-      data: {
-        grant_type: "authorization_code",
-        code,
-        code_verifier: verifier,
-        redirect_uri: callback,
-        device_name: "e2e-revoke-cli",
-      },
-    });
-    expect(token.status()).toBe(200);
-    revokeCli = await token.json();
-    expect(revokeCli?.access_token).toBeTruthy();
-    expect(revokeCli?.refresh_token).toBeTruthy();
-  });
-
-  test("a refused grant ends the web sessions with words, keeps the CLI signed in but locked, and the next web sign-in restores it (AC13, AC14, AC15, AC23)", async ({
-    page,
-    request,
-  }) => {
-    expect(revokeCli, "the CLI test opened a session").not.toBeNull();
-    const account = BORDERLESS_ACCOUNTS.revoke;
-    await signInWithFake(page, account.email);
-    await landSignedIn(page, { isNew: false });
     await expect(
       page.getByRole("img", { name: "Borderless PSP member" }),
     ).toHaveCount(1);
@@ -720,64 +573,35 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
     const signedOut = await page.request.get(apiUrl("/users/me"));
     expect(signedOut.status()).toBe(401);
 
-    // AC14: the command-line session stays signed in…
-    const refreshedCli = await request.post(apiUrl("/auth/token"), {
-      data: {
-        grant_type: "refresh_token",
-        refresh_token: revokeCli!.refresh_token,
-      },
-    });
-    expect(refreshedCli.status()).toBe(200);
-    revokeCli = await refreshedCli.json();
-    const bearer = { Authorization: `Bearer ${revokeCli!.access_token}` };
-    expect(
-      (await request.get(apiUrl("/users/me"), { headers: bearer })).status(),
-    ).toBe(200);
-
-    // …but a member route is stopped, naming the applika website.
-    const locked = await request.get(apiUrl("/reports"), { headers: bearer });
-    expect(locked.status()).toBe(403);
-    expect(await locked.json()).toEqual({
-      detail:
-        "Your Borderless sign-in has ended. Sign in again on the applika website to use member features",
-      code: "AUTH-1050",
-    });
-
-    // AC23: the web sessions read as ended in the Devices list.
-    const sessions: { client_type: string; status: string }[] = await (
-      await request.get(apiUrl("/users/me/sessions"), { headers: bearer })
-    ).json();
-    const web = sessions.filter((row) => row.client_type === "web");
-    expect(web.length).toBeGreaterThanOrEqual(2);
-    expect(web.every((row) => row.status === "revoked")).toBe(true);
-    expect(
-      sessions.some(
-        (row) => row.client_type === "cli" && row.status === "active",
-      ),
-    ).toBe(true);
-
-    // AC14: the next web sign-in restores member access to every session.
+    // AC15: the next web sign-in restores member access.
     // This browser still holds its Borderless session: one click (AC18).
     await signInWithBorderlessButton(page).click();
     await landSignedIn(page, { isNew: false });
     await expect(
       page.getByRole("img", { name: "Borderless PSP member" }),
     ).toHaveCount(1);
-    const reopened = await request.get(apiUrl("/reports"), { headers: bearer });
-    expect(reopened.status()).toBe(200);
+    expect((await page.request.get(apiUrl("/reports"))).status()).toBe(200);
 
-    // The CLI signs out as every version does.
-    const signOut = await request.post(apiUrl("/auth/revoke"), {
-      data: { refresh_token: revokeCli!.refresh_token },
-    });
-    expect(signOut.status()).toBe(204);
+    // AC23: the ended web session reads as revoked in the Devices list; this
+    // one is the only active web session.
+    const sessions: {
+      client_type: string;
+      status: string;
+      current: boolean;
+    }[] = await (await page.request.get(apiUrl("/users/me/sessions"))).json();
+    const web = sessions.filter((row) => row.client_type === "web");
+    expect(
+      web.filter((row) => row.status === "revoked").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      web.filter((row) => row.status === "active").map((row) => row.current),
+    ).toEqual([true]);
   });
 });
 
 test.describe("the sign-in page signed out: option C below md, option A at md and up", () => {
   const AUTH_1046 =
     "The sign-in expired or was started in another browser. Start it again";
-  const CLI_RETRY = "Return to your terminal and run applika login again.";
 
   async function openPhone(page: Page, path: string) {
     await page.setViewportSize(PHONE);
@@ -857,7 +681,6 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
       page.getByRole("radiogroup", { name: "Toggle language" }),
     ).toHaveCount(1);
     await expect(signInError(page, "sign-in-phone")).toBeEmpty();
-    await expect(cliHint(page, "sign-in-phone")).toHaveCount(0);
     await expect(page.locator("input")).toHaveCount(0);
 
     await expectPhoneTargets(page, 5);
@@ -926,48 +749,8 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     await expect(alert).toHaveText(AUTH_1046);
     await expect(alert).toBeVisible();
     await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
-    await expect(cliHint(page, "sign-in-phone")).toHaveCount(0);
     // The way back is right below the words.
     await expect(signInWithBorderlessButton(page)).toBeVisible();
-    await expectPhoneTargets(page, 5);
-    await expectNoSidewaysScroll(page);
-  });
-
-  test("390×844, from the command line: &cli=1 shows the terminal hint", async ({
-    page,
-  }) => {
-    await openPhone(page, "/login?cli=1");
-
-    const hint = cliHint(page, "sign-in-phone");
-    await expect(hint).toBeVisible();
-    await expect(hint).toHaveText(CLI_RETRY);
-    await expect(hint.locator("code")).toHaveText("applika login");
-    await expect(signInError(page, "sign-in-phone")).toBeEmpty();
-    // The h1 stays the web sign-in's: the button starts a web sign-in.
-    await expect(
-      page.getByRole("heading", {
-        name: "One account for your whole job search",
-        level: 1,
-      }),
-    ).toBeVisible();
-    await expect(signInWithBorderlessButton(page)).toBeFocused();
-    await expectNoSidewaysScroll(page);
-  });
-
-  test("390×844, refused from the command line: the reason and the cli line in one alert", async ({
-    page,
-  }) => {
-    await openPhone(page, "/login?error=AUTH-1046&cli=1");
-
-    const alert = signInError(page, "sign-in-phone");
-    await expect(alert).toHaveAttribute("data-code", "AUTH-1046");
-    await expect(alert).toContainText(AUTH_1046);
-    await expect(alert).toContainText(CLI_RETRY);
-    await expect(
-      alert.locator('[data-slot="sign-in-cli-hint"] code'),
-    ).toHaveText("applika login");
-    await expect(cliHint(page, "sign-in-phone")).toHaveCount(1);
-    await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
     await expectPhoneTargets(page, 5);
     await expectNoSidewaysScroll(page);
   });
@@ -1187,32 +970,27 @@ test.describe("the sign-in page signed out: option C below md, option A at md an
     expect(alertBox.y + alertBox.height).toBeLessThanOrEqual(ctaBox.y);
     // The alert spans the card's content width, as the button does.
     expect(alertBox.width).toBeCloseTo(ctaBox.width, 0);
-    await expect(cliHint(page, "sign-in-desktop")).toHaveCount(0);
     await expectNoSidewaysScroll(page);
   });
 
-  test("1280, from the command line: ?cli=1 shows the terminal hint above the button; with an error, inside the alert", async ({
+  test("1280, a stale ?cli=1 changes nothing: the web sign-in, no terminal words (ADR-0028)", async ({
     page,
   }) => {
     await openDesktop(page, "/login?cli=1");
-    const hint = cliHint(page, "sign-in-desktop");
-    await expect(hint).toBeVisible();
-    await expect(hint).toHaveText(CLI_RETRY);
-    await expect(hint.locator("code")).toHaveText("applika login");
     await expect(signInError(page, "sign-in-desktop")).toBeEmpty();
     await expect(
       page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
     ).toBeVisible();
     await expect(signInWithBorderlessButton(page)).toBeFocused();
-    expect((await hint.boundingBox())!.y).toBeLessThan(
-      (await signInWithBorderlessButton(page).boundingBox())!.y,
-    );
+    await expect(page.getByText(/terminal|applika login/)).toHaveCount(0);
 
-    await openDesktop(page, "/login?error=AUTH-1046&cli=1");
+    // AUTH-1019, the CLI login code the API no longer sends, reads the
+    // generic line.
+    await openDesktop(page, "/login?error=AUTH-1019&cli=1");
     const alert = signInError(page, "sign-in-desktop");
-    await expect(alert).toContainText(AUTH_1046);
-    await expect(alert).toContainText(CLI_RETRY);
-    await expect(cliHint(page, "sign-in-desktop")).toHaveCount(1);
+    await expect(alert).toHaveAttribute("data-code", "unknown");
+    await expect(alert).not.toContainText("CLI login expired");
+    await expect(page.getByText(/terminal|applika login/)).toHaveCount(0);
     await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
     await expectNoSidewaysScroll(page);
   });

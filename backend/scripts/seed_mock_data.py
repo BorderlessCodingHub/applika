@@ -4,12 +4,10 @@ Mock data seeder for Applika.dev backend.
 Creates 50+ job applications with a 3-5 event timeline each, simulating
 a 3-month job search period (Jan 5 – Mar 30, 2026).
 
-Half the applications go through the timeline API the web app uses
-(``/applications/{id}/timeline``, finalize without a body, reopen); the
-other half through the deprecated routes installed ``applika-cli`` 0.1.4
-still calls (``/applications/{id}/steps`` and ``/finalize`` with the
-step/feedback body), and every deprecated answer is checked for its
-``Deprecation`` header.
+Every application goes through the timeline API the web app uses
+(``/applications/{id}/timeline``, finalize with or without an outcome body,
+reopen). The ``/applications/{id}/steps`` routes and the 0.1.4 finalize
+body left with applika-cli (ADR-0028).
 
 Usage:
     1. Start the backend server (uv run task run)
@@ -771,12 +769,6 @@ def seed_cv_pdfs(
         )
 
 
-def check_deprecated(resp: httpx.Response, label: str) -> None:
-    """Every answer of a deprecated route carries ``Deprecation``."""
-    if 'deprecation' not in resp.headers:
-        print(f'  WARNING: {label} answered without a Deprecation header')
-
-
 def seed_timeline(
     client: httpx.Client,
     app_id: str,
@@ -832,8 +824,7 @@ def seed_timeline(
         return False
 
     if random.random() < 0.5:
-        # R-032: the outcome event and the close in one atomic request, no
-        # Deprecation header.
+        # R-032: the outcome event and the close in one atomic request.
         if plan['offer']:
             body = {
                 'outcome': 'offer',
@@ -861,8 +852,6 @@ def seed_timeline(
                 f'{resp.status_code} {resp.text}'
             )
             return False
-        if 'Deprecation' in resp.headers:
-            print('  WARNING: new finalize body carries a Deprecation header')
         return True
 
     if plan['offer']:
@@ -913,90 +902,6 @@ def seed_timeline(
     return True
 
 
-def seed_legacy_steps(
-    client: httpx.Client,
-    app_id: str,
-    first_date: date,
-    plan: dict | None,
-    normal_steps: list[dict],
-    offer_step: dict,
-    denied_step: dict,
-) -> bool:
-    """applika-cli 0.1.4's path: the deprecated /steps and the /finalize
-    body. Returns True when the application ended closed."""
-    day = first_date
-    # One Initial Screen at most per application (R-030).
-    screen = [s for s in normal_steps if s['name'] == 'Initial Screen']
-    others = [s for s in normal_steps if s['name'] != 'Initial Screen']
-    picks = screen[:1] + [
-        random.choice(others or normal_steps)
-        for _ in range(random.randint(2, 4))
-    ]
-    last_step: dict | None = None
-    for step_def in picks:
-        resp = client.post(
-            f'/applications/{app_id}/steps',
-            json={
-                'step_id': step_def['id'],
-                'step_date': day.isoformat(),
-                'observation': random.choice(STEP_OBSERVATIONS),
-            },
-        )
-        check_deprecated(resp, 'POST /steps')
-        if resp.status_code != 201:
-            print(f'  Failed to add step: {resp.status_code} {resp.text}')
-        else:
-            last_step = resp.json()
-        day = min(day + timedelta(days=random.randint(3, 14)), DATE_END)
-
-    listed = client.get(f'/applications/{app_id}/steps')
-    check_deprecated(listed, 'GET /steps')
-    if last_step is not None and random.random() < 0.3:
-        # `steps edit` without --step resends the listed step_id.
-        current = next(s for s in listed.json() if s['id'] == last_step['id'])
-        resp = client.put(
-            f'/applications/{app_id}/steps/{current["id"]}',
-            json={
-                'step_id': current['step_id'],
-                'step_date': current['step_date'],
-                'observation': 'Rescheduled',
-            },
-        )
-        check_deprecated(resp, 'PUT /steps')
-
-    if plan is None:
-        return False
-
-    step = offer_step if plan['offer'] else denied_step
-    fin_payload = {
-        'step_id': step['id'],
-        'feedback_id': plan['feedback']['id'],
-        'finalize_date': day.isoformat(),
-        # A salary only on the Offer step: anything else is refused.
-        'salary_offer': (
-            random.choice([5000, 8000, 12000, 15000, 20000, 25000])
-            if plan['offer']
-            else None
-        ),
-        'observation': (
-            'Offer accepted!'
-            if plan['offer']
-            else random.choice([
-                'No response after final round',
-                'Position filled internally',
-                'Decided to go with another candidate',
-                None,
-            ])
-        ),
-    }
-    resp = client.post(f'/applications/{app_id}/finalize', json=fin_payload)
-    check_deprecated(resp, 'POST /finalize (body)')
-    if resp.status_code != 201:
-        print(f'  Failed to finalize: {resp.status_code} {resp.text}')
-        return False
-    return True
-
-
 def random_date(start: date, end: date) -> date:
     delta = (end - start).days
     return start + timedelta(days=random.randint(0, delta))
@@ -1039,15 +944,13 @@ def main():
         timeout=30,
         transport=RetryOn429Transport(),
     ) as client:
-        # ----- Fetch support data (platforms, steps, feedbacks) -----
+        # ----- Fetch support data (platforms) -----
         print('Fetching support data...')
         resp = client.get('/supports')
         resp.raise_for_status()
         supports = resp.json()
 
         platforms = supports['platforms']
-        step_defs = supports['steps']
-        feedback_defs = supports['feedbacks']
 
         platform_ids = [p['id'] for p in platforms]
 
@@ -1110,41 +1013,7 @@ def main():
         priv_company_resp.raise_for_status()
         private_company_id = priv_company_resp.json()['id']
 
-        # Separate strict vs non-strict steps
-        normal_steps = [s for s in step_defs if not s.get('strict', False)]
-        strict_steps = [s for s in step_defs if s.get('strict', False)]
-
-        # Find "Accepted" and other feedbacks
-        accepted_fb = next(
-            (f for f in feedback_defs if f['name'].lower() == 'accepted'),
-            None,
-        )
-        other_feedbacks = [
-            f for f in feedback_defs if f['name'].lower() != 'accepted'
-        ]
-
-        offer_step = next(
-            (s for s in strict_steps if s['name'] == 'Offer'), None
-        )
-        denied_step = next(
-            (s for s in strict_steps if s['name'] == 'Denied'), None
-        )
-
-        if not normal_steps:
-            print('ERROR: No non-strict step definitions found.')
-            return
-        if not offer_step or not denied_step:
-            print('ERROR: No "Offer"/"Denied" strict step definitions found.')
-            return
-        if not accepted_fb:
-            print('ERROR: No "Accepted" feedback definition found.')
-            return
-
-        print(
-            f'  Platforms: {len(platforms)}, '
-            f'Steps: {len(normal_steps)} normal + {len(strict_steps)} strict, '
-            f'Feedbacks: {len(feedback_defs)}'
-        )
+        print(f'  Platforms: {len(platforms)}')
 
         # ----- Master CVs -----
         base_cv_ids = seed_base_cvs(client) if cvs_enabled else []
@@ -1165,13 +1034,10 @@ def main():
         finalize_plan: list[dict | None] = []
         # Offers
         for _ in range(MIN_ACCEPTED):
-            finalize_plan.append({'feedback': accepted_fb, 'offer': True})
+            finalize_plan.append({'offer': True})
         # Remaining finalized are denied
         for _ in range(num_finalized - MIN_ACCEPTED):
-            finalize_plan.append({
-                'feedback': random.choice(other_feedbacks),
-                'offer': False,
-            })
+            finalize_plan.append({'offer': False})
         # 7 active (not finalized)
         for _ in range(num_active):
             finalize_plan.append(None)
@@ -1288,21 +1154,10 @@ def main():
                 if pdf_application_id is None:
                     pdf_application_id = app_id
 
-            # ----- Timeline (web) or steps (0.1.4), 3-5 entries -----
+            # ----- Timeline, 3-5 entries -----
             plan = finalize_plan[i]
             first_date = app_date + timedelta(days=random.randint(1, 5))
-            if i % 2 == 0:
-                closed = seed_timeline(client, app_id, first_date, plan)
-            else:
-                closed = seed_legacy_steps(
-                    client,
-                    app_id,
-                    first_date,
-                    plan,
-                    normal_steps,
-                    offer_step,
-                    denied_step,
-                )
+            closed = seed_timeline(client, app_id, first_date, plan)
             if closed:
                 finalized_count += 1
                 if plan and plan['offer']:

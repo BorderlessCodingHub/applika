@@ -29,7 +29,6 @@ const BACK_BARS: [path: string, back: [href: string, label: string] | null][] =
     ["/cycles", ["/account", "Account"]],
     ["/reports", ["/account", "Account"]],
     ["/profile", ["/account", "Account"]],
-    ["/device", ["/account", "Account"]],
     ["/admin", ["/account", "Account"]],
     ["/admin/users", ["/account", "Account"]],
     ["/admin/companies", ["/account", "Account"]],
@@ -149,11 +148,11 @@ describe("isPhoneScreen", () => {
 
 /**
  * PRD 0023: the Account hub opens Profile › MCP from its own row, between
- * Profile and Devices & CLI, for every user (no beta gate, ADR-0028); the
- * MCP section is `/profile`, so its back bar is the Account hub's.
+ * Profile and Devices, for every user (no beta gate, ADR-0028); the MCP
+ * section is `/profile`, so its back bar is the Account hub's.
  */
 describe("accountRows: MCP", () => {
-  it("puts MCP between Profile and Devices & CLI, for users and admins, with no feature", () => {
+  it("puts MCP between Profile and Devices, for users and admins, with no feature", () => {
     for (const isAdmin of [false, true]) {
       const { account } = accountRows(
         navItemsFor(isAdmin, [], { hasReportsBadge: false }),
@@ -167,6 +166,19 @@ describe("accountRows: MCP", () => {
         undefined,
       ]);
     }
+  });
+
+  it("has no row for the deleted /device page (ADR-0028)", () => {
+    for (const isAdmin of [false, true]) {
+      const { account } = accountRows(
+        navItemsFor(isAdmin, [], { hasReportsBadge: false }),
+      );
+      expect(account.map((row) => row.href)).not.toContain("/device");
+      expect(account.find((row) => row.key === "devices")?.label).toBe(
+        "Devices",
+      );
+    }
+    expect(isPhoneScreen("/device")).toBe(false);
   });
 
   it("returns from /profile?tab=mcp to the Account hub", () => {

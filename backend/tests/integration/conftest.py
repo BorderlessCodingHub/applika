@@ -9,9 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.redis import RedisContainer
 
 from app.application.dto.user import UserDTO
-from app.application.use_cases.auth_handoff_state import (
-    AuthHandoffStateUseCase,
-)
 from app.config.db import get_session
 from app.config.redis import get_redis
 from app.domain.models import UserModel
@@ -87,7 +84,6 @@ async def reset_pk_sequences(db_session: AsyncSession):
         'users',
         'companies',
         'platforms',
-        'feedbacks_definition',
         'steps_definition',
         'applications',
         'timeline_events',
@@ -134,11 +130,6 @@ async def redis_client(redis_container):
     await client.flushdb()
     await client.aclose()
     main_app.dependency_overrides.pop(get_redis, None)
-
-
-@pytest_asyncio.fixture
-async def auth_handoff_state_use_case(redis_client):
-    return AuthHandoffStateUseCase(redis_client)
 
 
 @pytest_asyncio.fixture

@@ -27,6 +27,7 @@ from app.application.services.session_store import (
 from app.application.use_cases.mcp_tokens.create_token import (
     CreateMcpTokenUseCase,
 )
+from app.config.settings import ACCESS_COOKIE_NAME
 from app.domain.models import FeatureModel, UserSessionModel
 from app.domain.repositories.user_session_repository import (
     UserSessionRepository,
@@ -52,8 +53,9 @@ def redis_container():
     container.stop()
 
 
-def _bearer(token: str) -> dict[str, str]:
-    return {'Authorization': f'Bearer {token}'}
+def _cookie(token: str) -> dict[str, str]:
+    """The ``__access`` cookie, the only REST credential (ADR-0028)."""
+    return {ACCESS_COOKIE_NAME: token}
 
 
 async def _web(async_engine, redis_client, user_id: int = USER.id) -> str:
@@ -79,7 +81,7 @@ async def test_create_answers_the_token_once_with_no_store(
     response = await real_client.post(
         ROUTE,
         json={'name': 'Claude Code', 'scope': ['read', 'write']},
-        headers=_bearer(access),
+        cookies=_cookie(access),
     )
 
     assert response.status_code == 201
@@ -133,7 +135,7 @@ async def test_the_three_scope_sets(
         (['delete', 'write', 'read'], ['read', 'write', 'delete']),
     ):
         response = await real_client.post(
-            ROUTE, json={'name': 'x', 'scope': scope}, headers=_bearer(access)
+            ROUTE, json={'name': 'x', 'scope': scope}, cookies=_cookie(access)
         )
         assert response.status_code == 201, response.text
         assert response.json()['scope'] == expected
@@ -155,7 +157,7 @@ async def test_the_name_is_trimmed_and_defaulted(
     body: dict = {'scope': ['read']}
     if name is not None:
         body['name'] = name
-    response = await real_client.post(ROUTE, json=body, headers=_bearer(access))
+    response = await real_client.post(ROUTE, json=body, cookies=_cookie(access))
     assert response.status_code == 201, response.text
     assert response.json()['name'] == stored
 
@@ -176,7 +178,7 @@ async def test_a_bad_body_is_422_gen_1003_and_writes_nothing(
     real_client: AsyncClient, async_engine, redis_client, body
 ):
     access = await _web(async_engine, redis_client)
-    response = await real_client.post(ROUTE, json=body, headers=_bearer(access))
+    response = await real_client.post(ROUTE, json=body, cookies=_cookie(access))
     assert response.status_code == 422
     assert response.json()['code'] == 'GEN-1003'
     assert await _rows(async_engine) == []
@@ -189,11 +191,11 @@ async def test_the_device_list_shows_the_scope_never_the_token(
     created = await real_client.post(
         ROUTE,
         json={'name': 'Claude Desktop', 'scope': ['read']},
-        headers=_bearer(access),
+        cookies=_cookie(access),
     )
     token = created.json()['token']
     listed = await real_client.get(
-        '/users/me/sessions', headers=_bearer(access)
+        '/users/me/sessions', cookies=_cookie(access)
     )
     assert listed.status_code == 200
     assert token not in listed.text
@@ -222,11 +224,22 @@ async def test_an_mcp_token_is_refused_on_every_rest_route(
         ('DELETE', '/users/me/sessions/1'),
         ('POST', '/users/me/sessions/revoke-others'),
     ):
+        body = {'name': 'x', 'scope': ['read']} if method == 'POST' else None
+        # As a Bearer it is no REST credential at all (ADR-0028) ...
         response = await real_client.request(
             method,
             path,
-            headers=_bearer(token),
-            json={'name': 'x', 'scope': ['read']} if method == 'POST' else None,
+            headers={'Authorization': f'Bearer {token}'},
+            json=body,
+        )
+        assert response.status_code == 401, (method, path)
+        assert response.json() == {
+            'detail': 'Not authenticated',
+            'code': 'AUTH-1001',
+        }, (method, path)
+        # ... and in the cookie it is no JWT.
+        response = await real_client.request(
+            method, path, cookies=_cookie(token), json=body
         )
         assert response.status_code == 401, (method, path)
         assert response.json() == {
@@ -248,13 +261,11 @@ async def test_creating_needs_a_session(real_client: AsyncClient):
 async def test_revoking_another_users_connection_is_404_admins_too(
     real_client: AsyncClient, async_engine, redis_client, second_user
 ):
-    theirs, _ = await open_mcp_token(
-        async_engine, redis_client, SECOND_USER_ID
-    )
+    theirs, _ = await open_mcp_token(async_engine, redis_client, SECOND_USER_ID)
     for user_id in (USER.id, ADMIN.id):
         access = await _web(async_engine, redis_client, user_id)
         response = await real_client.delete(
-            f'/users/me/sessions/{theirs.id}', headers=_bearer(access)
+            f'/users/me/sessions/{theirs.id}', cookies=_cookie(access)
         )
         assert response.status_code == 404
         assert response.json() == {
@@ -262,7 +273,7 @@ async def test_revoking_another_users_connection_is_404_admins_too(
             'code': 'AUTH-1043',
         }
         listed = await real_client.get(
-            '/users/me/sessions', headers=_bearer(access)
+            '/users/me/sessions', cookies=_cookie(access)
         )
         assert str(theirs.id) not in listed.text
     [row] = await _rows(async_engine)
@@ -275,14 +286,14 @@ async def test_revoking_ends_the_connection_at_once(
     access = await _web(async_engine, redis_client)
     row, token = await open_mcp_token(async_engine, redis_client, USER.id)
     response = await real_client.delete(
-        f'/users/me/sessions/{row.id}', headers=_bearer(access)
+        f'/users/me/sessions/{row.id}', cookies=_cookie(access)
     )
     assert response.status_code == 204
     assert not await redis_client.exists(mcp_key(mcp_token_hash(token)))
     assert not await redis_client.exists(id_key(row.id))
     # Nothing else in Redis went: the web session is still live.
     listed = await real_client.get(
-        '/users/me/sessions', headers=_bearer(access)
+        '/users/me/sessions', cookies=_cookie(access)
     )
     statuses = {item['client_type']: item['status'] for item in listed.json()}
     assert statuses == {'web': 'active', 'mcp': 'revoked'}
@@ -312,7 +323,9 @@ async def test_redis_down_is_503_and_leaves_no_row(
     )
     try:
         response = await real_client.post(
-            ROUTE, json={'name': 'x', 'scope': ['read']}, headers=_bearer(access)
+            ROUTE,
+            json={'name': 'x', 'scope': ['read']},
+            cookies=_cookie(access),
         )
     finally:
         main_app.dependency_overrides.pop(get_create_mcp_token_use_case, None)
@@ -335,6 +348,6 @@ async def test_no_feature_row_is_needed(
         assert await session.scalar(select(func.count(FeatureModel.id))) == 0
     access = await _web(async_engine, redis_client)
     response = await real_client.post(
-        ROUTE, json={'name': 'x', 'scope': ['read']}, headers=_bearer(access)
+        ROUTE, json={'name': 'x', 'scope': ['read']}, cookies=_cookie(access)
     )
     assert response.status_code == 201

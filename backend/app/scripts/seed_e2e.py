@@ -24,8 +24,10 @@ the user's ``users.id`` and its ``sid`` the session row's id; the refresh
 value is the session's uuid7.
 
 Each run opens one ``borderless`` session per user ("Chrome on Linux") and
-one more ``cli_device`` session for ``e2e-user`` (device ``e2e-cli``), whose
-tokens are the ``cli_access_token`` / ``cli_refresh_token`` keys.
+one MCP token for ``e2e-user`` (ADR-0028: ``mcp`` / ``mcp_token``, named
+``e2e-mcp``, scope ``read``), created through ``CreateMcpTokenUseCase``
+exactly as Profile > MCP creates one; the token is the ``mcp_token`` key.
+Like the JWTs, it exists only in this run's stdout, never in a file.
 
 Each seeded user is found by its fake Borderless ``sub``, else by its
 email, and its binding is re-set every run: the account's
@@ -40,9 +42,9 @@ rotates the token: ``frontend/scripts/e2e.sh`` POSTs the fake's
 one-time restore prompt answered. ``e2e-discord`` keeps its name: it is the
 beta specs' third user.
 
-Support data (platforms, steps_definition, feedbacks_definition) is NOT
-seeded here: the initial revision ``e3abe9dc93d4_init_db`` bulk-inserts
-all three tables, so ``alembic upgrade head`` already provides them.
+Support data (platforms, steps_definition) is NOT seeded here: the initial
+revision ``e3abe9dc93d4_init_db`` bulk-inserts them, so ``alembic upgrade
+head`` already provides them.
 
 Every run also puts the beta features back in a known state (ADR-0018):
 ``jobs`` and ``cvs`` in ``beta`` with ``released_at`` NULL, ``e2e-user`` on
@@ -55,7 +57,7 @@ Prints exactly one JSON line to stdout::
      "admin_user_id": "...", "admin_access_token": "...",
      "admin_refresh_token": "...", "discord_user_id": "...",
      "discord_access_token": "...", "discord_refresh_token": "...",
-     "cli_access_token": "...", "cli_refresh_token": "..."}
+     "mcp_token": "..."}
 """
 
 import asyncio
@@ -68,11 +70,13 @@ import redis.asyncio as redis
 from sqlalchemy import update
 
 from app.application.dto.user import UserCreateDTO
-from app.application.dto.user_session import ClientType, SignInMethod
 from app.application.services.borderless_access_store import (
     BorderlessAccessStore,
 )
 from app.application.services.session_store import SessionStore
+from app.application.use_cases.mcp_tokens.create_token import (
+    CreateMcpTokenUseCase,
+)
 from app.application.use_cases.sessions.open_session import (
     OpenSessionUseCase,
 )
@@ -82,6 +86,7 @@ from app.config.settings import envs
 from app.core.crypto import encrypt_borderless_token
 from app.core.enums import BadgeKey
 from app.core.features import FeatureKey, FeatureStage
+from app.core.mcp_scopes import McpScope
 from app.domain.models import GithubConnectionModel, UserModel
 from app.domain.repositories.borderless_account_repository import (
     BorderlessAccountRepository,
@@ -142,8 +147,7 @@ E2E_BROWSER_USER_AGENT = (
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
     '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
 )
-E2E_CLI_USER_AGENT = 'applika-cli/1.1.0 (e2e)'
-E2E_CLI_DEVICE_NAME = 'e2e-cli'
+E2E_MCP_TOKEN_NAME = 'e2e-mcp'
 
 
 class Identity(NamedTuple):
@@ -266,13 +270,7 @@ async def reset_beta_features(
 
 
 async def mint_session(
-    identity: Identity,
-    redis_conn: redis.Redis,
-    *,
-    client_type: ClientType = 'web',
-    sign_in_method: SignInMethod = 'borderless',
-    user_agent: str = E2E_BROWSER_USER_AGENT,
-    device_name: str | None = None,
+    identity: Identity, redis_conn: redis.Redis
 ) -> tuple[str, str]:
     """Open a real device session (row + Redis keys) through the app's own
     ``OpenSessionUseCase``; answers its access JWT and refresh value."""
@@ -282,13 +280,28 @@ async def mint_session(
         )
         tokens = await use_case.execute(
             user_id=identity.user_id,
-            client_type=client_type,
-            sign_in_method=sign_in_method,
-            user_agent=user_agent,
+            client_type='web',
+            sign_in_method='borderless',
+            user_agent=E2E_BROWSER_USER_AGENT,
             ip=E2E_IP,
-            device_name=device_name,
         )
     return tokens.access_token, tokens.refresh_token
+
+
+async def mint_mcp_token(identity: Identity, redis_conn: redis.Redis) -> str:
+    """Create a real MCP token (row + Redis keys, scope ``read``) through
+    the app's own ``CreateMcpTokenUseCase``; answers the token."""
+    async with AsyncLocalSession() as session:
+        use_case = CreateMcpTokenUseCase(
+            UserSessionRepository(session), SessionStore(redis_conn)
+        )
+        _row, token = await use_case.execute(
+            user_id=identity.user_id,
+            name=E2E_MCP_TOKEN_NAME,
+            scope=[McpScope.READ],
+            ip=E2E_IP,
+        )
+    return token
 
 
 async def seed() -> dict[str, str]:
@@ -308,14 +321,7 @@ async def seed() -> dict[str, str]:
         discord_access_token, discord_refresh_token = await mint_session(
             discord_user, redis_client
         )
-        cli_access_token, cli_refresh_token = await mint_session(
-            user,
-            redis_client,
-            client_type='cli',
-            sign_in_method='cli_device',
-            user_agent=E2E_CLI_USER_AGENT,
-            device_name=E2E_CLI_DEVICE_NAME,
-        )
+        mcp_token = await mint_mcp_token(user, redis_client)
     finally:
         await redis_client.aclose()
 
@@ -329,8 +335,7 @@ async def seed() -> dict[str, str]:
         'discord_user_id': str(discord_user.user_id),
         'discord_access_token': discord_access_token,
         'discord_refresh_token': discord_refresh_token,
-        'cli_access_token': cli_access_token,
-        'cli_refresh_token': cli_refresh_token,
+        'mcp_token': mcp_token,
     }
 
 

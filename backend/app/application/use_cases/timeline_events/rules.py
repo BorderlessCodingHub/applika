@@ -1,9 +1,9 @@
 """The event rules every timeline write goes through (R-002..R-005, R-030).
 
 The web routes validate the same rules in their request schema (so a bad
-body is a 422 before any I/O); the rules live here as well so the ``/steps``
-compat routes and the legacy finalize, which build events themselves, cannot
-write an event the web could not. The database CHECKs
+body is a 422 before any I/O); the rules live here as well so a path that
+builds events itself (the outcome finalize) cannot write an
+event the web could not. The database CHECKs
 ``ck_timeline_events_interview_type`` and ``ck_timeline_events_offer_salary``
 are the last line.
 """
@@ -41,10 +41,8 @@ SCHEDULE_ONLY_ON_INTERVIEW = (
 # outcome-finalize body (``presentation/schemas/application.py:
 # FinalizeWithOutcome``, ``FinalizeApplicationWithOutcomeUseCase``) read,
 # so the same offer is never valid through one route and refused through
-# the other. It is deliberately **not** folded into ``normalize_event``:
-# the legacy 0.1.4 finalize body (``compat/legacy_finalize.py``) fills an
-# offer's period from ``application.salary_period``, and that application
-# can itself be hourly - a pinned compat behaviour this fix must not touch.
+# the other. It is called explicitly, on top of ``normalize_event``, by
+# each path that writes an offer.
 OFFER_PERIODS = frozenset({SalaryPeriod.MONTHLY, SalaryPeriod.ANNUALLY})
 OFFER_PERIOD_INVALID = 'offer salary_period must be monthly or annually'
 
@@ -70,10 +68,7 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
       ``interview_type``). Owner, verbatim: "if event type is different
       from interview, these attributes must be blocked". Explicit nulls or
       absent keys are fine on any event type; only a non-null value on a
-      non-interview event is refused. The deprecated ``/steps`` compat
-      routes never hit this branch - they drop the schedule themselves
-      before calling in, so an installed CLI is never 422'd for it
-      (``.claude/rules/cli-compatibility.md``).
+      non-interview event is refused.
 
     Raises ``BusinessRuleViolation`` (422). Returns a normalized copy.
     """
@@ -139,9 +134,7 @@ def ensure_offer_period_allowed[T: TimelineEventWriteDTO](data: T) -> None:
     """Refuse ``hourly`` on an offer event (R-005/R-031).
 
     Call explicitly, on top of :func:`normalize_event`, from any path that
-    must match the timeline write schema's offer-period restriction. The
-    legacy 0.1.4 finalize body does not call this (see the module-level
-    note on ``OFFER_PERIODS``).
+    must match the timeline write schema's offer-period restriction.
     """
     if (
         data.event_type is EventType.OFFER

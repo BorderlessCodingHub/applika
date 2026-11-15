@@ -55,7 +55,7 @@ from app.application.use_cases.tailored_cvs.create import (
 from app.application.use_cases.timeline_events.create import (
     CreateTimelineEventUseCase,
 )
-from app.config.settings import REFRESH_COOKIE_NAME, envs
+from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, envs
 from app.core.enums import EventType, InterviewType
 from app.domain.models import (
     ApplicationModel,
@@ -615,7 +615,10 @@ async def test_finalize_reopen_and_the_outcome_close(
         )
     )
     assert offer['finalized'] is True
-    assert offer['salary_offer'] == 8000.0
+    # The answer is REST's Application: no CLI-only field (ADR-0028).
+    assert 'salary_offer' not in offer
+    assert 'feedback' not in offer
+    assert offer['last_step'] is not None
 
     missing = _error(
         await call(
@@ -774,7 +777,7 @@ async def test_master_cv_tools(
     _validates_output('create_cv', created_answer)
     # Missing item ids are assigned.
     assert all(item['id'] for item in created['experience'])
-    assert job_queue.recomputes == [int(created["id"])]
+    assert job_queue.recomputes == [int(created['id'])]
 
     listed = await call(mcp, token, 'list_cvs')
     assert _ok(listed) == (await async_client.get('/base-cvs')).json()
@@ -796,16 +799,12 @@ async def test_master_cv_tools(
     assert edited['headline'] == 'Principal Engineer'
     assert edited['experience'] == created['experience']
 
-    markdown = await call(
-        mcp, token, 'download_cv', {'cv_id': created['id']}
-    )
+    markdown = await call(mcp, token, 'download_cv', {'cv_id': created['id']})
     rest_markdown = await async_client.get(
         f'/base-cvs/{created["id"]}/markdown'
     )
     assert markdown['isError'] is False
-    assert markdown['content'] == [
-        {'type': 'text', 'text': rest_markdown.text}
-    ]
+    assert markdown['content'] == [{'type': 'text', 'text': rest_markdown.text}]
 
     pdf = await call(
         mcp, token, 'download_cv', {'cv_id': created['id'], 'format': 'pdf'}
@@ -854,7 +853,9 @@ async def test_application_cv_tools(
         assert markdown['content'][0]['type'] == 'text'
         assert markdown['content'][0]['text'], name
     diff = await call(mcp, token, 'diff_application_cv', target)
-    rest_diff = await async_client.get(f'/applications/{app_id}/cv/diff/markdown')
+    rest_diff = await async_client.get(
+        f'/applications/{app_id}/cv/diff/markdown'
+    )
     assert diff['content'][0]['text'] == rest_diff.text
     pdf = await call(
         mcp, token, 'download_application_cv', {**target, 'format': 'pdf'}
@@ -1124,7 +1125,7 @@ async def test_a_revoked_token_is_401_on_its_next_call(
     web = await open_session(async_engine, redis_client, USER.id)
     revoked = await real_client.delete(
         f'/users/me/sessions/{mcp_token_read.session_id}',
-        headers={'Authorization': f'Bearer {web.access_token}'},
+        cookies={ACCESS_COOKIE_NAME: web.access_token},
     )
     assert revoked.status_code == 204
     _assert_token_refused(await rpc(mcp, mcp_token_read.token, 'tools/list'))
@@ -1175,7 +1176,9 @@ async def test_a_token_whose_user_is_gone_is_401_and_ends(
     )
 
 
-async def test_redis_down_is_503_retry_after_5(mcp: AsyncClient, mcp_token_read):
+async def test_redis_down_is_503_retry_after_5(
+    mcp: AsyncClient, mcp_token_read
+):
     down = redis.from_url(
         'redis://127.0.0.1:1/0',
         decode_responses=True,
@@ -1209,7 +1212,9 @@ async def test_too_many_calls_are_429_with_the_wait(
     body = refused.json()
     assert body['code'] == 'GEN-1004'
     seconds = body['params']['seconds']
-    assert body['detail'] == f'Too many requests. Try again in {seconds} seconds.'
+    assert (
+        body['detail'] == f'Too many requests. Try again in {seconds} seconds.'
+    )
     assert refused.headers['retry-after'] == str(seconds)
     keys = await redis_client.keys('applika:ratelimit:mcp:mcp:*')
     assert len(keys) == 1
@@ -1280,7 +1285,7 @@ async def test_one_token_in_two_apps_is_one_device_with_the_latest_use(
     web = await open_session(async_engine, redis_client, USER.id)
     listed = await real_client.get(
         '/users/me/sessions',
-        headers={'Authorization': f'Bearer {web.access_token}'},
+        cookies={ACCESS_COOKIE_NAME: web.access_token},
     )
     mcp_rows = [row for row in listed.json() if row['client_type'] == 'mcp']
     assert len(mcp_rows) == 1
@@ -1323,14 +1328,16 @@ async def test_redis_decides_an_mcp_token_whose_row_lags_behind(
         .values(expires_at=past),
     )
     web = await open_session(async_engine, redis_client, USER.id)
-    headers = {'Authorization': f'Bearer {web.access_token}'}
-    listed = (await real_client.get('/users/me/sessions', headers=headers)).json()
+    cookies = {ACCESS_COOKIE_NAME: web.access_token}
+    listed = (
+        await real_client.get('/users/me/sessions', cookies=cookies)
+    ).json()
     statuses = {row['id']: row['status'] for row in listed}
     assert statuses[str(mcp_token_read.session_id)] == 'active'
     assert statuses[str(mcp_token_full.session_id)] == 'active'
 
     revoked = await real_client.delete(
-        f'/users/me/sessions/{mcp_token_read.session_id}', headers=headers
+        f'/users/me/sessions/{mcp_token_read.session_id}', cookies=cookies
     )
     assert revoked.status_code == 204
     _assert_token_refused(await rpc(mcp, mcp_token_read.token, 'tools/list'))
@@ -1339,7 +1346,7 @@ async def test_redis_decides_an_mcp_token_whose_row_lags_behind(
     )
 
     others = await real_client.post(
-        '/users/me/sessions/revoke-others', headers=headers
+        '/users/me/sessions/revoke-others', cookies=cookies
     )
     assert others.json() == {'revoked': 1}
     _assert_token_refused(await rpc(mcp, mcp_token_full.token, 'tools/list'))
@@ -1358,7 +1365,7 @@ async def test_sign_out_everywhere_else_ends_the_mcp_token(
     web = await open_session(async_engine, redis_client, USER.id)
     response = await real_client.post(
         '/users/me/sessions/revoke-others',
-        headers={'Authorization': f'Bearer {web.access_token}'},
+        cookies={ACCESS_COOKIE_NAME: web.access_token},
     )
     assert response.json() == {'revoked': 1}
     _assert_token_refused(await rpc(mcp, mcp_token_read.token, 'tools/list'))
@@ -1374,7 +1381,7 @@ async def test_deleting_the_account_ends_every_mcp_token(
 ):
     web = await open_session(async_engine, redis_client, USER.id)
     response = await real_client.delete(
-        '/users/me', headers={'Authorization': f'Bearer {web.access_token}'}
+        '/users/me', cookies={ACCESS_COOKIE_NAME: web.access_token}
     )
     assert response.status_code == 204
     for token in (mcp_token_read.token, mcp_token_full.token):

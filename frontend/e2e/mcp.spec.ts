@@ -2,11 +2,11 @@ import {
   expect,
   test,
   type APIRequestContext,
-  type APIResponse,
   type Page,
 } from "@playwright/test";
 
 import { SEEDED_USERS, apiUrl, loginAs } from "./support/auth";
+import { MCP_TOKEN_REFUSED, mcpCall as mcp } from "./support/mcp";
 import {
   PHONE,
   expectNoSidewaysScroll,
@@ -31,7 +31,9 @@ import {
  * Shared state: serial; e2e-user's web session is never revoked and "Sign
  * out all other devices" is never confirmed. The spec revokes the three
  * tokens it creates, and only those (each name carries this run's mark), so
- * no other spec's active-device counts move.
+ * no other spec's active-device counts move. The phone pass opens McpEmpty
+ * as e2e-admin, who holds no MCP connection in any spec order (the seed
+ * gives e2e-user one, "e2e-mcp", which only `devices.spec.ts` revokes).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -68,37 +70,6 @@ test.afterAll(() => {
   else process.env.PLAYWRIGHT_NO_COPY_PROMPT = noCopyPrompt;
 });
 
-let rpcId = 0;
-
-/** One JSON-RPC call to the hosted MCP server, as an AI app sends it. */
-async function mcp(
-  request: APIRequestContext,
-  token: string,
-  method: string,
-  params?: Record<string, unknown>,
-): Promise<APIResponse> {
-  rpcId += 1;
-  try {
-    return await request.post(apiUrl("/mcp"), {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json, text/event-stream",
-        "Content-Type": "application/json",
-      },
-      data: {
-        jsonrpc: "2.0",
-        id: rpcId,
-        method,
-        ...(params ? { params } : {}),
-      },
-    });
-  } catch {
-    // Playwright's call log lists the request's headers, the bearer among
-    // them: a call that gets no answer fails with these words only.
-    throw new Error(`POST /mcp ${method} got no answer`);
-  }
-}
-
 async function toolNames(
   request: APIRequestContext,
   token: string,
@@ -114,11 +85,7 @@ async function toolNames(
 async function expectRefused(request: APIRequestContext, token: string) {
   const refused = await mcp(request, token, "tools/list");
   expect(refused.status()).toBe(401);
-  expect(await refused.json()).toEqual({
-    detail:
-      "MCP token invalid, revoked or expired. Create a new one in Applika: Profile > MCP.",
-    code: "AUTH-1051",
-  });
+  expect(await refused.json()).toEqual(MCP_TOKEN_REFUSED);
 }
 
 async function openMcpTab(page: Page) {
@@ -384,7 +351,7 @@ test.describe("Profile › MCP and /mcp on a phone (390×844)", () => {
     page,
     request,
   }) => {
-    await loginAs(page, "user");
+    await loginAs(page, "admin");
     await page.goto("/profile?tab=mcp");
     const screen = page.locator('[data-slot="phone-mcp"]');
     await expect(screen).toBeVisible();
@@ -393,7 +360,7 @@ test.describe("Profile › MCP and /mcp on a phone (390×844)", () => {
         .getByRole("navigation", { name: "Profile sections" })
         .getByRole("link", { name: "MCP", exact: true }),
     ).toHaveAttribute("aria-current", "page");
-    // The earlier tokens are revoked: McpEmpty, whole.
+    // e2e-admin holds no MCP connection: McpEmpty, whole.
     const empty = screen.locator('[data-slot="mcp-empty"]');
     await expect(empty).toBeVisible();
     await expectPhoneTargets(page, 6);

@@ -1,6 +1,7 @@
-"""DTOs of the device sessions (ADR-0019): what the session and
-CLI sign-in use cases return to the routers. The refresh value never appears
-in a ``repr`` and never in the device list."""
+"""DTOs of the device sessions (ADR-0019): what the session use cases
+return to the routers. The refresh value never appears in a ``repr`` and
+never in the device list. ``cli`` and its sign-in methods name applika-cli
+sessions kept as history (ADR-0028)."""
 
 from datetime import datetime
 from typing import Literal
@@ -64,24 +65,3 @@ class SessionListItemDTO(BaseModel):
     # An MCP token's scope names; None on web and CLI sessions. Never the
     # token itself.
     scope: list[str] | None = None
-
-
-class DeviceRequestDTO(BaseModel):
-    """A pending device code as the approval page shows it (R-017)."""
-
-    device_name: str
-    client_label: str
-    ip: str | None
-    requested_at: datetime
-    expires_at: datetime
-
-
-class DeviceCodeDTO(BaseModel):
-    """``POST /auth/device/code``: RFC 8628 section 3.2."""
-
-    device_code: str = Field(repr=False)
-    user_code: str
-    verification_uri: str
-    verification_uri_complete: str
-    expires_in: int
-    interval: int

@@ -991,11 +991,10 @@ async def test_catalog_routes_are_gone_for_admins(
         resp = await admin_client.request(method, route, json=payload)
         assert resp.status_code == 404, f'{method} {route}: {resp.status_code}'
 
+    # The catalogs are no longer served at all (ADR-0028): /supports holds
+    # the platforms only.
     supports = (await admin_client.get('/supports')).json()
-    assert [(s['id'], s['name']) for s in supports['steps']] == [
-        (str(base_data()['step_applied'].id), 'Applied')
-    ]
-    assert {f['name'] for f in supports['feedbacks']} == {'Denied', 'Accepted'}
+    assert set(supports) == {'platforms'}
 
 
 async def test_catalog_routes_are_gone_for_users(

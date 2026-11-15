@@ -1784,10 +1784,18 @@ def _app_code(url: str, work: Callable[..., Any]) -> Any:
 
 
 def _release_b_code_writes(url: str) -> dict[str, Any]:
-    """What users do in Release B, through the Release B use cases."""
-    from app.application.dto.application import LegacyFinalizeApplicationDTO
-    from app.application.dto.legacy_step import LegacyStepWriteDTO
-    from app.application.dto.timeline_event import CreateTimelineEventDTO
+    """What users do in Release B, through the use cases that still exist.
+
+    Release B's 0.1.4 compat use cases (the legacy finalize and the
+    ``/steps`` writes) left with ADR-0028; what they wrote is written here
+    with the timeline use cases instead, row for row: the same event types,
+    dates, observations and salary, and ``finalized_at`` at the finalize
+    date's midnight UTC, as ``LegacyFinalizeApplicationUseCase`` stamped
+    it."""
+    from app.application.dto.timeline_event import (
+        CreateTimelineEventDTO,
+        UpdateTimelineEventDTO,
+    )
     from app.application.use_cases.applications.finalize_application import (
         FinalizeApplicationUseCase,
     )
@@ -1800,22 +1808,20 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
     from app.application.use_cases.applications.reopen_application import (
         ReopenApplicationUseCase,
     )
-    from app.application.use_cases.compat.legacy_finalize import (
-        LegacyFinalizeApplicationUseCase,
-    )
-    from app.application.use_cases.compat.legacy_steps import (
-        CreateLegacyStepUseCase,
-        UpdateLegacyStepUseCase,
-    )
     from app.application.use_cases.timeline_events.create import (
         CreateTimelineEventUseCase,
     )
-    from app.core.enums import EventType, InterviewType
+    from app.application.use_cases.timeline_events.update import (
+        UpdateTimelineEventUseCase,
+    )
+    from app.core.enums import (
+        Currency,
+        EventType,
+        InterviewType,
+        SalaryPeriod,
+    )
     from app.domain.repositories.application_repository import (
         ApplicationRepository,
-    )
-    from app.domain.repositories.feedback_definition_repository import (
-        FeedbackDefinitionRepository,
     )
     from app.domain.repositories.step_definition_repository import (
         StepDefinitionRepository,
@@ -1823,9 +1829,6 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
     from app.domain.repositories.timeline_event_repository import (
         TimelineEventRepository,
     )
-
-    steps = _steps(url)
-    feedbacks = _feedbacks(url)
 
     async def work(session: Any) -> dict[str, Any]:
         apps = ApplicationRepository(session)
@@ -1867,32 +1870,36 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
                 timezone=LONG_TIMEZONE,
             )
         )
-        await LegacyFinalizeApplicationUseCase(
-            apps,
-            step_repo,
-            FeedbackDefinitionRepository(session),
-            timeline,
-            read_model,
-        ).execute(
-            APP_FRESH,
-            USER_ID,
-            LegacyFinalizeApplicationDTO(
-                step_id=steps['Offer'],
-                feedback_id=feedbacks['Accepted'],
-                finalize_date=date(2025, 8, 31),
-                salary_offer=1234.5,
-            ),
+        # The 0.1.4 finalize (Offer step, Accepted feedback, 1234.5): an
+        # offer event with the application's currency and period and the
+        # feedback name as its observation, closed at the date's midnight.
+        await create.execute(
+            event(
+                APP_FRESH,
+                date(2025, 8, 31),
+                event_type=EventType.OFFER,
+                observation='Feedback: Accepted',
+                salary_amount=Decimal('1234.50'),
+                salary_currency=Currency.EUR,
+                salary_period=SalaryPeriod.MONTHLY,
+            )
         )
+        fresh = await apps.get_by_id_and_user_id(APP_FRESH, USER_ID)
+        assert fresh is not None
+        fresh.finalized_at = datetime(2025, 8, 31, tzinfo=timezone.utc)
+        await apps.update(fresh)
 
-        # APP_TO_DENY: a 0.1.4 client edits the migrated step, the web
-        # adds a denied event and closes it without a body.
-        await UpdateLegacyStepUseCase(apps, step_repo, timeline).execute(
+        # APP_TO_DENY: a 0.1.4 client edits the migrated step (Phase 2:
+        # interview/unknown), the web adds a denied event and closes it
+        # without a body.
+        await UpdateTimelineEventUseCase(apps, timeline).execute(
             S_TO_DENY_P2,
             APP_TO_DENY,
             USER_ID,
-            LegacyStepWriteDTO(
-                step_id=steps['Phase 2'],
-                step_date=date(2025, 8, 15),
+            UpdateTimelineEventDTO(
+                event_type=EventType.INTERVIEW,
+                interview_type=InterviewType.UNKNOWN,
+                event_date=date(2025, 8, 15),
                 observation='Edited in B',
             ),
         )
@@ -1903,15 +1910,14 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
             APP_TO_DENY, USER_ID
         )
 
-        # APP_OPEN: a 0.1.4 client adds a Phase 3 step.
-        phase_3 = await CreateLegacyStepUseCase(
-            apps, step_repo, timeline
-        ).execute(
-            APP_OPEN,
-            USER_ID,
-            LegacyStepWriteDTO(
-                step_id=steps['Phase 3'], step_date=date(2025, 8, 25)
-            ),
+        # APP_OPEN: a 0.1.4 client adds a Phase 3 step (interview/unknown).
+        phase_3 = await create.execute(
+            event(
+                APP_OPEN,
+                date(2025, 8, 25),
+                event_type=EventType.INTERVIEW,
+                interview_type=InterviewType.UNKNOWN,
+            )
         )
 
         # APP_OFFER, closed before the switch, is reopened.
@@ -1980,7 +1986,6 @@ def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
     # Release B reads R1's data: the legacy fields come from the timeline.
     listed = written['listed']
     assert listed[APP_FRESH].finalized is True
-    assert listed[APP_FRESH].salary_offer == 1234.5
     assert listed[APP_FRESH].last_step is not None
     assert listed[APP_FRESH].last_step.id == steps['Offer']
     assert listed[APP_OFFER].finalized is False

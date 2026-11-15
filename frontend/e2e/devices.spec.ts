@@ -1,27 +1,47 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { apiUrl, cliBearerHeader, loginAs } from "./support/auth";
 import {
-  PHONE,
-  expectNoSidewaysScroll,
-  expectPhoneTargets,
-} from "./support/phone";
+  SEEDED_USERS,
+  apiUrl,
+  authCookieHeader,
+  loginAs,
+  mcpBearerHeader,
+  seededMcpToken,
+} from "./support/auth";
+import { MCP_TOKEN_REFUSED, mcpCall } from "./support/mcp";
 
 /**
- * Devices and CLI device sign-in (PRD 0014, ADR-0019) against the
- * real stack: the built API and web, Postgres, Redis.
+ * Devices (PRD 0014, ADR-0028) against the real stack: the built API and
+ * web, Postgres, Redis. The other device is an MCP connection, the only
+ * client besides the browser since the CLI was retired.
  *
- * Serial, and careful with shared state: the only session this spec ends is
- * e2e-user's seeded CLI session ("e2e-cli"); e2e-user's web session, which
- * every later spec signs in with, is never revoked, and "Sign out all other
- * devices" is never confirmed here. The device grant in test 2 adds one more
- * CLI session for e2e-user, which nothing else counts. The phone pass (last)
- * approves a code it never redeems, so it opens no session.
+ * Serial, and careful with shared state: the sessions this spec ends are
+ * e2e-user's seeded MCP session ("e2e-mcp") and the one MCP token test 2
+ * creates (its name carries this run's mark); e2e-user's web session, which
+ * every later spec signs in with, is the current one and is never revoked.
+ *
+ * Both tokens are real credentials: no trace, no screenshot, no video, no
+ * failure page snapshot (`PLAYWRIGHT_NO_COPY_PROMPT`), and no assertion
+ * compares against a token (the checks are statuses and booleans).
  */
 
-const SEEDED_CLI_DEVICE = "e2e-cli";
-const GRANTED_DEVICE = "e2e-device-grant";
-const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";
+test.describe.configure({ mode: "serial" });
+test.use({ trace: "off", screenshot: "off", video: "off" });
+
+const SEEDED_MCP_DEVICE = "e2e-mcp";
+const OTHER_DEVICE = `e2e-devices-other-${Date.now().toString(36)}`;
+
+let noCopyPrompt: string | undefined;
+
+test.beforeAll(() => {
+  noCopyPrompt = process.env.PLAYWRIGHT_NO_COPY_PROMPT;
+  process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
+});
+
+test.afterAll(() => {
+  if (noCopyPrompt === undefined) delete process.env.PLAYWRIGHT_NO_COPY_PROMPT;
+  else process.env.PLAYWRIGHT_NO_COPY_PROMPT = noCopyPrompt;
+});
 
 function deviceName(page: Page, name: string): Locator {
   return page.getByRole("heading", { level: 3, name, exact: true });
@@ -48,28 +68,29 @@ async function openEnded(page: Page) {
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
 }
 
-interface DeviceCode {
-  device_code: string;
-  user_code: string;
-  verification_uri_complete: string;
-  interval: number;
-}
-
-test.describe.configure({ mode: "serial" });
-
-/** The device grant's access token from test 2; test 4 signs it out. */
-let grantedAccessToken = "";
-
 test.describe("devices", () => {
-  test("Devices tab lists this device and the seeded CLI; Revoke refuses the CLI's next request", async ({
+  test("Devices tab lists this device and the seeded MCP connection; Revoke refuses its next call", async ({
     page,
     request,
   }) => {
-    // Control: the seeded CLI session works before the revoke.
-    const before = await request.get(apiUrl("/users/me"), {
-      headers: { Authorization: cliBearerHeader() },
+    // Control: the seeded MCP session answers before the revoke, as its user.
+    const before = await mcpCall(request, seededMcpToken(), "tools/call", {
+      name: "whoami",
+      arguments: {},
     });
     expect(before.status()).toBe(200);
+    const who = (await before.json()).result as {
+      isError: boolean;
+      structuredContent: { username: string };
+    };
+    expect(who.isError).toBe(false);
+    expect(who.structuredContent.username).toBe(SEEDED_USERS.user.username);
+
+    // The cookie is the only REST credential: the token opens no REST route.
+    const rest = await request.get(apiUrl("/users/me"), {
+      headers: { Authorization: mcpBearerHeader() },
+    });
+    expect(rest.status()).toBe(401);
 
     await loginAs(page, "user");
     await openDevices(page);
@@ -84,36 +105,43 @@ test.describe("devices", () => {
       "Active",
     );
 
-    const cliRow = active
+    const mcpRow = active
       .locator('[data-slot="device-row"]')
-      .filter({ has: deviceName(page, SEEDED_CLI_DEVICE) });
-    await expect(cliRow).toHaveCount(1);
-    await expect(cliRow).toHaveAttribute("data-status", "active");
-    await expect(cliRow.getByText("Approved with a device code")).toBeVisible();
+      .filter({ has: deviceName(page, SEEDED_MCP_DEVICE) });
+    await expect(mcpRow).toHaveCount(1);
+    await expect(mcpRow).toHaveAttribute("data-status", "active");
+    await expect(mcpRow.getByText("MCP token", { exact: true })).toBeVisible();
+    await expect(mcpRow.getByText("AI app (MCP)")).toBeVisible();
+    await expect(mcpRow.locator('[data-slot="mcp-scope"]')).toHaveText(
+      "Read only",
+    );
     for (const term of [
       "Client",
       "How it signed in",
       "IP address",
       "Granted",
       "Last used",
-      "Expires",
+      "Ends if unused",
     ]) {
       await expect(
-        cliRow.getByRole("term").filter({ hasText: term }).first(),
+        mcpRow.getByRole("term").filter({ hasText: term }).first(),
       ).toBeVisible();
     }
 
     // Cancel first: nothing happens.
-    await cliRow.getByRole("button", { name: "Revoke", exact: true }).click();
+    await mcpRow.getByRole("button", { name: "Revoke", exact: true }).click();
     let dialog = page.getByRole("alertdialog");
     await expect(dialog).toContainText(
-      `Revoke access for ${SEEDED_CLI_DEVICE}?`,
+      `Revoke access for ${SEEDED_MCP_DEVICE}?`,
+    );
+    await expect(dialog).toContainText(
+      "Apps that use this token lose access on their next call.",
     );
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
-    await expect(cliRow).toHaveAttribute("data-status", "active");
+    await expect(mcpRow).toHaveAttribute("data-status", "active");
 
-    await cliRow.getByRole("button", { name: "Revoke", exact: true }).click();
+    await mcpRow.getByRole("button", { name: "Revoke", exact: true }).click();
     dialog = page.getByRole("alertdialog");
     await dialog
       .getByRole("button", { name: "Revoke access", exact: true })
@@ -124,17 +152,16 @@ test.describe("devices", () => {
     const ended = page.locator('[data-slot="ended-devices"]');
     const endedRow = ended
       .locator('[data-slot="device-row"]')
-      .filter({ has: deviceName(page, SEEDED_CLI_DEVICE) });
+      .filter({ has: deviceName(page, SEEDED_MCP_DEVICE) });
     await expect(endedRow).toHaveAttribute("data-status", "revoked");
     await expect(endedRow.locator('[data-slot="device-status"]')).toHaveText(
       "Revoked",
     );
 
-    // AC1: the revoked CLI is refused on its next request.
-    const after = await request.get(apiUrl("/users/me"), {
-      headers: { Authorization: cliBearerHeader() },
-    });
+    // The revoked MCP connection is refused on its next call.
+    const after = await mcpCall(request, seededMcpToken(), "tools/list");
     expect(after.status()).toBe(401);
+    expect(await after.json()).toEqual(MCP_TOKEN_REFUSED);
 
     // This device is still signed in.
     await page.reload();
@@ -144,156 +171,46 @@ test.describe("devices", () => {
     ).toHaveCount(1);
   });
 
-  test("a device code approved on /device gets its own session and is listed", async ({
+  test("Sign out all other devices ends an MCP connection and keeps this device", async ({
     page,
     request,
   }) => {
-    const codeResponse = await request.post(apiUrl("/auth/device/code"), {
-      data: { device_name: GRANTED_DEVICE },
+    // A second device for e2e-user: an MCP token created with the page's
+    // own cookie, exactly as the MCP tab creates one.
+    const created = await request.post(apiUrl("/users/me/mcp-tokens"), {
+      headers: {
+        Cookie: authCookieHeader("user"),
+        "Content-Type": "application/json",
+      },
+      data: { name: OTHER_DEVICE, scope: ["read"] },
     });
-    expect(codeResponse.status()).toBe(200);
-    const code = (await codeResponse.json()) as DeviceCode;
-    expect(code.user_code).toMatch(/^[A-Z]{4}-[A-Z]{4}$/);
+    expect(created.status()).toBe(201);
+    const token = ((await created.json()) as { token: string }).token;
+    const control = await mcpCall(request, token, "tools/list");
+    expect(control.status()).toBe(200);
 
-    // Before approval the CLI's poll is pending.
-    const pending = await request.post(apiUrl("/auth/token"), {
-      data: { grant_type: DEVICE_GRANT, device_code: code.device_code },
-    });
-    expect(pending.status()).toBe(400);
-    expect((await pending.json()).error).toBe("authorization_pending");
-
-    await loginAs(page, "user");
-    await page.goto(code.verification_uri_complete);
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Sign in a device" }),
-    ).toBeVisible();
-    await expect(page.getByLabel("Device code")).toHaveValue(code.user_code);
-    await page.getByRole("button", { name: "Continue" }).click();
-
-    const card = page.locator('[data-slot="device-request"]');
-    await expect(
-      card.getByRole("heading", { name: "A device wants to sign in" }),
-    ).toBeVisible();
-    await expect(card.locator('[data-slot="device-request-name"]')).toHaveText(
-      GRANTED_DEVICE,
-    );
-    await expect(card.locator('[data-slot="device-request-code"]')).toHaveText(
-      code.user_code,
-    );
-    await expect(card.getByText("Requested")).toBeVisible();
-    await expect(card.getByText("IP address")).toBeVisible();
-    await expect(
-      card.getByText("Only approve if you started this sign-in yourself"),
-    ).toBeVisible();
-    await card.getByRole("button", { name: "Approve", exact: true }).click();
-
-    await expect(
-      page.getByRole("heading", {
-        name: "Device signed in. You can return to your terminal.",
-      }),
-    ).toBeVisible();
-
-    // Wait out the poll interval so the grant is not answered slow_down.
-    await page.waitForTimeout(code.interval * 1000);
-    const grant = await request.post(apiUrl("/auth/token"), {
-      data: { grant_type: DEVICE_GRANT, device_code: code.device_code },
-    });
-    expect(grant.status()).toBe(200);
-    const tokens = (await grant.json()) as {
-      access_token: string;
-      token_type: string;
-      refresh_token: string;
-    };
-    expect(tokens.token_type).toBe("Bearer");
-    expect(tokens.refresh_token).toBeTruthy();
-
-    const me = await request.get(apiUrl("/users/me"), {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    });
-    expect(me.status()).toBe(200);
-    grantedAccessToken = tokens.access_token;
-
-    // A code works once: approving again on the web is refused in words.
-    await page.goto(code.verification_uri_complete);
-    await page.getByRole("button", { name: "Continue" }).click();
-    await expect(
-      page.locator('[data-slot="device-code-error"]'),
-    ).not.toBeEmpty();
-
-    await page.goto("/profile?tab=devices");
-    const granted = page
-      .locator('[data-slot="active-devices"]')
-      .locator('[data-slot="device-row"]')
-      .filter({ has: deviceName(page, GRANTED_DEVICE) });
-    await expect(granted).toHaveAttribute("data-status", "active");
-    await expect(
-      granted.getByText("Approved with a device code"),
-    ).toBeVisible();
-  });
-
-  test("a signed-out /device?code= returns to /device with the code after sign-in", async ({
-    page,
-    request,
-  }) => {
-    const codeResponse = await request.post(apiUrl("/auth/device/code"), {
-      data: { device_name: "e2e-return-to" },
-    });
-    const code = (await codeResponse.json()) as DeviceCode;
-
-    await page.goto(`/device?code=${code.user_code}`);
-    await page.waitForURL("**/login");
-
-    await loginAs(page, "user");
-    await page.goto("/dashboard");
-
-    await page.waitForURL(
-      (url) =>
-        url.pathname.replace(/\/$/, "") === "/device" &&
-        url.searchParams.get("code") === code.user_code,
-    );
-    await expect(page.getByLabel("Device code")).toHaveValue(code.user_code);
-
-    // Consumed once: the dashboard stays the dashboard afterwards.
-    await page.goto("/dashboard");
-    await expect(
-      page.getByRole("heading", { name: "Dashboard" }),
-    ).toBeVisible();
-    expect(new URL(page.url()).pathname).toBe("/dashboard");
-
-    // Tidy: deny the pending code.
-    await page.goto(`/device?code=${code.user_code}`);
-    await page.getByRole("button", { name: "Continue" }).click();
-    await page.getByRole("button", { name: "Deny", exact: true }).click();
-    await expect(
-      page.getByRole("heading", {
-        name: "Sign-in denied. The device was not signed in.",
-      }),
-    ).toBeVisible();
-  });
-
-  test("Sign out all other devices ends the granted CLI and keeps this device", async ({
-    page,
-    request,
-  }) => {
     // Safe on the shared database: e2e-user's seeded web session is the
-    // current one and stays; "e2e-cli" is already revoked, so the only
-    // other active session is the one test 2 granted.
-    expect(grantedAccessToken).toBeTruthy();
+    // current one and stays; "e2e-mcp" is already revoked (test 1).
     await loginAs(page, "user");
     await openDevices(page);
+    const other = page
+      .locator('[data-slot="active-devices"] [data-slot="device-row"]')
+      .filter({ has: deviceName(page, OTHER_DEVICE) });
+    await expect(other).toHaveAttribute("data-status", "active");
 
     await page.locator('[data-slot="sign-out-others"]').click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toContainText(/Sign out \d+ other devices?\?/);
+    await expect(dialog).toContainText("MCP connections stop working.");
     await dialog
       .getByRole("button", { name: "Sign out other devices", exact: true })
       .click();
 
     await openEnded(page);
-    const granted = page
+    const ended = page
       .locator('[data-slot="ended-devices"] [data-slot="device-row"]')
-      .filter({ has: deviceName(page, GRANTED_DEVICE) });
-    await expect(granted).toHaveAttribute("data-status", "revoked");
+      .filter({ has: deviceName(page, OTHER_DEVICE) });
+    await expect(ended).toHaveAttribute("data-status", "revoked");
     await expect(
       page.locator('[data-slot="active-devices"] [data-slot="device-row"]'),
     ).toHaveCount(1);
@@ -305,105 +222,8 @@ test.describe("devices", () => {
       "true",
     );
 
-    const after = await request.get(apiUrl("/users/me"), {
-      headers: { Authorization: `Bearer ${grantedAccessToken}` },
-    });
+    const after = await mcpCall(request, token, "tools/list");
     expect(after.status()).toBe(401);
-  });
-
-  test("/cli/code shows code#state to paste into the terminal, signed out", async ({
-    page,
-  }) => {
-    await page.goto("/cli/code?code=e2e-code&state=e2e-state");
-
-    // Both widths' trees are in the page; this viewport shows the desktop one.
-    const desktop = page.locator('[data-slot="cli-code-desktop"]');
-    await expect(page.locator('[data-slot="cli-code-phone"]')).toBeHidden();
-    await expect(
-      desktop.getByRole("heading", {
-        level: 1,
-        name: "Sign in to applika-cli",
-      }),
-    ).toBeVisible();
-    await expect(
-      desktop.getByText("Paste this code into your terminal"),
-    ).toBeVisible();
-    await expect(desktop.locator('[data-slot="cli-code-value"]')).toHaveText(
-      "e2e-code#e2e-state",
-    );
-    await expect(desktop.getByRole("button", { name: "Copy" })).toBeVisible();
-    expect(new URL(page.url()).pathname.replace(/\/$/, "")).toBe("/cli/code");
-  });
-  test("below md, /device is the DeviceSignIn board: code, request with its warning, approve, outcome", async ({
-    page,
-    request,
-  }) => {
-    const codeResponse = await request.post(apiUrl("/auth/device/code"), {
-      data: { device_name: "e2e-phone-approve" },
-    });
-    expect(codeResponse.status()).toBe(200);
-    const code = (await codeResponse.json()) as DeviceCode;
-
-    await page.setViewportSize(PHONE);
-    await loginAs(page, "user");
-    await page.goto(code.verification_uri_complete);
-
-    // The code step: the board's form, prefilled once from `?code=`.
-    const form = page.locator('[data-slot="device-code-form"]');
-    await expect(
-      form.getByRole("heading", { level: 1, name: "Sign in a device" }),
-    ).toBeVisible();
-    await expect(page.locator('[data-slot="device-sign-in"]')).toHaveCount(0);
-    await expect(page.getByLabel("Device code")).toHaveValue(code.user_code);
-    await expect(page.getByLabel("Device code")).toBeFocused();
-    await expect(
-      page.locator('[data-slot="phone-top-bar"]').getByRole("link", {
-        name: "Account",
-        exact: true,
-      }),
-    ).toHaveAttribute("href", "/account");
-    await expectPhoneTargets(page, 3);
-    await expectNoSidewaysScroll(page);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-
-    // The request, its details and the warning; Deny / Approve in the bar.
-    const card = page.locator('[data-slot="device-request"]');
-    await expect(
-      card.getByRole("heading", {
-        level: 1,
-        name: "A device wants to sign in",
-      }),
-    ).toBeVisible();
-    await expect(card.locator('[data-slot="device-request-name"]')).toHaveText(
-      "e2e-phone-approve",
-    );
-    await expect(card.locator('[data-slot="device-request-code"]')).toHaveText(
-      code.user_code,
-    );
-    const warning = card.getByRole("note");
-    await expect(warning).toBeVisible();
-    await expect(warning).toContainText(
-      "Only approve if you started this sign-in yourself",
-    );
-    const bar = page.locator('[data-slot="phone-action-bar"]');
-    await expect(bar).toBeInViewport();
-    await expectPhoneTargets(page, 4);
-    await expectNoSidewaysScroll(page);
-    await bar.getByRole("button", { name: "Approve", exact: true }).click();
-
-    // The outcome, and the way to the Devices tab.
-    const outcome = page.locator('[data-slot="device-outcome"]');
-    await expect(outcome).toHaveAttribute("data-outcome", "approved");
-    await expect(
-      outcome.getByRole("heading", {
-        level: 1,
-        name: "Device signed in. You can return to your terminal.",
-      }),
-    ).toBeVisible();
-    await expect(
-      outcome.getByRole("link", { name: "See your devices" }),
-    ).toHaveAttribute("href", "/profile?tab=devices");
-    // Back and See your devices (the Applika MCP banner shows on Today only).
-    await expectPhoneTargets(page, 2);
+    expect(await after.json()).toEqual(MCP_TOKEN_REFUSED);
   });
 });

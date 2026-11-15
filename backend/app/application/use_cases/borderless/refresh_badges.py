@@ -1,7 +1,7 @@
 """Keep the membership current (ADR-0026 §8, §9).
 
-Runs at every session refresh (``GET /auth/refresh`` and the CLI's
-``refresh_token`` grant) and at every membership-gated request. The Redis
+Runs at every session refresh (``GET /auth/refresh``) and at every
+membership-gated request. The Redis
 access token is the freshness marker: present → ``fresh``, no Borderless
 call. Missing or expired (or Redis unreachable): take the binding's row
 lock, check Redis again, and call the ``refresh_token`` grant. About once

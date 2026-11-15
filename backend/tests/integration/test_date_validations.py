@@ -1,4 +1,4 @@
-"""Integration tests for application/step date validation rules.
+"""Integration tests for application/event date validation rules.
 
 These tests rely on ``freezegun`` to pin the notion of "today" so the
 "no future dates" rule is deterministic regardless of when the suite
@@ -17,8 +17,7 @@ from freezegun import freeze_time
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import EventType, InterviewType
-from app.domain.models import ApplicationModel, StepDefinitionModel
+from app.domain.models import ApplicationModel
 from tests import msg
 from tests.base_db_setup import base_data
 
@@ -40,27 +39,7 @@ def _app_payload(application_date: str, **overrides) -> dict:
     return payload
 
 
-async def _seed_steps_and_app(
-    db_session: AsyncSession, application_date: date
-) -> None:
-    db_session.add_all([
-        StepDefinitionModel(
-            id=1,
-            name='Applied',
-            color='#007bff',
-            strict=False,
-            event_type=EventType.INTERVIEW,
-            interview_type=InterviewType.UNKNOWN,
-        ),
-        StepDefinitionModel(
-            id=2,
-            name='Interview',
-            color='#17a2b8',
-            strict=False,
-            event_type=EventType.INTERVIEW,
-            interview_type=InterviewType.UNKNOWN,
-        ),
-    ])
+async def _seed_app(db_session: AsyncSession, application_date: date) -> None:
     db_session.add(
         ApplicationModel(
             id=1,
@@ -166,92 +145,86 @@ async def test_update_application_with_future_date_returns_422(
 
 
 # ---------------------------------------------------------------------------
-# Step dates: the order rules are gone (PRD 0008 "Assumptions")
+# Event dates: the order rules are gone (PRD 0008 "Assumptions")
 #
-# A step is a timeline event now, and for timeline events no
-# rule ties the date to the application date or to the previous step.
+# A step is a timeline event now (the /steps routes left with applika-cli,
+# ADR-0028), and for timeline events no rule ties the date to the
+# application date or to the previous event.
 # ---------------------------------------------------------------------------
 
+EVENTS = '/applications/1/timeline'
+
+
+def _event(event_date: str) -> dict:
+    return {'event_type': 'interview', 'event_date': event_date}
+
 
 @freeze_time(FROZEN_NOW)
-async def test_create_step_before_application_date_is_allowed(
+async def test_create_event_before_application_date_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
+    await _seed_app(db_session, application_date=date(2026, 4, 1))
 
-    payload = {'step_id': 1, 'step_date': '2026-03-31'}
-    response = await async_client.post('/applications/1/steps', json=payload)
+    response = await async_client.post(EVENTS, json=_event('2026-03-31'))
 
     assert response.status_code == 201, msg(201, response.status_code)
 
 
 @freeze_time(FROZEN_NOW)
-async def test_create_step_on_application_date_succeeds(
+async def test_create_event_on_application_date_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """step_date == application_date is allowed (bound is inclusive)."""
-    await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
+    """event_date == application_date is allowed (bound is inclusive)."""
+    await _seed_app(db_session, application_date=date(2026, 4, 1))
 
-    payload = {'step_id': 1, 'step_date': '2026-04-01'}
-    response = await async_client.post('/applications/1/steps', json=payload)
+    response = await async_client.post(EVENTS, json=_event('2026-04-01'))
 
     assert response.status_code == 201, msg(201, response.status_code)
 
 
 @freeze_time(FROZEN_NOW)
-async def test_create_step_after_application_date_succeeds(
+async def test_create_event_after_application_date_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
+    await _seed_app(db_session, application_date=date(2026, 4, 1))
 
-    payload = {'step_id': 1, 'step_date': '2026-04-03'}
-    response = await async_client.post('/applications/1/steps', json=payload)
+    response = await async_client.post(EVENTS, json=_event('2026-04-03'))
 
     assert response.status_code == 201, msg(201, response.status_code)
 
 
 @freeze_time(FROZEN_NOW)
-async def test_create_step_earlier_than_previous_step_is_allowed(
+async def test_create_event_earlier_than_previous_event_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """No chronological rule any more: the timeline orders by date."""
-    await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
+    await _seed_app(db_session, application_date=date(2026, 4, 1))
 
-    first = await async_client.post(
-        '/applications/1/steps',
-        json={'step_id': 1, 'step_date': '2026-04-05'},
-    )
+    first = await async_client.post(EVENTS, json=_event('2026-04-05'))
     assert first.status_code == 201, msg(201, first.status_code)
 
-    second = await async_client.post(
-        '/applications/1/steps',
-        json={'step_id': 2, 'step_date': '2026-04-03'},
-    )
+    second = await async_client.post(EVENTS, json=_event('2026-04-03'))
 
     assert second.status_code == 201, msg(201, second.status_code)
-    listed = await async_client.get('/applications/1/steps')
-    assert [s['step_date'] for s in listed.json()] == [
+    listed = await async_client.get(EVENTS)
+    assert [e['event_date'] for e in listed.json()] == [
         '2026-04-03',
         '2026-04-05',
     ]
 
 
 @freeze_time(FROZEN_NOW)
-async def test_update_step_before_application_date_is_allowed(
+async def test_update_event_before_application_date_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
+    await _seed_app(db_session, application_date=date(2026, 4, 1))
 
-    create = await async_client.post(
-        '/applications/1/steps',
-        json={'step_id': 1, 'step_date': '2026-04-05'},
-    )
+    create = await async_client.post(EVENTS, json=_event('2026-04-05'))
     assert create.status_code == 201, msg(201, create.status_code)
-    step_id = create.json()['id']
+    event_id = create.json()['id']
 
     update = await async_client.put(
-        f'/applications/1/steps/{step_id}',
-        json={'step_id': 1, 'step_date': '2026-03-20'},
+        f'{EVENTS}/{event_id}', json=_event('2026-03-20')
     )
 
     assert update.status_code == 200, msg(200, update.status_code)

@@ -2,8 +2,8 @@
 
 JWT first, as before; then ``sid`` must name a live session (else 401
 ``Session expired``); a session store failure is a 503 and never lets the
-request through. ``get_current_user`` reads the Bearer header before the
-cookie.
+request through. ``get_current_user`` reads the ``__access`` cookie only:
+the Bearer JWT is no REST credential since ADR-0028.
 """
 
 import asyncio
@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock
 
 import jwt
 import pytest
-from fastapi.security import HTTPAuthorizationCredentials
 from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.requests import Request
 
@@ -251,15 +250,15 @@ async def test_hanging_redis_times_out_into_503_within_half_a_second():
     repo.get_by_id.assert_not_called()
 
 
-# --- get_current_user: Bearer before the cookie ---
+# --- get_current_user: the cookie only ---
 
 
-def _request() -> Request:
+def _request(headers: list[tuple[bytes, bytes]] | None = None) -> Request:
     return Request({
         'type': 'http',
         'method': 'GET',
         'path': '/users/me',
-        'headers': [],
+        'headers': headers or [],
         'client': ('192.0.2.10', 4000),
     })
 
@@ -274,49 +273,45 @@ class _RecordingStore(FakeStore):
         return self.sessions.get(session_id)
 
 
-async def test_bearer_is_read_before_the_cookie():
-    bearer, _, _ = create_access_token('12345', '11')
-    cookie, _, _ = create_access_token('12345', '22')
-    store = _RecordingStore({11: 12345, 22: 12345})
-    request = _request()
-
-    user = await get_current_user(
-        request,
-        _user_repo(),
-        cast(SessionStore, store),
-        HTTPAuthorizationCredentials(scheme='Bearer', credentials=bearer),
-        cookie,
-    )
-
-    assert user.id == 12345
-    assert store.touched == [(11, '192.0.2.10')]
-    assert request.state.session_id == 11
-
-
-async def test_cookie_is_used_without_bearer():
+async def test_the_cookie_is_the_credential():
     cookie, _, _ = create_access_token('12345', '22')
     store = _RecordingStore({22: 12345})
     request = _request()
 
-    await get_current_user(
-        request, _user_repo(), cast(SessionStore, store), None, cookie
+    user = await get_current_user(
+        request, _user_repo(), cast(SessionStore, store), cookie
     )
 
+    assert user.id == 12345
     assert store.touched == [(22, '192.0.2.10')]
     assert request.state.session_id == 22
 
 
-async def test_neither_bearer_nor_cookie_is_not_authenticated():
+async def test_no_cookie_is_not_authenticated():
     with pytest.raises(InvalidSession) as exc_info:
         await get_current_user(
-            _request(),
-            _user_repo(),
-            cast(SessionStore, FakeStore()),
-            None,
-            None,
+            _request(), _user_repo(), cast(SessionStore, FakeStore()), None
         )
     assert catalog()[exc_info.value.code].status == '401'
     assert exc_info.value.message == 'Not authenticated'
+
+
+async def test_a_bearer_jwt_without_the_cookie_is_not_authenticated():
+    """ADR-0028: a valid access JWT in ``Authorization: Bearer`` (what
+    applika-cli 1.1.0 sent) is ignored: the same 401 as no credential, and
+    no session is touched."""
+    bearer, _, _ = create_access_token('12345', '11')
+    store = _RecordingStore({11: 12345})
+    request = _request([(b'authorization', f'Bearer {bearer}'.encode())])
+
+    with pytest.raises(InvalidSession) as exc_info:
+        await get_current_user(
+            request, _user_repo(), cast(SessionStore, store), None
+        )
+
+    assert exc_info.value.code == 'AUTH-1001'
+    assert exc_info.value.message == 'Not authenticated'
+    assert store.touched == []
 
 
 def test_the_session_check_is_bounded_by_half_a_second():

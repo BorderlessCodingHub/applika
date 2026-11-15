@@ -2,11 +2,7 @@ from typing import Annotated
 
 import redis.asyncio as aioredis
 from fastapi import Depends, Request, Security
-from fastapi.security import (
-    APIKeyCookie,
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
-)
+from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.tailored_cv import TailoringMode
@@ -48,9 +44,6 @@ from app.application.use_cases.account_link_state import (
 from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
-from app.application.use_cases.auth_handoff_state import (
-    AuthHandoffStateUseCase,
-)
 from app.application.use_cases.base_cvs.create import CreateBaseCVUseCase
 from app.application.use_cases.base_cvs.delete import DeleteBaseCVUseCase
 from app.application.use_cases.base_cvs.get import GetBaseCVUseCase
@@ -75,9 +68,6 @@ from app.application.use_cases.borderless.end_grant import (
 from app.application.use_cases.borderless.login_state import (
     BorderlessLoginStateUseCase,
 )
-from app.application.use_cases.borderless.login_target import (
-    BorderlessLoginTargets,
-)
 from app.application.use_cases.borderless.refresh_badges import (
     RefreshBadgesUseCase,
 )
@@ -87,9 +77,6 @@ from app.application.use_cases.borderless.release_grant import (
 from app.application.use_cases.borderless.sign_in import (
     BorderlessSignInUseCase,
 )
-from app.application.use_cases.cli_auth.authorize import CliAuthorizeUseCase
-from app.application.use_cases.cli_auth.device_code import DeviceCodeUseCase
-from app.application.use_cases.cli_auth.token import CliTokenUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.application.use_cases.github_restore.begin import (
     BeginGithubRestoreUseCase,
@@ -167,9 +154,6 @@ from app.domain.repositories.borderless_account_repository import (
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.feature_repository import FeatureRepository
-from app.domain.repositories.feedback_definition_repository import (
-    FeedbackDefinitionRepository,
-)
 from app.domain.repositories.github_connection_repository import (
     GithubConnectionRepository,
 )
@@ -219,10 +203,6 @@ def get_user_repository(session: DbSession):
     return UserRepository(session)
 
 
-def get_feedback_definition_repository(session: DbSession):
-    return FeedbackDefinitionRepository(session)
-
-
 def get_step_definition_repository(session: DbSession):
     return StepDefinitionRepository(session)
 
@@ -252,10 +232,6 @@ def get_user_statistics_repository(session: DbSession):
 
 
 UserRepositoryDp = Annotated[UserRepository, Depends(get_user_repository)]
-
-FeedbackDefinitionRepositoryDp = Annotated[
-    FeedbackDefinitionRepository, Depends(get_feedback_definition_repository)
-]
 
 StepDefinitionRepositoryDp = Annotated[
     StepDefinitionRepository, Depends(get_step_definition_repository)
@@ -397,17 +373,6 @@ DiscordFeedbackServiceDp = Annotated[
 RedisDp = Annotated[aioredis.Redis, Depends(get_redis)]
 
 
-async def get_auth_handoff_state_use_case(
-    redis_client: RedisDp,
-) -> AuthHandoffStateUseCase:
-    return AuthHandoffStateUseCase(redis_client)
-
-
-AuthHandoffStateUseCaseDp = Annotated[
-    AuthHandoffStateUseCase, Depends(get_auth_handoff_state_use_case)
-]
-
-
 async def get_account_link_state_use_case(
     redis_client: RedisDp,
 ) -> AccountLinkStateUseCase:
@@ -507,10 +472,10 @@ UserSessionRepositoryDp = Annotated[
     UserSessionRepository, Depends(get_user_session_repository)
 ]
 
-# Both read without auto_error, so the order is ours: the Bearer header
-# (applika-cli 1.1.0 and later) first, then the ``__access`` cookie (the web
-# and installed CLIs 0.1.4 to 1.0.1), else 401 ``Not authenticated``.
-_bearer_scheme = HTTPBearer(auto_error=False)
+# The ``__access`` cookie is the only REST credential (ADR-0028: the Bearer
+# JWT served only applika-cli). Read without auto_error, so a request
+# without it is our own 401 ``Not authenticated``; an ``Authorization``
+# header is ignored here (an MCP token is ``McpAuthGuard``'s, on /mcp only).
 _access_cookie_scheme = APIKeyCookie(name=ACCESS_COOKIE_NAME, auto_error=False)
 
 
@@ -518,10 +483,8 @@ async def get_current_user(
     request: Request,
     user_repo: UserRepositoryDp,
     session_store: SessionStoreDp,
-    bearer: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
-    access_cookie: str | None = Security(_access_cookie_scheme),
+    access_token: str | None = Security(_access_cookie_scheme),
 ) -> UserDTO:
-    access_token = bearer.credentials if bearer else access_cookie
     if not access_token:
         raise InvalidSession(
             'Not authenticated', ErrorCode.AUTH_NOT_AUTHENTICATED
@@ -589,17 +552,6 @@ BorderlessLoginStateUseCaseDp = Annotated[
 ]
 
 
-def get_borderless_login_targets(
-    handoff_state: AuthHandoffStateUseCaseDp,
-) -> BorderlessLoginTargets:
-    return BorderlessLoginTargets(handoff_state)
-
-
-BorderlessLoginTargetsDp = Annotated[
-    BorderlessLoginTargets, Depends(get_borderless_login_targets)
-]
-
-
 def get_end_borderless_grant_use_case(
     session: DbSession,
     session_repo: UserSessionRepositoryDp,
@@ -656,9 +608,8 @@ BorderlessSignInUseCaseDp = Annotated[
 def get_begin_borderless_login_use_case(
     oidc: BorderlessOidcClientDp,
     login_state: BorderlessLoginStateUseCaseDp,
-    targets: BorderlessLoginTargetsDp,
 ) -> BeginBorderlessLoginUseCase:
-    return BeginBorderlessLoginUseCase(oidc, login_state, targets)
+    return BeginBorderlessLoginUseCase(oidc, login_state)
 
 
 BeginBorderlessLoginUseCaseDp = Annotated[
@@ -670,9 +621,8 @@ def get_complete_borderless_login_use_case(
     oidc: BorderlessOidcClientDp,
     login_state: BorderlessLoginStateUseCaseDp,
     sign_in: BorderlessSignInUseCaseDp,
-    targets: BorderlessLoginTargetsDp,
 ) -> CompleteBorderlessLoginUseCase:
-    return CompleteBorderlessLoginUseCase(oidc, login_state, sign_in, targets)
+    return CompleteBorderlessLoginUseCase(oidc, login_state, sign_in)
 
 
 CompleteBorderlessLoginUseCaseDp = Annotated[
@@ -729,40 +679,6 @@ def get_create_mcp_token_use_case(
 CreateMcpTokenUseCaseDp = Annotated[
     CreateMcpTokenUseCase, Depends(get_create_mcp_token_use_case)
 ]
-
-
-def get_cli_authorize_use_case(
-    handoff_state: AuthHandoffStateUseCaseDp,
-) -> CliAuthorizeUseCase:
-    return CliAuthorizeUseCase(handoff_state)
-
-
-CliAuthorizeUseCaseDp = Annotated[
-    CliAuthorizeUseCase, Depends(get_cli_authorize_use_case)
-]
-
-
-def get_device_code_use_case(redis_client: RedisDp) -> DeviceCodeUseCase:
-    return DeviceCodeUseCase(redis_client)
-
-
-DeviceCodeUseCaseDp = Annotated[
-    DeviceCodeUseCase, Depends(get_device_code_use_case)
-]
-
-
-def get_cli_token_use_case(
-    handoff_state: AuthHandoffStateUseCaseDp,
-    open_session: OpenSessionUseCaseDp,
-    refresh_session: RefreshSessionUseCaseDp,
-    device_codes: DeviceCodeUseCaseDp,
-) -> CliTokenUseCase:
-    return CliTokenUseCase(
-        handoff_state, open_session, refresh_session, device_codes
-    )
-
-
-CliTokenUseCaseDp = Annotated[CliTokenUseCase, Depends(get_cli_token_use_case)]
 
 
 async def get_admin_user(

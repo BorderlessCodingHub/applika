@@ -6,9 +6,9 @@ The Redis access token is the freshness marker: present, a session refresh
 or a gated request calls nobody; gone, one refresh grant rotates the stored
 refresh token and applies the claim. When Borderless refuses the grant,
 every web session ends ``borderless_revoked`` (shown revoked in Devices) and
-the web refresh is AUTH-1049; CLI sessions keep refreshing and their
-member-gated requests answer AUTH-1050 until the next sign-in. A slow or
-failing Borderless never ends anything.
+the web refresh is AUTH-1049; an MCP token stays open; a member-gated
+request answers AUTH-1050 until the next sign-in. A slow or failing
+Borderless never ends anything.
 """
 
 import pytest
@@ -33,7 +33,7 @@ from tests import borderless_flow as flow
 from tests.base_db_setup import base_data
 from tests.conftest import bind_borderless
 from tests.integration.conftest import BOUND_SUB
-from tests.sessions_seed import open_session
+from tests.sessions_seed import open_mcp_token, open_session
 
 USER_ID = base_data()['user'].id
 ACCESS_KEY = f'applika:borderless:access:{USER_ID}'
@@ -52,8 +52,9 @@ LOCKED = {
 }
 
 
-def _bearer(token: str) -> dict[str, str]:
-    return {'Authorization': f'Bearer {token}'}
+def _cookie(token: str) -> dict[str, str]:
+    """The ``__access`` cookie, the only REST credential (ADR-0028)."""
+    return {ACCESS_COOKIE_NAME: token}
 
 
 def _grants(fake) -> list[str]:
@@ -63,13 +64,6 @@ def _grants(fake) -> list[str]:
 async def _refresh(client: AsyncClient, refresh_value: str):
     return await client.get(
         '/auth/refresh', cookies={REFRESH_COOKIE_NAME: refresh_value}
-    )
-
-
-async def _cli_refresh(client: AsyncClient, refresh_value: str):
-    return await client.post(
-        '/auth/token',
-        json={'grant_type': 'refresh_token', 'refresh_token': refresh_value},
     )
 
 
@@ -117,9 +111,11 @@ async def test_a_live_access_token_means_no_borderless_call(
     tokens = await open_session(async_engine, redis_client, USER_ID)
     await redis_client.set(ACCESS_KEY, 'encrypted', ex=3600)
 
-    assert (await _refresh(real_client, tokens.refresh_token)).status_code == 200
+    assert (
+        await _refresh(real_client, tokens.refresh_token)
+    ).status_code == 200
     gated = await real_client.get(
-        '/reports', headers=_bearer(tokens.access_token)
+        '/reports', cookies=_cookie(tokens.access_token)
     )
 
     assert gated.status_code == 200
@@ -141,7 +137,7 @@ async def test_a_missing_access_token_refreshes_once_and_rotates(
     first = await _refresh(real_client, tokens.refresh_token)
     second = await _refresh(real_client, tokens.refresh_token)
     gated = await real_client.get(
-        '/reports', headers=_bearer(tokens.access_token)
+        '/reports', cookies=_cookie(tokens.access_token)
     )
 
     assert (first.status_code, second.status_code) == (200, 200)
@@ -170,7 +166,7 @@ async def test_a_gated_request_with_no_access_token_refreshes(
     tokens = await open_session(async_engine, redis_client, USER_ID)
 
     gated = await real_client.get(
-        '/reports', headers=_bearer(tokens.access_token)
+        '/reports', cookies=_cookie(tokens.access_token)
     )
 
     assert gated.status_code == 200
@@ -195,7 +191,7 @@ async def test_borderless_failing_never_fails_a_refresh_or_a_request(
     monkeypatch.setattr(oidc_client, 'refresh', down)
 
     assert (await _refresh(real_client, web.refresh_token)).status_code == 200
-    gated = await real_client.get('/reports', headers=_bearer(web.access_token))
+    gated = await real_client.get('/reports', cookies=_cookie(web.access_token))
     assert gated.status_code == 200
     assert await _live_badges(db_session) == ['borderless_psp']
     binding = await _binding(db_session)
@@ -206,11 +202,12 @@ async def test_borderless_failing_never_fails_a_refresh_or_a_request(
 
 
 # --------------------------------------------------------------------------
-# A refused grant: web sessions end, CLI sessions are locked out of members
+# A refused grant: web sessions end, an MCP token stays open, member routes
+# are locked until the next sign-in
 # --------------------------------------------------------------------------
 
 
-async def test_a_refused_grant_ends_web_sessions_and_locks_the_cli(
+async def test_a_refused_grant_ends_web_sessions_and_keeps_the_mcp_token(
     real_client: AsyncClient,
     async_engine,
     db_session,
@@ -220,19 +217,8 @@ async def test_a_refused_grant_ends_web_sessions_and_locks_the_cli(
 ):
     web = await open_session(async_engine, redis_client, USER_ID)
     other_web = await open_session(async_engine, redis_client, USER_ID)
-    cli = await open_session(
-        async_engine,
-        redis_client,
-        USER_ID,
-        client_type='cli',
-        sign_in_method='cli_browser',
-    )
-    legacy_cli = await open_session(
-        async_engine,
-        redis_client,
-        USER_ID,
-        client_type='cli',
-        sign_in_method='cli_legacy',
+    mcp_row, mcp_token = await open_mcp_token(
+        async_engine, redis_client, USER_ID
     )
     fake_borderless.revoke_grants(BOUND_SUB)
 
@@ -249,46 +235,26 @@ async def test_a_refused_grant_ends_web_sessions_and_locks_the_cli(
         assert row.end_reason == 'borderless_revoked'
     # The user's other web session: dead (its key went).
     other = await real_client.get(
-        '/users/me', headers=_bearer(other_web.access_token)
+        '/users/me', cookies=_cookie(other_web.access_token)
     )
     assert other.status_code == 401
     assert other.json()['code'] == 'AUTH-1002'
     other_refresh = await _refresh(real_client, other_web.refresh_token)
     assert other_refresh.json()['code'] == 'AUTH-1015'
-    # Devices lists them as revoked.
-    devices = await real_client.get(
-        '/users/me/sessions', headers=_bearer(cli.access_token)
-    )
-    statuses = {item['id']: item['status'] for item in devices.json()}
-    assert statuses[str(web.session_id)] == 'revoked'
-    assert statuses[str(other_web.session_id)] == 'revoked'
     # The binding: no grant, needs_reconnect, no access token.
     binding = await _binding(db_session)
     assert binding.encrypted_refresh_token is None
     assert binding.status == 'needs_reconnect'
     assert await redis_client.exists(ACCESS_KEY) == 0
-
-    # The CLI sessions stay open and keep refreshing ...
-    for session in (cli, legacy_cli):
-        assert (await _row(db_session, session.session_id)).ended_at is None
-    granted = await _cli_refresh(real_client, cli.refresh_token)
-    assert granted.status_code == 200
-    legacy = await _refresh(real_client, legacy_cli.refresh_token)
-    assert legacy.status_code == 200
-    whoami = await real_client.get(
-        '/users/me', headers=_bearer(cli.access_token)
-    )
-    assert whoami.status_code == 200
-    assert whoami.json()['borderless']['status'] == 'needs_reconnect'
-    # ... but a member route tells them to sign in on the website.
-    locked = await real_client.get('/reports', headers=_bearer(cli.access_token))
-    assert locked.status_code == 403
-    assert locked.json() == LOCKED
+    # The MCP token stays open (only web sessions end).
+    assert (await _row(db_session, mcp_row.id)).ended_at is None
+    assert await redis_client.exists(f'applika:session:id:{mcp_row.id}') == 1
+    assert mcp_token.startswith('applika_mcp_')
     # The badge row stays.
     assert await _live_badges(db_session) == ['borderless_psp']
 
 
-async def test_the_next_sign_in_unlocks_every_session(
+async def test_the_next_sign_in_unlocks_the_member_routes(
     real_client: AsyncClient,
     async_engine,
     db_session,
@@ -296,18 +262,16 @@ async def test_the_next_sign_in_unlocks_every_session(
     bound_user,
     fake_borderless,
 ):
-    cli = await open_session(
-        async_engine,
-        redis_client,
-        USER_ID,
-        client_type='cli',
-        sign_in_method='cli_browser',
-    )
     web = await open_session(async_engine, redis_client, USER_ID)
     fake_borderless.revoke_grants(BOUND_SUB)
-    assert (await _refresh(real_client, web.refresh_token)).status_code == 401
-    locked = await real_client.get('/reports', headers=_bearer(cli.access_token))
+    # The member request that finds the grant refused is locked (AUTH-1050)
+    # and ends the web session.
+    locked = await real_client.get(
+        '/reports', cookies=_cookie(web.access_token)
+    )
+    assert locked.status_code == 403
     assert locked.json() == LOCKED
+    assert (await _row(db_session, web.session_id)).ended_at is not None
 
     async with flow.fake_browser(fake_borderless) as browser:
         signed_in = await flow.borderless_sign_in(
@@ -316,7 +280,8 @@ async def test_the_next_sign_in_unlocks_every_session(
     assert signed_in.headers['location'] == envs.WEB_SIGNIN_URI
 
     unlocked = await real_client.get(
-        '/reports', headers=_bearer(cli.access_token)
+        '/reports',
+        cookies=_cookie(signed_in.cookies[ACCESS_COOKIE_NAME]),
     )
     assert unlocked.status_code == 200
     assert (await _binding(db_session)).status == 'active'
@@ -347,18 +312,12 @@ async def test_a_binding_from_the_password_era_ends_its_web_sessions(
     refused grant at its first membership check."""
     await bind_borderless(db_session, USER_ID, token='')
     web = await open_session(async_engine, redis_client, USER_ID)
-    cli = await open_session(
-        async_engine,
-        redis_client,
-        USER_ID,
-        client_type='cli',
-        sign_in_method='cli_browser',
-    )
 
     refused = await _refresh(real_client, web.refresh_token)
     assert refused.json() == GRANT_ENDED
-    locked = await real_client.get('/reports', headers=_bearer(cli.access_token))
-    assert locked.json() == LOCKED
+    assert (await _row(db_session, web.session_id)).end_reason == (
+        'borderless_revoked'
+    )
 
 
 async def test_a_lost_encryption_key_ends_the_grant(
@@ -392,6 +351,7 @@ async def test_redis_unreachable_for_the_access_token_refreshes_from_postgres(
     """The short-term store failing counts as "missing": the gate asks
     Borderless with the database's refresh token instead of trusting an
     unchecked membership."""
+
     class DownRedis:
         async def exists(self, *args):
             raise OSError('down')
@@ -408,10 +368,10 @@ async def test_redis_unreachable_for_the_access_token_refreshes_from_postgres(
     )
     try:
         first = await real_client.get(
-            '/reports', headers=_bearer(tokens.access_token)
+            '/reports', cookies=_cookie(tokens.access_token)
         )
         second = await real_client.get(
-            '/reports', headers=_bearer(tokens.access_token)
+            '/reports', cookies=_cookie(tokens.access_token)
         )
     finally:
         main_app.dependency_overrides.pop(get_borderless_access_store, None)
@@ -434,7 +394,7 @@ async def test_a_membership_lost_on_borderless_revokes_the_badge(
     fake_borderless.set_account(BOUND_SUB, membership=membership)
 
     gated = await real_client.get(
-        '/reports', headers=_bearer(tokens.access_token)
+        '/reports', cookies=_cookie(tokens.access_token)
     )
 
     assert gated.status_code == 403

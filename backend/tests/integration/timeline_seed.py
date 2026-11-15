@@ -1,10 +1,11 @@
 """Seed helpers for the timeline integration tests.
 
 Rows are shaped the way revision ``afd4074c70c2`` (R1) leaves production:
-the catalogs carry their decision (a) mapping, migrated steps are timeline
-events that kept the step's id, a finalized application has
+the step catalog carries its decision (a) mapping, migrated steps are
+timeline events that kept the step's id, a finalized application has
 ``finalized_at`` set and its outcome (and any salary) on an offer or denied
-event whose observation ends with ``Feedback: <name>``.
+event whose observation ends with ``Feedback: <name>``. The feedback catalog
+is ``feedbacks_definition_old`` since ADR-0028 and no model maps it.
 """
 
 from datetime import UTC, date, datetime
@@ -22,7 +23,6 @@ from app.core.enums import (
 )
 from app.domain.models import (
     ApplicationModel,
-    FeedbackDefinitionModel,
     StepDefinitionModel,
     TimelineEventModel,
 )
@@ -34,8 +34,6 @@ STEP_PHASE_2 = 2
 STEP_PHASE_3 = 3
 STEP_OFFER = 4
 STEP_DENIED = 5
-FB_ACCEPTED = 10
-FB_GHOST = 11
 
 USER_ID = 1
 OTHER_USER_ID = 2
@@ -83,8 +81,6 @@ def catalog() -> list[Any]:
             strict=True,
             event_type=EventType.DENIED,
         ),
-        FeedbackDefinitionModel(id=FB_ACCEPTED, name='Accepted', color='#0f0'),
-        FeedbackDefinitionModel(id=FB_GHOST, name='Ghost', color='#999'),
     ]
 
 

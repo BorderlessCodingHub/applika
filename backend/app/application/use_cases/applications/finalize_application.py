@@ -6,10 +6,8 @@ outcome it asks for no step, no feedback and no salary: the outcome and any
 offered salary live on the timeline (an offer or denied event), and there is
 no Offer <-> Accepted rule any more (R-012). Reopen undoes it.
 
-``FinalizeApplicationWithOutcomeUseCase`` (R-032) is the new optional body:
-an outcome event and ``finalized_at`` written atomically. The 0.1.4 body
-(step, feedback, date, salary, observation) is the compat layer's
-``LegacyFinalizeApplicationUseCase``.
+``FinalizeApplicationWithOutcomeUseCase`` (R-032) is the optional body:
+an outcome event and ``finalized_at`` written atomically.
 """
 
 from datetime import UTC, datetime

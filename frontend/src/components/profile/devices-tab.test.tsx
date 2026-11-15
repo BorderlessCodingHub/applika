@@ -294,7 +294,7 @@ describe("DevicesTab states", () => {
     expect(screen.getByText("No active devices")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Browsers and CLIs you sign in with, and your MCP connections, appear here.",
+        "Browsers you sign in with and your MCP connections appear here.",
       ),
     ).toBeInTheDocument();
     expect(activeList()).not.toBeInTheDocument();
@@ -854,7 +854,7 @@ describe("sign-in method labels (ADR-0024)", () => {
     expect(SIGN_IN_METHOD_LABEL.github_web).toBe("GitHub in the browser");
   });
 
-  it("names an MCP token and keeps the CLI labels until the CLI is retired", () => {
+  it("names an MCP token and keeps the CLI labels for history rows (ADR-0028)", () => {
     expect(SIGN_IN_METHOD_LABEL.mcp_token).toBe("MCP token");
     expect(SIGN_IN_METHOD_LABEL.cli_device).toBe("Approved with a device code");
   });

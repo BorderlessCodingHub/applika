@@ -80,16 +80,8 @@ class Settings(BaseSettings):
 
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Device sessions and CLI sign-in (ADR-0019). A device code
-    # lives DEVICE_CODE_TTL_SECONDS and is polled no faster than every
-    # DEVICE_CODE_POLL_INTERVAL_SECONDS. DEVICE_VERIFICATION_URI is the web
-    # page that approves a device code; CLI_MANUAL_REDIRECT_URI is the web
-    # page that shows a PKCE code to paste (``redirect_uri=oob``). Ended
-    # devices stay listed SESSION_HISTORY_DAYS after they end.
-    DEVICE_CODE_TTL_SECONDS: int = 600
-    DEVICE_CODE_POLL_INTERVAL_SECONDS: int = 10
-    DEVICE_VERIFICATION_URI: str = 'http://127.0.0.1:8080/device'
-    CLI_MANUAL_REDIRECT_URI: str = 'http://127.0.0.1:8080/cli/code'
+    # Device sessions (ADR-0019): ended devices stay listed
+    # SESSION_HISTORY_DAYS after they end.
     SESSION_HISTORY_DAYS: int = 30
     # MCP tokens (ADR-0028): a token ends MCP_TOKEN_IDLE_DAYS after its last
     # use; every call on /mcp pushes the end back.
@@ -116,7 +108,7 @@ class Settings(BaseSettings):
     BORDERLESS_LOGIN_TTL_SECONDS: int = 600
     BORDERLESS_DISCOVERY_TTL_SECONDS: int = 3600
     # The web sign-in page: every sign-in ends there, signed in or with
-    # ``?error=<code>`` (``&cli=1`` for a CLI sign-in).
+    # ``?error=<code>``.
     WEB_SIGNIN_URI: str = 'http://127.0.0.1:8080/login'
 
     # Wall-clock ceiling for one server-side CV PDF render (RenderCV +

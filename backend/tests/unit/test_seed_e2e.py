@@ -100,6 +100,7 @@ class FakeSessionRow:
         user_agent: str | None,
         ip: str | None,
         expires_at,
+        scope: str | None = None,
     ):
         self.id = id
         self.user_id = user_id
@@ -109,6 +110,7 @@ class FakeSessionRow:
         self.user_agent = user_agent
         self.ip = ip
         self.expires_at = expires_at
+        self.scope = scope
 
 
 class FakeUserSessionRepository:
@@ -269,8 +271,7 @@ async def test_upsert_refuses_without_the_encryption_key(
 
 def test_seed_accounts_match_the_fake_accounts():
     stub = {
-        a['sub']: a
-        for a in json.loads(STUB_ACCOUNTS.read_text())['accounts']
+        a['sub']: a for a in json.loads(STUB_ACCOUNTS.read_text())['accounts']
     }
     memberships = {
         'borderless_psp': 'PSP',
@@ -325,31 +326,42 @@ async def test_minted_session_is_a_real_device_session(monkeypatch):
     assert not any('refresh_token' in key for key in fake_redis.store)
 
 
-async def test_minted_cli_session_is_named_and_typed(monkeypatch):
+async def test_minted_mcp_token_is_a_real_mcp_session(monkeypatch):
+    """The MCP token goes through ``CreateMcpTokenUseCase``: an ``mcp`` /
+    ``mcp_token`` row named ``e2e-mcp`` with scope ``read``, and its two
+    Redis keys hold only the token's sha256 (ADR-0028)."""
+    from app.application.services.session_store import mcp_token_hash
+
     repo = _fake_sessions(monkeypatch)
     identity = seed_e2e.Identity(user_id=4242)
+    fake_redis = FakeRedis()
 
-    await seed_e2e.mint_session(
-        identity,
-        cast(redis.Redis, FakeRedis()),
-        client_type='cli',
-        sign_in_method='cli_device',
-        user_agent=seed_e2e.E2E_CLI_USER_AGENT,
-        device_name=seed_e2e.E2E_CLI_DEVICE_NAME,
+    token = await seed_e2e.mint_mcp_token(
+        identity, cast(redis.Redis, fake_redis)
     )
 
     [row] = repo.rows
-    assert (row.client_type, row.sign_in_method, row.device_name) == (
-        'cli',
-        'cli_device',
-        'e2e-cli',
-    )
+    assert (
+        row.user_id,
+        row.client_type,
+        row.sign_in_method,
+        row.device_name,
+        row.scope,
+        row.ip,
+    ) == (4242, 'mcp', 'mcp_token', 'e2e-mcp', 'read', seed_e2e.E2E_IP)
+    assert token.startswith('applika_mcp_')
+    digest = mcp_token_hash(token)
+    assert fake_redis.store[f'applika:mcp:{digest}'] == str(row.id)
+    session_hash = fake_redis.hashes[f'applika:session:id:{row.id}']
+    assert session_hash['mk'] == digest
+    assert session_hash['scope'] == 'read'
+    assert token not in str(fake_redis.store) + str(fake_redis.hashes)
 
 
-async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
-    """seed() returns all three web sessions and e2e-user's CLI session
-    under the agreed contract keys (eleven, plan correction
-    4)."""
+async def test_seed_returns_the_ten_contract_keys(monkeypatch):
+    """seed() returns all three web sessions and e2e-user's MCP token
+    under the agreed contract keys (ten: ADR-0028 replaced the two CLI
+    keys with ``mcp_token``)."""
     repo = _fake_sessions(monkeypatch)
     user = seed_e2e.Identity(user_id=11)
     admin = seed_e2e.Identity(user_id=22)
@@ -379,22 +391,19 @@ async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
         'discord_user_id',
         'discord_access_token',
         'discord_refresh_token',
-        'cli_access_token',
-        'cli_refresh_token',
+        'mcp_token',
     }
     assert all(isinstance(value, str) for value in payload.values())
-    # Four sessions, the last one the CLI's, signed in as e2e-user.
+    # Four sessions, the last one the MCP token, of e2e-user.
     assert [row.sign_in_method for row in repo.rows] == [
         'borderless',
         'borderless',
         'borderless',
-        'cli_device',
+        'mcp_token',
     ]
     assert repo.rows[3].user_id == user.user_id
-    cli_payload = decode_token(payload['cli_access_token'])
-    assert cli_payload['sub'] == str(user.user_id)
-    assert cli_payload.get('sid') == str(repo.rows[3].id)
-    assert payload['cli_refresh_token'] != payload['refresh_token']
+    assert repo.rows[3].client_type == 'mcp'
+    assert payload['mcp_token'].startswith('applika_mcp_')
     assert payload['user_id'] == '11'
     assert payload['admin_user_id'] == '22'
     assert payload['discord_user_id'] == '33'
@@ -405,7 +414,7 @@ async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
 
 
 def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
-    """stdout is exactly one JSON line carrying the eleven string keys."""
+    """stdout is exactly one JSON line carrying the ten string keys."""
     user = seed_e2e.Identity(user_id=11)
     admin = seed_e2e.Identity(user_id=22)
     discord_user = seed_e2e.Identity(user_id=33)
@@ -433,8 +442,7 @@ def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
         'discord_user_id',
         'discord_access_token',
         'discord_refresh_token',
-        'cli_access_token',
-        'cli_refresh_token',
+        'mcp_token',
     }
 
 

@@ -12,7 +12,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient, Response
 
-from app.config.settings import envs
+from app.config.settings import ACCESS_COOKIE_NAME, envs
 from app.main import app as main_app
 from app.presentation.dependencies import get_current_user
 from tests.base_db_setup import base_data
@@ -172,7 +172,7 @@ async def test_dead_session_is_auth_1002(
     await redis_client.flushdb()
 
     response = await real_client.get(
-        '/users/me', headers={'Authorization': f'Bearer {token}'}
+        '/users/me', cookies={ACCESS_COOKIE_NAME: token}
     )
     assert response.status_code == 401
     assert response.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
@@ -180,33 +180,9 @@ async def test_dead_session_is_auth_1002(
 
 async def test_garbage_token_is_auth_1012(real_client: AsyncClient):
     response = await real_client.get(
-        '/users/me', headers={'Authorization': 'Bearer not-a-jwt'}
+        '/users/me', cookies={ACCESS_COOKIE_NAME: 'not-a-jwt'}
     )
     assert_coded(response, 'AUTH-1012')
-
-
-async def test_unsupported_grant_keeps_error_and_names_the_grant(
-    async_client: AsyncClient,
-):
-    response = await async_client.post(
-        '/auth/token', json={'grant_type': 'password'}
-    )
-    assert response.status_code == 400
-    body = assert_coded(response, 'AUTH-1035', grant_type='password')
-    assert list(body) == ['error', 'detail', 'code', 'params']
-    assert body['error'] == 'unsupported_grant_type'
-    assert body['detail'] == 'Unsupported grant_type: password'
-
-
-async def test_refused_refresh_grant_has_its_own_code(
-    async_client: AsyncClient, redis_client
-):
-    response = await async_client.post(
-        '/auth/token',
-        json={'grant_type': 'refresh_token', 'refresh_token': 'nope'},
-    )
-    body = assert_coded(response, 'AUTH-1032')
-    assert body['error'] == 'invalid_grant'
 
 
 async def test_refused_refresh_route_clears_cookies_and_codes_it(
@@ -220,18 +196,6 @@ async def test_refused_refresh_route_clears_cookies_and_codes_it(
     }
     assert response.status_code == 401
     assert '__refresh=' in response.headers.get('set-cookie', '')
-
-
-async def test_bad_cli_callback_is_auth_1023(async_client: AsyncClient):
-    response = await async_client.post(
-        '/auth/cli/start',
-        json={'callback_url': 'http://example.com:8000/cb', 'state': 's'},
-    )
-    assert response.json() == {
-        'detail': 'CLI callback URL must target loopback',
-        'code': 'AUTH-1023',
-    }
-    assert response.status_code == 400
 
 
 # --------------------------------------------------------------------------

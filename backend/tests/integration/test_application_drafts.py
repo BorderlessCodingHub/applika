@@ -590,9 +590,6 @@ async def test_draft_id_404_on_ordinary_application_routes(
     timeline_resp = await async_client.get(f'/applications/{draft_id}/timeline')
     assert timeline_resp.status_code == 404, msg(404, timeline_resp.status_code)
 
-    steps_resp = await async_client.get(f'/applications/{draft_id}/steps')
-    assert steps_resp.status_code == 404, msg(404, steps_resp.status_code)
-
     finalize_resp = await async_client.post(
         f'/applications/{draft_id}/finalize'
     )

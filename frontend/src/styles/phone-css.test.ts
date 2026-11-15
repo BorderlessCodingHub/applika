@@ -128,7 +128,7 @@ function declarations(body: string): Record<string, string> {
 }
 
 // Sign-in option C below md (C_Mobile) and option A at md and up
-// (A_Desktop), v2/Landing, v2/CookiePolicy, v2/CliCode and v2/DeviceSignIn:
+// (A_Desktop), v2/Landing and v2/CookiePolicy:
 // each board's own <style> classes, the boards' inline style blocks made
 // classes, and what the app adds to them.
 const BOARD_ONLY = [
@@ -155,7 +155,6 @@ const INLINE_BLOCKS = [
   "ph-a-foot",
   "ph-a-signup",
   "ph-signin-alert",
-  "ph-signin-hint",
   "ph-landing-header",
   "ph-landing-hero",
   "ph-landing-eyebrow",
@@ -175,9 +174,6 @@ const INLINE_BLOCKS = [
   "ph-landing-footer",
   "ph-landing-home",
   "ph-landing-actions",
-  "ph-cli-code",
-  "ph-device-code",
-  "ph-device-note",
 ] as const;
 
 const ADAPTATIONS = ["ph-safe-bottom", "ph-below-top", "ph-pair"] as const;
@@ -272,7 +268,7 @@ describe("phone.css", () => {
   });
 });
 
-describe("phone.css: the sign-in, public and CLI boards", () => {
+describe("phone.css: the sign-in and public boards", () => {
   it.each([...BOARD_ONLY, ...INLINE_BLOCKS, ...ADAPTATIONS])(
     "declares .%s",
     (name) => {
@@ -511,16 +507,25 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     expect(ruleBody(".ph-mesh")).toMatch(/oklch\(0\.648 0\.119 235 \/ 0\.06\)/);
   });
 
-  it("draws v2/SignIn's alert and terminal hint", () => {
+  it("draws v2/SignIn's alert", () => {
     const alert = ruleBody(".ph-signin-alert");
     expect(alert).toMatch(/padding:\s*14px/);
     expect(alert).toMatch(/border-radius:\s*16px/);
     expect(alert).toMatch(/var\(--destructive\) 40%/);
     expect(alert).toMatch(/var\(--destructive\) 10%/);
-    const hint = ruleBody(".ph-signin-hint");
-    expect(hint).toMatch(/padding:\s*12px 14px/);
-    expect(hint).toMatch(/border-radius:\s*14px/);
-    expect(hint).toMatch(/background:\s*var\(--muted\)/);
+  });
+
+  it("draws no rule for the deleted CLI sign-in code and device pages (ADR-0028)", () => {
+    for (const retired of [
+      "ph-signin-hint",
+      "ph-cli-code",
+      "ph-device-code",
+      "ph-device-note",
+    ])
+      expect(DECLARED.has(retired), `.${retired} is still declared`).toBe(
+        false,
+      );
+    expect(css).not.toMatch(/\.ph-signin-alert code/);
   });
 
   it("ends the landing footer clear of the home indicator, in one rule", () => {
@@ -589,14 +594,7 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     ).toEqual({ gap: "4px" });
   });
 
-  it("draws the CLI code, the device code input and the device warning", () => {
-    const code = ruleBody(".ph-cli-code");
-    expect(code).toMatch(/font-size:\s*24px/);
-    expect(code).toMatch(/overflow-wrap:\s*anywhere/);
-    const input = ruleBody(".ph-device-code");
-    expect(input).toMatch(/height:\s*64px/);
-    expect(input).toMatch(/letter-spacing:\s*0\.12em/);
-    expect(ruleBody(".ph-device-note")).toMatch(/var\(--warning\) 12%/);
+  it("fills the screen below the back bar", () => {
     expect(ruleBody(".ph-below-top")).toMatch(
       /min-height:\s*calc\(100dvh - var\(--cookie-notice-height, 0px\) - 56px\)/,
     );
@@ -2146,7 +2144,7 @@ describe("phone.css: v3 state cards, check option, AdminFeatures, AdminFeatureVi
   });
 });
 
-// 0023/McpPage (`ph-mcp-`, the public /mcp; `ph-cli-` is /cli/code's), 0023's
+// 0023/McpPage (`ph-mcp-`, the public /mcp), 0023's
 // Profile › MCP boards (`ph-mt-`: Main, McpEmpty, McpCreate, McpToken) and
 // v3/CVNew (`ph-cn-`, the `.ph-cn` scope): each board's own <style> classes
 // and inline blocks.
@@ -2254,12 +2252,12 @@ describe("phone.css: 0023 MCP page, Profile › MCP and v3 CVNew", () => {
     expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
   });
 
-  it("keeps each board on its own prefix; /cli/code's .ph-cli- stays until the CLI is retired", () => {
+  it("keeps each board on its own prefix; /cli/code's .ph-cli- left with the page (ADR-0028)", () => {
     const own = (prefix: string) =>
       [...DECLARED].filter((name) => name.startsWith(prefix)).sort();
     expect(own("ph-mcp-")).toEqual([...MCP_PAGE].sort());
     expect(own("ph-mt-")).toEqual([...MCP_TAB].sort());
-    expect(own("ph-cli-").length).toBeGreaterThan(0);
+    expect(own("ph-cli-")).toEqual([]);
   });
 
   it("splits Profile's segmented nav in three: Profile | MCP | Devices", () => {

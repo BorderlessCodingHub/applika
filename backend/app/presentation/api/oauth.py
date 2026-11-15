@@ -1,12 +1,8 @@
-"""Session routes and the browser half of every sign-in (ADR-0019,
-ADR-0024, ADR-0026).
+"""Session routes (ADR-0019, ADR-0024, ADR-0026).
 
 Borderless's OpenID Connect sign-in is the only sign-in
 (``borderless_auth.py``). GitHub serves only the one-shot data restore:
-``/auth/github/callback`` is the restore callback. Every CLI browser
-sign-in (``/auth/cli/authorize``, the legacy ``/auth/cli/login/{id}``) goes
-straight to Borderless with ``prompt=login``; Borderless's callback hands
-the result back to the CLI.
+``/auth/github/callback`` is the restore callback.
 """
 
 from urllib.parse import urlencode
@@ -16,38 +12,19 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.application.dto.user_session import SessionTokensDTO
 from app.application.services.github_service import GitHubOAuthError
-from app.application.use_cases.cli_auth.authorize import PKCE_FLOW
-from app.application.use_cases.cli_auth.callback_url import (
-    cli_handoff_target,
-    validate_cli_callback_url,
-)
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.application.use_cases.github_restore.complete import RestoreStatus
 from app.config.logging import logger
 from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, envs
-from app.core.error_codes import ErrorCode
-from app.core.exceptions import (
-    CodedRefusal,
-    InvalidSession,
-    ResourceNotFound,
-    ServiceUnavailable,
-    SessionServiceUnavailable,
-)
+from app.core.exceptions import InvalidSession, SessionServiceUnavailable
 from app.core.tokens import (
     clear_access_cookie,
     clear_refresh_cookie,
     set_access_cookie,
     set_refresh_cookie,
 )
-from app.presentation.api.auth_handoff import (
-    attempt_redirect,
-    build_callback_redirect_url,
-    signin_redirect,
-)
 from app.presentation.dependencies import (
     AccountLinkStateUseCaseDp,
-    AuthHandoffStateUseCaseDp,
-    BeginBorderlessLoginUseCaseDp,
     BorderlessOidcClientDp,
     CompleteGithubRestoreUseCaseDp,
     EndSessionUseCaseDp,
@@ -61,58 +38,8 @@ from app.presentation.dependencies import (
     client_user_agent,
 )
 from app.presentation.schemas import DetailSchema
-from app.presentation.schemas.cli_auth import (
-    CliExchangeRequest,
-    CliExchangeResponse,
-    CliLoginStartRequest,
-    CliLoginStartResponse,
-)
 
 router = APIRouter(prefix='/auth', tags=['OAuth'])
-
-
-async def cli_handoff_redirect(
-    login_id: str,
-    auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
-    *,
-    user_id: int,
-    target: str,
-) -> str | None:
-    """Where the browser goes to hand a fresh sign-in back to the CLI, or
-    ``None`` when the CLI login expired or no longer allows ``target``.
-    ``target`` is the hand-off the sign-in attempt stored at its start
-    (ADR-0026 §3); it is followed only while it is still this login's own
-    (``cli_handoff_target``: its loopback callback, or for ``oob`` the
-    manual-code page). Opens no session: the CLI redeems the code for a
-    session of its own."""
-    login_state = await auth_handoff_state_use_case.get_login(login_id)
-    if login_state is None:
-        return None
-    if cli_handoff_target(login_state) != target:
-        return None
-
-    if login_state.get('flow') == PKCE_FLOW:
-        # The code is bound to the challenge and the redirect_uri it goes
-        # back to; ``oob`` shows it on the web to paste. The login is spent
-        # here, the code on POST /auth/token.
-        await auth_handoff_state_use_case.delete_login(login_id)
-        code = await auth_handoff_state_use_case.create_exchange_code(
-            login_id=login_id,
-            user_id=user_id,
-            flow=PKCE_FLOW,
-            code_challenge=login_state.get('code_challenge'),
-            redirect_uri=login_state['callback_url'],
-        )
-        return build_callback_redirect_url(
-            target, code=code, state=login_state['state']
-        )
-
-    code = await auth_handoff_state_use_case.create_exchange_code(
-        login_id=login_id, user_id=user_id
-    )
-    return build_callback_redirect_url(
-        target, code=code, state=login_state['state']
-    )
 
 
 def set_session_cookies(tokens: SessionTokensDTO, response: Response) -> None:
@@ -122,25 +49,6 @@ def set_session_cookies(tokens: SessionTokensDTO, response: Response) -> None:
     set_refresh_cookie(
         tokens.refresh_token, tokens.refresh_expires_in, response
     )
-
-
-async def redirect_to_borderless_for_cli(
-    login_id: str, begin: BeginBorderlessLoginUseCaseDp
-) -> RedirectResponse:
-    """307 straight to Borderless's sign-in with ``prompt=login`` (a CLI
-    sign-in always asks, even when the browser is signed in there) and the
-    attempt cookie; Borderless's callback hands the code back to the CLI.
-    Refused → the sign-in page with ``?error=<code>&cli=1``."""
-    try:
-        authorize_url, binding = await begin.execute('cli', login_id)
-    except (CodedRefusal, ServiceUnavailable) as exc:
-        return signin_redirect(exc.code, cli=True)
-    except Exception as exc:
-        logger.error(
-            f'Borderless CLI sign-in start failed ({type(exc).__name__})'
-        )
-        return signin_redirect(ErrorCode.GEN_INTERNAL_ERROR, cli=True)
-    return attempt_redirect(authorize_url, binding)
 
 
 async def release_borderless_grant(
@@ -166,51 +74,6 @@ async def auth_init():
     return RedirectResponse(
         envs.WEB_SIGNIN_URI, status_code=status.HTTP_307_TEMPORARY_REDIRECT
     )
-
-
-@router.post(
-    '/cli/start',
-    response_model=CliLoginStartResponse,
-    status_code=status.HTTP_201_CREATED,
-    deprecated=True,
-)
-async def cli_start(
-    payload: CliLoginStartRequest,
-    request: Request,
-    auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
-):
-    """Start the CLI auth handoff and return the browser entry URL."""
-    callback_url = validate_cli_callback_url(payload.callback_url)
-    login_id = await auth_handoff_state_use_case.create_login(
-        callback_url=callback_url,
-        state=payload.state,
-    )
-    login_url = str(request.url_for('cli_login', login_id=login_id))
-    return CliLoginStartResponse(
-        login_id=login_id,
-        login_url=login_url,
-    )
-
-
-@router.get(
-    '/cli/login/{login_id}',
-    deprecated=True,
-    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-)
-async def cli_login(
-    login_id: str,
-    auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
-    begin: BeginBorderlessLoginUseCaseDp,
-):
-    """307 straight to Borderless's sign-in (``prompt=login``) for this CLI
-    login."""
-    login_state = await auth_handoff_state_use_case.get_login(login_id)
-    if login_state is None:
-        raise ResourceNotFound(
-            'CLI login not found', ErrorCode.AUTH_CLI_LOGIN_NOT_FOUND
-        )
-
-    return await redirect_to_borderless_for_cli(login_id, begin)
 
 
 def _restore_redirect(outcome: RestoreStatus | str) -> RedirectResponse:
@@ -294,47 +157,6 @@ async def github_restore_callback(
     return response
 
 
-@router.post(
-    '/cli/exchange', response_model=CliExchangeResponse, deprecated=True
-)
-async def cli_exchange(
-    payload: CliExchangeRequest,
-    request: Request,
-    auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
-    open_session: OpenSessionUseCaseDp,
-):
-    """Redeem the short-lived auth handoff code for a session of its own
-    (``cli_legacy``). Same JSON shape as before: the access value
-    is now a JWT with ``sid`` and the refresh value a uuid7."""
-    code_state = await auth_handoff_state_use_case.pop_exchange_code(
-        payload.code
-    )
-
-    # A PKCE code is redeemed only on POST /auth/token, with its verifier.
-    if code_state is None or code_state.get('flow') is not None:
-        raise InvalidSession(
-            'Invalid or expired CLI exchange code',
-            ErrorCode.AUTH_CLI_EXCHANGE_INVALID,
-        )
-
-    tokens = await open_session.execute(
-        user_id=int(code_state['user_id']),
-        client_type='cli',
-        sign_in_method='cli_legacy',
-        user_agent=client_user_agent(request),
-        ip=client_ip(request),
-    )
-
-    await auth_handoff_state_use_case.delete_login(code_state['login_id'])
-
-    return CliExchangeResponse(
-        access_token=tokens.access_token,
-        refresh_token=tokens.refresh_token,
-        access_expires_in=tokens.access_expires_in,
-        refresh_expires_in=tokens.refresh_expires_in,
-    )
-
-
 @router.get(
     '/refresh',
     response_model=DetailSchema,
@@ -379,9 +201,9 @@ async def logout(
     release: ReleaseBorderlessGrantUseCaseDp,
     oidc: BorderlessOidcClientDp,
 ):
-    """End this browser's (or installed CLI's) session as ``logout`` and
-    clear both cookies. The user's last session also gives the Borderless
-    grant back (ADR-0026 §10); the Borderless browser session stays."""
+    """End this browser's session as ``logout`` and clear both cookies.
+    The user's last session also gives the Borderless grant back (ADR-0026
+    §10); the Borderless browser session stays."""
     user_id = await end_session.end_by_refresh(
         request.cookies.get(REFRESH_COOKIE_NAME), 'logout'
     )

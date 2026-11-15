@@ -326,16 +326,15 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     await expect(
       account.getByRole("link", { name: "Profile", exact: true }),
     ).toBeVisible();
-    // Profile › MCP, between Profile and Devices & CLI, for every user.
+    // Profile › MCP, between Profile and Devices, for every user.
     const mcp = account.getByRole("link", { name: "MCP", exact: true });
     await expect(mcp).toBeVisible();
     await expect(mcp).toHaveAttribute("href", "/profile?tab=mcp");
     await expect(
-      account.getByRole("link", { name: "Devices & CLI" }),
-    ).toBeVisible();
-    await expect(
-      account.getByRole("link", { name: "Sign in a device" }),
-    ).toBeVisible();
+      account.getByRole("link", { name: "Devices", exact: true }),
+    ).toHaveAttribute("href", "/profile?tab=devices");
+    // No row for the deleted /device page (ADR-0028).
+    await expect(account.locator('a[href="/device"]')).toHaveCount(0);
     await expect(account.getByRole("link", { name: "Admin" })).toHaveCount(0);
     await expect(
       page.getByRole("radiogroup", { name: "Language" }),
@@ -580,7 +579,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
     );
   });
 
-  test("tab order in the rail runs brand, entries, the CLI link, account menu", async ({
+  test("tab order in the rail runs brand, entries, the MCP link, account menu", async ({
     page,
   }) => {
     await openDashboard(page);
@@ -617,7 +616,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
       header.getByRole("button", { name: "Toggle theme" }),
     ).toBeVisible();
 
-    // The CLI promo banner stays at the top of the content column, on every
+    // The MCP promo banner stays at the top of the content column, on every
     // page at md and up (below md, Today only).
     await expect(page.locator(MCP_BANNER)).toBeVisible();
     for (const path of ["/applications", "/agenda", "/cvs/new"]) {

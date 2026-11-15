@@ -57,7 +57,6 @@ development they go in `.env.local`.
 | -------------------- | -------------------------------- | ----------------------------------------------- |
 | `API_BASE_URL`       | `NEXT_PUBLIC_API_BASE_URL`       | —                                               |
 | `BORDERLESS_SIGN_UP` | `NEXT_PUBLIC_BORDERLESS_SIGN_UP` | `https://platform.borderlesscoding.com/sign-up` |
-| `APPLIKA_CLI`        | `NEXT_PUBLIC_APPLIKA_CLI`        | unused (the `/cli` page became `/mcp`)          |
 
 ## Where things are
 
@@ -65,7 +64,7 @@ development they go in `.env.local`.
 src/
 ├── app/            # pages: (public)/ landing, cookie policy, /mcp (/cli forwards)
 │                   #        (protected)/ everything behind sign-in
-│                   #        login/, cli/code/ — no app shell
+│                   #        login/ — no app shell
 ├── components/     # UI by feature; ui/ holds the shadcn/ui primitives
 ├── hooks/          # data fetching and mutations (TanStack Query)
 ├── services/       # typed API clients
