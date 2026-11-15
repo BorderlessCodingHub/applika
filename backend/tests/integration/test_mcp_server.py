@@ -6,7 +6,7 @@ the app's lifespan enters). MCP tokens are minted at run time through
 ``CreateMcpTokenUseCase`` and never written to a file. One Redis container
 serves the whole module (``redis_container`` below).
 
-Each of the 25 tools: its happy path with the REST body, another user's row
+Each of the 25 CLI tools: its happy path with the REST body, another user's row
 as not found, and its absence and refusal outside its scope. Then the
 token's life: 401 ``AUTH-1051`` + ``WWW-Authenticate``, 503 fail closed,
 429, the 90-day slide, Devices, revoke, account delete, Borderless grant
@@ -83,6 +83,7 @@ from app.main import app as main_app
 from app.presentation.dependencies import resolve_tailoring
 from app.presentation.mcp.deps import deps
 from app.presentation.mcp.server import mcp_runtime, registry
+from app.presentation.mcp.tools.guide import TIP, TIP_KEY
 from app.presentation.schemas.base_cv import BaseCVCreate
 from tests.base_db_setup import base_data
 from tests.conftest import MemoryAccessStore
@@ -108,8 +109,10 @@ TOKEN_INVALID = (
 )
 NOT_FOUND = {'detail': 'Not Found', 'code': 'GEN-1001'}
 NINETY_DAYS = 90 * 86400
+TIP_BLOCK = {'type': 'text', 'text': TIP}
 
 READ = {
+    'guide',
     'whoami',
     'list_platforms',
     'search_companies',
@@ -242,6 +245,7 @@ async def _execute(async_engine: AsyncEngine, statement) -> None:
 
 def _error(answer: dict[str, Any]) -> dict[str, Any]:
     assert answer['isError'] is True, answer
+    assert answer['content'][-1] == TIP_BLOCK, answer
     body = answer['structuredContent']
     text = answer['content'][0]['text']
     assert text.endswith(f' ({body["code"]})'), text
@@ -252,6 +256,7 @@ def _error(answer: dict[str, Any]) -> dict[str, Any]:
 
 def _ok(answer: dict[str, Any]) -> Any:
     assert answer['isError'] is False, answer
+    assert answer['content'][-1] == TIP_BLOCK, answer
     structured = answer['structuredContent']
     text = json.loads(answer['content'][0]['text'])
     expected = text if isinstance(text, dict) else {'result': text}
@@ -397,6 +402,57 @@ async def test_invalid_arguments_are_the_rest_422(
         ('application_id',),
         ('extra',),
     }
+
+
+INITIALIZE = {
+    'protocolVersion': '2025-06-18',
+    'capabilities': {},
+    'clientInfo': {'name': 'test', 'version': '1'},
+}
+
+
+async def test_guide_answers_the_instructions_initialize_gives(
+    mcp: AsyncClient, mcp_token_read
+):
+    first = await result(mcp, mcp_token_read.token, 'initialize', INITIALIZE)
+    answer = await call(mcp, mcp_token_read.token, 'guide')
+    assert answer['isError'] is False
+    assert answer['content'] == [
+        {'type': 'text', 'text': first['instructions']}
+    ]
+    assert 'Scope: `read`.' in answer['content'][0]['text']
+    assert '## 8. CVs' not in answer['content'][0]['text']
+
+
+async def test_guide_shows_the_cv_part_and_the_full_scope(
+    mcp: AsyncClient, mcp_token_full, cvs_beta
+):
+    answer = await call(mcp, mcp_token_full.token, 'guide')
+    text = answer['content'][0]['text']
+    assert '## 8. CVs' in text
+    assert 'Scope: `read`, `write`, `delete`.' in text
+    assert USER.email not in text
+
+
+async def test_every_other_tool_ends_its_content_with_the_guide_tip(
+    mcp: AsyncClient, mcp_token_read
+):
+    meta = {TIP_KEY: TIP}
+    whoami = await call(mcp, mcp_token_read.token, 'whoami')
+    assert [block['type'] for block in whoami['content']] == ['text', 'text']
+    assert whoami['content'][-1] == TIP_BLOCK
+    assert whoami['_meta'] == meta
+    _ok(whoami)
+    refused = await call(mcp, mcp_token_read.token, 'create_application', {})
+    assert refused['content'][-1] == TIP_BLOCK
+    assert refused['_meta'] == meta
+    assert _error(refused)['code'] == 'AUTH-1052'
+    unknown = await call(mcp, mcp_token_read.token, 'run_sql', {})
+    assert unknown['content'][-1] == TIP_BLOCK
+    assert unknown['_meta'] == meta
+    guide = await call(mcp, mcp_token_read.token, 'guide')
+    assert len(guide['content']) == 1
+    assert '_meta' not in guide
 
 
 # ---------------------------------------------------------------------------
@@ -804,7 +860,10 @@ async def test_master_cv_tools(
         f'/base-cvs/{created["id"]}/markdown'
     )
     assert markdown['isError'] is False
-    assert markdown['content'] == [{'type': 'text', 'text': rest_markdown.text}]
+    assert markdown['content'] == [
+        {'type': 'text', 'text': rest_markdown.text},
+        TIP_BLOCK,
+    ]
 
     pdf = await call(
         mcp, token, 'download_cv', {'cv_id': created['id'], 'format': 'pdf'}

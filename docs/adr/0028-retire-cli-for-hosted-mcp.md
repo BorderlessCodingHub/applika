@@ -175,3 +175,25 @@ It needs an ADR for these reasons:
 
 - None. The owner settled the scope set, the CLI-only fields, the limiter subject, the REST Bearer token and the renewal
   refusal on 2026-11-14 ("I'll pick the recommended ones").
+
+## Amendment 1: the `guide` tool and its tip
+
+**Status:** Accepted by LuisMSoares on 2026-11-15 · **Date:** 2026-11-15 · **Deciders:** LuisMSoares
+
+The owner, 2026-11-15: "add a tool in the mcp to return the skill content, in the tool description, add that this tool
+returns instructions about how to use this mcp, always when unsure of which tool to call, call this tool and I will
+guide you, something like this", then "to every mcp tool call, add to the response metadata a short tip about this tool
+(this metadata only is returned in the others tools)", then, accepting this amendment, "accept the amendment, add the
+tip to the end of the content too".
+
+- **Why.** The server's instructions reach the model only in AI apps that show them; every app shows the tools.
+- **`guide`.** A 26th tool, scope `read`, so every token has it, and not gated by `cvs`. It answers the server's
+  instructions as Markdown text, the same text the `initialize` answer carries for that token's scope and `cvs` feature
+  (`app/presentation/mcp/instructions.py`). Its description says that it returns the instructions on how to use this
+  server, and that whenever the model is unsure which tool to call, or how, it calls `guide` first. The instructions
+  name it too.
+- **The tip.** Every other tool's answer carries a short tip about `guide`: as the last text block of its content,
+  which the model reads, and under `_meta["applika.dev/tip"]`, which AI apps keep for themselves. Success, refusal,
+  error and unknown tool alike. The REST JSON stays the first text block. `guide`'s own answer carries no tip.
+- **What it changes.** The Decision line "Its tools are applika-cli's commands, no more" and the non-goal "tools beyond
+  the CLI's commands" now read: applika-cli's commands, plus `guide`.

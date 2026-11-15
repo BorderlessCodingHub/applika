@@ -1,4 +1,5 @@
-"""Every MCP tool: applika-cli's commands, no more (ADR-0028)."""
+"""Every MCP tool: applika-cli's commands (ADR-0028), plus ``guide``, the
+server's instructions as a tool (ADR-0028, amendment 1)."""
 
 from app.presentation.mcp.registry import McpTool
 from app.presentation.mcp.tools import (
@@ -7,10 +8,12 @@ from app.presentation.mcp.tools import (
     applications,
     catalog,
     cvs,
+    guide,
     timeline,
 )
 
 ALL_TOOLS: tuple[McpTool, ...] = (
+    *guide.TOOLS,
     *account.TOOLS,
     *catalog.TOOLS,
     *applications.TOOLS,

@@ -1,5 +1,5 @@
-"""The MCP tool registry (ADR-0028): the 25 CLI-parity tools, exactly one
-scope each, listed by scope and ``cvs``, refused outside them, with the
+"""The MCP tool registry (ADR-0028): the 25 CLI-parity tools and ``guide``
+(amendment 1), exactly one scope each, listed by scope and ``cvs``, refused outside them, with the
 hints AI apps read; and the instructions built per caller."""
 
 from datetime import UTC, datetime
@@ -13,6 +13,7 @@ from app.application.use_cases.mcp_tokens.authenticate import McpPrincipal
 from app.core.mcp_scopes import McpScope
 from app.lib.types import SnowflakeID
 from app.presentation.mcp.auth import McpCaller
+from app.presentation.mcp.instructions import build_instructions
 from app.presentation.mcp.registry import (
     McpTool,
     ToolRegistry,
@@ -20,11 +21,13 @@ from app.presentation.mcp.registry import (
     json_result,
     list_output,
 )
-from app.presentation.mcp.server import build_instructions, registry
+from app.presentation.mcp.server import registry
 from app.presentation.mcp.tools.common import NoInput, item_ids_optional
+from app.presentation.mcp.tools.guide import TIP, TIP_KEY, with_guide_tip
 from app.presentation.schemas.platform import PlatformOut
 
 READ = {
+    'guide',
     'whoami',
     'list_platforms',
     'search_companies',
@@ -77,9 +80,49 @@ def _names(tools) -> set[str]:
     return {tool.name for tool in tools}
 
 
-def test_there_are_25_tools_for_the_cli_commands():
-    assert len(registry.tools) == 25
+def test_there_are_the_25_cli_tools_and_the_guide():
+    assert len(registry.tools) == 26
     assert _names(registry.tools) == ALL
+
+
+def test_the_guide_is_offered_to_every_token_and_says_when_to_call_it():
+    guide = registry.get('guide')
+    assert guide is not None
+    assert registry.tools[0] is guide
+    assert guide.scope is McpScope.READ
+    assert guide.needs_cvs is False
+    assert guide.annotations().readOnlyHint is True
+    assert guide.input_schema()['properties'] == {}
+    assert 'instructions on how to use this Applika MCP server' in (
+        guide.description
+    )
+    assert 'Whenever you are unsure which tool to call' in guide.description
+    assert 'it will guide you' in guide.description
+    for scopes in (READ_ONLY, READ_WRITE, FULL):
+        for has_cvs in (False, True):
+            assert guide in registry.visible(caller(scopes, has_cvs))
+
+
+def test_every_answer_but_the_guides_carries_the_guide_tip():
+    answer = json_result({'ok': True})
+    tipped = with_guide_tip('whoami', answer)
+    assert tipped.meta == {TIP_KEY: TIP}
+    assert tipped.model_dump(by_alias=True, exclude_none=True)['_meta'] == {
+        TIP_KEY: TIP
+    }
+    assert '`guide`' in TIP
+    assert tipped.content == [
+        *answer.content,
+        types.TextContent(type='text', text=TIP),
+    ]
+    assert len(answer.content) == 1
+    assert answer.meta is None
+    assert with_guide_tip('guide', answer) is answer
+    refused = registry.refusal(caller(READ_ONLY, False), 'create_application')
+    assert refused is not None
+    assert with_guide_tip('create_application', refused).meta == {TIP_KEY: TIP}
+    kept = answer.model_copy(update={'meta': {'other/key': 1}})
+    assert with_guide_tip('whoami', kept).meta == {'other/key': 1, TIP_KEY: TIP}
 
 
 def test_each_tool_has_exactly_one_scope():
@@ -90,7 +133,7 @@ def test_each_tool_has_exactly_one_scope():
     assert by_scope[McpScope.READ] == READ | CV_READ
     assert by_scope[McpScope.WRITE] == WRITE | CV_WRITE
     assert by_scope[McpScope.DELETE] == DELETE | CV_DELETE
-    assert sum(len(names) for names in by_scope.values()) == 25
+    assert sum(len(names) for names in by_scope.values()) == 26
 
 
 def test_only_the_cv_tools_need_cvs():
@@ -107,8 +150,11 @@ def test_only_the_cv_tools_need_cvs():
         (READ_ONLY, True, READ | CV_READ),
         (READ_WRITE, True, READ | WRITE | CV_READ | CV_WRITE),
         (FULL, True, ALL),
-        (frozenset({McpScope.READ, McpScope.DELETE}), True,
-         READ | CV_READ | DELETE | CV_DELETE),
+        (
+            frozenset({McpScope.READ, McpScope.DELETE}),
+            True,
+            READ | CV_READ | DELETE | CV_DELETE,
+        ),
     ],
 )
 def test_the_list_follows_scope_and_cvs(scopes, has_cvs, expected):
@@ -174,10 +220,12 @@ def test_every_schema_is_a_valid_json_schema_object():
         if mcp_tool.outputSchema is not None:
             Draft202012Validator.check_schema(mcp_tool.outputSchema)
             assert mcp_tool.outputSchema['type'] == 'object', tool.name
-    downloads = {
+    # Text answers (Markdown, a PDF, a diff, the guide) have no schema.
+    text_answers = {
         tool.name for tool in registry.tools if tool.output_schema is None
     }
-    assert downloads == {
+    assert text_answers == {
+        'guide',
         'download_cv',
         'download_application_cv',
         'diff_application_cv',
@@ -247,6 +295,10 @@ def test_instructions_show_the_cv_part_only_to_cvs_users():
     assert 'create_cv' not in without
     assert 'cvs:start' not in with_cvs + without
     assert 'whoami' in without
+
+
+def test_the_instructions_point_at_the_guide():
+    assert '`guide`' in build_instructions(None)
 
 
 def test_instructions_name_the_scope_and_what_is_missing():

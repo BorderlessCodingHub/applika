@@ -14,7 +14,6 @@ one each time the app's lifespan starts.
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Any
 
 from mcp import types
@@ -23,62 +22,19 @@ from mcp.server.models import InitializationOptions
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.types import Receive, Scope, Send
 
-from app.core.mcp_scopes import McpScope
 from app.presentation.mcp.auth import (
     PRINCIPAL_STATE_KEY,
     McpAuthGuard,
     McpCaller,
     current_caller,
 )
+from app.presentation.mcp.instructions import build_instructions
 from app.presentation.mcp.registry import ToolRegistry
 from app.presentation.mcp.tools import ALL_TOOLS
+from app.presentation.mcp.tools.guide import with_guide_tip
 
 SERVER_NAME = 'applika'
 SERVER_VERSION = '2.2.0'
-
-_INSTRUCTIONS = (Path(__file__).parent / 'instructions.md').read_text()
-_CVS_START = '<!-- cvs:start -->'
-_CVS_END = '<!-- cvs:end -->'
-
-_SCOPE_WORDS = {
-    McpScope.READ: 'read your applications, timelines, platforms and companies',
-    McpScope.WRITE: 'create, edit, close and reopen',
-    McpScope.DELETE: 'delete timeline events, master CVs and application CVs',
-}
-
-
-def _without_cvs_part(text: str) -> str:
-    start = text.index(_CVS_START)
-    end = text.index(_CVS_END) + len(_CVS_END)
-    return text[:start] + text[end:].lstrip('\n')
-
-
-def build_instructions(caller: McpCaller | None) -> str:
-    """The CLI skill rewritten for tools: the CV part only for a user with
-    ``cvs``, and a closing note on what this token's scope allows. No
-    personal data."""
-    has_cvs = caller is not None and caller.has_cvs
-    text = _INSTRUCTIONS if has_cvs else _without_cvs_part(_INSTRUCTIONS)
-    text = text.replace(_CVS_START + '\n', '').replace(_CVS_END + '\n', '')
-    if caller is None:
-        return text
-    held = [scope for scope in McpScope if scope in caller.scopes]
-    lines = [
-        '',
-        '## This connection',
-        '',
-        'Scope: ' + ', '.join(f'`{scope.value}`' for scope in held) + '.',
-    ]
-    lines += [f'- `{scope.value}`: {_SCOPE_WORDS[scope]}.' for scope in held]
-    missing = [scope for scope in McpScope if scope not in caller.scopes]
-    if missing:
-        lines.append(
-            'Tools that need '
-            + ', '.join(f'`{scope.value}`' for scope in missing)
-            + ' are not offered. The user can create a token with more '
-            'access in Applika (Profile > MCP).'
-        )
-    return text.rstrip('\n') + '\n' + '\n'.join(lines) + '\n'
 
 
 class ApplikaMcpServer(Server[Any, Any]):
@@ -126,7 +82,9 @@ def build_server(registry: ToolRegistry) -> ApplikaMcpServer:
         name: str, arguments: dict[str, Any]
     ) -> types.CallToolResult:
         caller = request_caller(server)
-        return await registry.call(caller, name, arguments)
+        return with_guide_tip(
+            name, await registry.call(caller, name, arguments)
+        )
 
     return server
 

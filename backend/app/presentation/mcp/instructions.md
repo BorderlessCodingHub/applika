@@ -4,6 +4,8 @@ Applika tracks a person's job applications: each application, its timeline of in
 whether it is open or closed. This server acts as one Applika user, through the token the user created in Applika
 (Profile > MCP). It can only see and change that user's own data.
 
+Whenever you are unsure which tool to call, or how to call it, call `guide`: it answers these instructions again.
+
 ## 1. Start with `whoami`
 
 Call `whoami` first. It answers the account this connection acts as (id, username, name, email). If any call answers
