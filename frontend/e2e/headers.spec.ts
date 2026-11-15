@@ -26,8 +26,8 @@ import {
  * in English and Portuguese, light and dark.
  *
  * Every pair reads theme, then language: `/login` (the phone top bar's right
- * side below md, top 20 / right 24 at md and up), `/cli/code` (top right at
- * both widths) and `/cookie-policy`'s phone bar.
+ * side below md, top 20 / right 24 at md and up) and `/cookie-policy`'s
+ * phone bar.
  *
  * At md and up the public header (`/`, `/mcp`, `/cookie-policy`) reads the
  * logo, the theme toggle, the language switcher, then Sign in or Dashboard;
@@ -283,8 +283,8 @@ for (const { path, tree: slot, targets } of PHONE_PAGES) {
 
 /**
  * The public screens whose pair sits outside a header, and the box that
- * holds it at each width: `/login`'s bar, `/cli/code`'s top-right box, and
- * `/cookie-policy`'s phone bar (at md and up it is `LandingHeader`'s, below).
+ * holds it at each width: `/login`'s bar and `/cookie-policy`'s phone bar
+ * (at md and up it is `LandingHeader`'s, below).
  */
 const PAIR_SCREENS = [
   {
@@ -294,14 +294,6 @@ const PAIR_SCREENS = [
     back: "Back to home",
     // Back to home, theme, English, Português, Continue with Borderless.
     targets: 5,
-  },
-  {
-    path: "/cli/code?code=e2e-code&state=e2e-state",
-    pair: ".ph-pair",
-    widths: [PHONE, DESKTOP],
-    back: null,
-    // theme, English, Português, Copy.
-    targets: 4,
   },
   {
     path: "/cookie-policy",

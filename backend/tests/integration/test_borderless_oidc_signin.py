@@ -5,9 +5,10 @@ fake Borderless: the web round trip (cookies, a ``borderless`` session,
 attempt (a fresh UUID state, single use, this browser, ten minutes, the
 newest attempt wins), the redirect target stored with it and checked again
 (a tampered target is refused, the query never decides it), every refusal
-as ``?error=<code>``, the legacy CLI hand-off with ``prompt=login`` and no
-cookie, the password routes gone, and no code, state, verifier, nonce,
-token or secret in a log. Nothing reaches the real Borderless.
+as ``?error=<code>``, the password routes and the CLI sign-ins gone
+(ADR-0028: a CLI attempt stored before is refused with no hint), and no
+code, state, verifier, nonce, token or secret in a log. Nothing reaches the
+real Borderless.
 """
 
 import asyncio
@@ -36,7 +37,7 @@ from app.domain.models import (
     UserModel,
     UserSessionModel,
 )
-from app.presentation.api.auth_handoff import LOGIN_COOKIE_NAME
+from app.presentation.api.borderless_auth import LOGIN_COOKIE_NAME
 from tests import borderless_flow as flow
 from tests.conftest import BORDERLESS_CONFIG, bind_borderless
 from tests.integration.conftest import BOUND_SUB
@@ -334,18 +335,6 @@ async def _tamper(redis_client, authorize_url: str, **changes) -> None:
     await redis_client.set(key, json.dumps({**record, **changes}), ex=ttl)
 
 
-async def _pkce_authorize(api: AsyncClient, redirect_uri: str):
-    return await api.get(
-        '/auth/cli/authorize',
-        params={
-            'redirect_uri': redirect_uri,
-            'code_challenge': 'A' * 43,
-            'code_challenge_method': 'S256',
-            'state': 'cli-state',
-        },
-    )
-
-
 async def test_each_attempt_draws_a_fresh_state_and_the_query_never_picks_the_target(
     real_client: AsyncClient, redis_client
 ):
@@ -433,106 +422,31 @@ async def test_a_tampered_web_target_is_refused_and_never_followed(
     assert list(users) == []
 
 
-async def test_a_web_record_turned_into_a_cli_one_is_refused(
-    real_client: AsyncClient,
-    redis_client,
-    browser,
-    fake_borderless,
-    auth_handoff_state_use_case,
+@pytest.mark.parametrize(
+    'target',
+    ['http://127.0.0.1:43129/callback', 'http://127.0.0.1:8080/cli/code'],
+)
+async def test_a_cli_attempt_stored_before_adr_0028_is_refused_with_no_hint(
+    real_client: AsyncClient, redis_client, browser, fake_borderless, target
 ):
-    login_id = await auth_handoff_state_use_case.create_login(
-        callback_url='http://127.0.0.1:43129/callback', state='s'
-    )
+    """A CLI sign-in the previous image started (``flow: cli``, its
+    loopback or manual-code target) ends on the web sign-in page with
+    AUTH-1046 and nothing else: no ``cli=1``, no code, no session."""
     begin = await real_client.get('/auth/borderless/login')
     answer = await flow.at_borderless(browser, begin.headers['location'], PSP)
-    # The CLI login's loopback is allowed for that login only, and the
-    # record still names the web page.
     await _tamper(
         redis_client,
         begin.headers['location'],
         flow='cli',
-        cli_login_id=login_id,
+        cli_login_id='login-1',
+        target=target,
     )
 
     response = await flow.return_to_applika(real_client, answer)
 
-    assert _error(response) == {'error': ['AUTH-1046'], 'cli': ['1']}
-    assert PSP not in fake_borderless.log['grants']
-    assert await auth_handoff_state_use_case.get_login(login_id) is not None
-
-
-@pytest.mark.parametrize('redirect_uri', ['http://127.0.0.1:43129/cb', 'oob'])
-async def test_the_stored_target_drives_the_cli_hand_off(
-    real_client: AsyncClient,
-    redis_client,
-    browser,
-    bound_user,
-    monkeypatch,
-    redirect_uri,
-):
-    monkeypatch.setattr(
-        envs, 'CLI_MANUAL_REDIRECT_URI', 'http://127.0.0.1:8180/cli/code'
-    )
-    entry = await _pkce_authorize(real_client, redirect_uri)
-    assert entry.status_code == 307, entry.text
-    _, record = await _record(redis_client, entry.headers['location'])
-    expected = (
-        'http://127.0.0.1:8180/cli/code'
-        if redirect_uri == 'oob'
-        else redirect_uri
-    )
-    assert (record['flow'], record['target']) == ('cli', expected)
-    answer = await flow.at_borderless(
-        browser, entry.headers['location'], BOUND_SUB
-    )
-
-    response = await real_client.get(
-        flow.CALLBACK_PATH,
-        params={**flow.query_of(answer.headers['location']), 'next': EVIL},
-    )
-
-    assert response.status_code == 307
-    location = response.headers['location']
-    assert location.split('?', 1)[0] == record['target']
-    assert set(flow.query_of(location)) == {'code', 'state'}
-    assert flow.query_of(location)['state'] == 'cli-state'
+    assert _error(response) == {'error': ['AUTH-1046']}
     assert ACCESS_COOKIE_NAME not in response.cookies
-
-
-@pytest.mark.parametrize(
-    'target',
-    [EVIL, 'http://127.0.0.1:9999/callback', 'http://127.0.0.1:8080/login'],
-)
-async def test_a_tampered_cli_target_is_refused_and_never_followed(
-    real_client: AsyncClient,
-    redis_client,
-    browser,
-    bound_user,
-    fake_borderless,
-    auth_handoff_state_use_case,
-    target,
-):
-    entry = await _pkce_authorize(real_client, 'http://127.0.0.1:43129/cb')
-    _, record = await _record(redis_client, entry.headers['location'])
-    answer = await flow.at_borderless(
-        browser, entry.headers['location'], BOUND_SUB
-    )
-    await _tamper(redis_client, entry.headers['location'], target=target)
-
-    response = await flow.return_to_applika(real_client, answer)
-
-    assert _error(response) == {'error': ['AUTH-1046'], 'cli': ['1']}
-    assert target not in response.headers['location'].replace(
-        envs.WEB_SIGNIN_URI, ''
-    )
-    # Refused before the exchange: no grant, no code minted, and the CLI
-    # login is not spent.
-    assert BOUND_SUB not in fake_borderless.log['grants']
-    assert await redis_client.keys('applika:auth_handoff:code:*') == []
-    assert (
-        await auth_handoff_state_use_case.get_login(record['cli_login_id'])
-        is not None
-    )
+    assert PSP not in fake_borderless.log['grants']
 
 
 # --------------------------------------------------------------------------
@@ -619,7 +533,7 @@ async def test_borderless_down_at_the_start_is_auth_1017(
     assert _error(response) == {'error': ['AUTH-1017']}
     # Open sessions keep working.
     me = await real_client.get(
-        '/users/me', headers={'Authorization': f'Bearer {tokens.access_token}'}
+        '/users/me', cookies={ACCESS_COOKIE_NAME: tokens.access_token}
     )
     assert me.status_code == 200
 
@@ -690,107 +604,6 @@ async def test_anything_unexpected_is_gen_1005_and_logged_without_the_query(
     assert _error(response) == {'error': ['GEN-1005']}
     errors = [r for r in caplog.records if r.levelname == 'ERROR']
     assert any('RuntimeError' in r.getMessage() for r in errors)
-
-
-# --------------------------------------------------------------------------
-# The legacy CLI hand-off (0.1.4 to 1.0.1): prompt=login, no cookie
-# --------------------------------------------------------------------------
-
-
-async def test_legacy_cli_sign_in_hands_back_a_code_with_no_cookie(
-    real_client: AsyncClient,
-    async_engine,
-    db_session,
-    redis_client,
-    browser,
-    bound_user,
-):
-    browser_session = await open_session(async_engine, redis_client, 1)
-    # The browser is signed in on Borderless already ...
-    await flow.borderless_sign_in(
-        real_client,
-        browser,
-        BOUND_SUB,
-        cookies={REFRESH_COOKIE_NAME: browser_session.refresh_token},
-    )
-    web_rows = [r.id for r in await _sessions(db_session, 1)]
-    start = await real_client.post(
-        '/auth/cli/start',
-        json={'callback_url': 'http://127.0.0.1:43129/cb', 'state': 's'},
-    )
-    login_id = start.json()['login_id']
-
-    entry = await real_client.get(f'/auth/cli/login/{login_id}')
-    assert entry.status_code == 307
-    params = flow.query_of(entry.headers['location'])
-    assert params['prompt'] == 'login'
-    # ... and Borderless still asks (AC19).
-    page = await browser.get(entry.headers['location'])
-    assert page.status_code == 200
-    assert 'name="password"' in page.text
-    answer = await flow.at_borderless(
-        browser, entry.headers['location'], BOUND_SUB
-    )
-    response = await flow.return_to_applika(real_client, answer)
-
-    assert response.status_code == 307
-    redirect_to = response.headers['location']
-    assert redirect_to.startswith('http://127.0.0.1:43129/cb?')
-    assert ACCESS_COOKIE_NAME not in response.cookies
-    assert REFRESH_COOKIE_NAME not in response.cookies
-    # The browser's own applika sessions are untouched.
-    rows = await _sessions(db_session, 1)
-    assert [r.id for r in rows] == web_rows
-    code = flow.query_of(redirect_to)['code']
-    exchanged = await real_client.post(
-        '/auth/cli/exchange', json={'code': code}
-    )
-    assert exchanged.status_code == 200
-    rows = await _sessions(db_session, 1)
-    assert rows[-1].sign_in_method == 'cli_legacy'
-
-
-async def test_unknown_cli_login_is_404_and_an_expired_one_auth_1019(
-    real_client: AsyncClient,
-    redis_client,
-    browser,
-    bound_user,
-    auth_handoff_state_use_case,
-):
-    missing = await real_client.get('/auth/cli/login/nope')
-    assert missing.status_code == 404
-
-    start = await real_client.post(
-        '/auth/cli/start',
-        json={'callback_url': 'http://127.0.0.1:43129/cb', 'state': 's'},
-    )
-    login_id = start.json()['login_id']
-    entry = await real_client.get(f'/auth/cli/login/{login_id}')
-    answer = await flow.at_borderless(
-        browser, entry.headers['location'], BOUND_SUB
-    )
-    await auth_handoff_state_use_case.delete_login(login_id)
-
-    response = await flow.return_to_applika(real_client, answer)
-    assert _error(response) == {'error': ['AUTH-1019'], 'cli': ['1']}
-
-
-async def test_a_cli_refusal_says_cli(
-    real_client: AsyncClient, redis_client, browser
-):
-    start = await real_client.post(
-        '/auth/cli/start',
-        json={'callback_url': 'http://127.0.0.1:43129/cb', 'state': 's'},
-    )
-    entry = await real_client.get(
-        f'/auth/cli/login/{start.json()["login_id"]}'
-    )
-    answer = await flow.at_borderless(
-        browser, entry.headers['location'], UNVERIFIED
-    )
-
-    response = await flow.return_to_applika(real_client, answer)
-    assert _error(response) == {'error': ['AUTH-1005'], 'cli': ['1']}
 
 
 # --------------------------------------------------------------------------

@@ -127,8 +127,8 @@ export function ProfilePage() {
 
 /**
  * Below md `?tab=` is read on every render (the Account hub's "MCP" and
- * "Devices & CLI", `/mcp`'s "Create a token" and `/device`'s "See your
- * devices" open their section): a plain tap on the switch `pushState`s it,
+ * "Devices" and `/mcp`'s "Create a token" open their section): a plain tap
+ * on the switch `pushState`s it,
  * so Back returns to the other section. Never `router.push` on the same path
  * (a no-op in this static export).
  */
@@ -178,9 +178,8 @@ function ProfileDesktopPage() {
   const searchParams = useSearchParams();
 
   const [notice, setNotice] = useGithubRestoreReturn();
-  // `?tab=mcp` (`/mcp`'s "Create a token") and `?tab=devices` (the `/device`
-  // page's "See your devices") open their tab once; switching tabs afterwards
-  // is local state only.
+  // `?tab=mcp` (`/mcp`'s "Create a token") and `?tab=devices` open their tab
+  // once; switching tabs afterwards is local state only.
   const [tab, setTab] = useState<ProfileTab>(() => {
     const requested = searchParams.get("tab");
     return isProfileTab(requested) ? requested : "profile";

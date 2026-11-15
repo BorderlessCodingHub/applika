@@ -174,12 +174,12 @@ describe("Account hub in Portuguese", () => {
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        within(account).getByRole("link", { name: "Dispositivos e CLI" }),
+        within(account).getByRole("link", { name: "Dispositivos" }),
       ).toHaveAccessibleDescription("2 conectados"),
     );
     expect(
-      within(account).getByRole("link", { name: "Conectar um dispositivo" }),
-    ).toHaveAccessibleDescription("XXXX-XXXX");
+      within(account).queryByRole("link", { name: "Conectar um dispositivo" }),
+    ).not.toBeInTheDocument();
     expect(
       within(account).getByRole("link", { name: "Admin" }),
     ).toHaveAccessibleDescription("Sistema");

@@ -29,7 +29,6 @@ export interface AccountRow {
   label: string;
   icon?: LucideIcon;
   meta?: string;
-  metaMono?: boolean;
   beta?: boolean;
 }
 
@@ -90,7 +89,6 @@ export function AccountScreenView({
       label={item.label}
       icon={item.icon}
       meta={item.meta}
-      metaMono={item.metaMono}
       trailing={
         item.beta ? (
           <span className="ph-beta">{tFeatures("beta")}</span>
@@ -262,7 +260,7 @@ export function AccountScreen() {
     (session) => session.status === "active",
   ).length;
 
-  const meta = (row: AccountHubRow): Pick<AccountRow, "meta" | "metaMono"> => {
+  const meta = (row: AccountHubRow): Pick<AccountRow, "meta"> => {
     switch (row.key) {
       case "reports":
         return {
@@ -280,8 +278,6 @@ export function AccountScreen() {
               ? undefined
               : t("signedIn", { count: activeSessions }),
         };
-      case "device":
-        return { meta: t("codeFormat"), metaMono: true };
       case "admin":
         return { meta: tNav("system") };
       default:

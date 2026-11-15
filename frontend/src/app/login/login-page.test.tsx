@@ -15,8 +15,8 @@ import { LoginPage, signedInLandingFor } from "./login-page";
 /**
  * The sign-in page (ADR-0026; option A at md and up, option C below): one
  * "Continue with Borderless" button per width that leaves for the API's `/auth/borderless/login`, the words of
- * every `?error=<code>` the callback sends back (in the active language), the
- * terminal hint on `&cli=1`, and where a signed-in visit lands. No password,
+ * every `?error=<code>` the callback sends back (in the active language),
+ * and where a signed-in visit lands. No password,
  * code or token is ever asked for or held. Both widths' trees are in the DOM
  * (CSS shows one); jsdom answers `matchMedia` as a desktop, so these cases
  * read the desktop tree (`[data-slot="sign-in-desktop"]`) unless they say
@@ -232,17 +232,14 @@ describe("LoginPage at phone width (option C below md)", () => {
     expect(assign).toHaveBeenCalledTimes(1);
   });
 
-  it("focuses the phone tree's alert on ?error=, the cli line inside it", () => {
+  it("focuses the phone tree's alert on ?error=", () => {
     mockPhoneViewport();
-    searchParams = new URLSearchParams({ error: "AUTH-1046", cli: "1" });
+    searchParams = new URLSearchParams({ error: "AUTH-1046" });
     renderPage();
 
     const box = errorBox("sign-in-phone");
     expect(box).toHaveTextContent(
       "The sign-in expired or was started in another browser. Start it again",
-    );
-    expect(box).toHaveTextContent(
-      "Return to your terminal and run applika login again.",
     );
     expect(document.activeElement).toBe(box.querySelector(".ph-signin-alert"));
   });
@@ -350,71 +347,41 @@ describe("LoginPage: ?error=<code> (AC7, AC13, AC21)", () => {
   });
 });
 
-describe("LoginPage: &cli=1 (AC21)", () => {
-  it("adds the terminal hint under the words, the command in <code>", () => {
+describe("LoginPage: a stale &cli=1 after the CLI retirement (ADR-0028)", () => {
+  it("is ignored: the web sign-in, no terminal hint, no CLI mode", () => {
     searchParams = new URLSearchParams({ error: "AUTH-1047", cli: "1" });
     renderPage();
 
-    const hint = within(errorBox()).getByText(
-      (_text, node) => node?.getAttribute("data-slot") === "sign-in-cli-hint",
-    );
-    expect(hint).toHaveTextContent(
-      "Return to your terminal and run applika login again.",
-    );
-    expect(within(hint).getByText("applika login").tagName).toBe("CODE");
     expect(errorBox()).toHaveTextContent(
       "Borderless did not complete the sign-in. Try signing in again",
     );
-    expect(document.querySelector('[data-slot="sign-in"]')).toHaveAttribute(
+    expect(document.body).not.toHaveTextContent(/applika login|terminal/i);
+    expect(document.querySelector('[data-slot="sign-in"]')).not.toHaveAttribute(
       "data-mode",
-      "cli",
     );
-  });
-
-  it("AUTH-1019 CLI login expired tells the user to run applika login again", () => {
-    searchParams = new URLSearchParams({ error: "AUTH-1019", cli: "1" });
-    renderPage();
-
-    expect(errorBox()).toHaveTextContent("CLI login expired");
-    expect(errorBox()).toHaveTextContent(
-      "Return to your terminal and run applika login again.",
-    );
-  });
-
-  it("keeps the h1 of the web sign-in: the button starts a web sign-in", () => {
-    searchParams = new URLSearchParams({ error: "AUTH-1047", cli: "1" });
-    renderPage();
-
     expect(
       within(shown()).getByRole("heading", {
         level: 1,
         name: "Sign in to applika",
       }),
     ).toBeInTheDocument();
-    expect(
-      within(shown("sign-in-phone")).getByRole("heading", {
-        level: 1,
-        name: "One account for your whole job search",
-      }),
-    ).toBeInTheDocument();
   });
 
-  it("stays on screen for a signed-in browser: the words are about the terminal", () => {
+  it("AUTH-1019, the retired CLI login code, reads the generic line", () => {
+    searchParams = new URLSearchParams({ error: "AUTH-1019", cli: "1" });
+    renderPage();
+
+    expect(errorBox()).toHaveAttribute("data-code", "unknown");
+    expect(errorBox()).toHaveTextContent("Something went wrong");
+    expect(errorBox()).not.toHaveTextContent("CLI login expired");
+  });
+
+  it("a signed-in browser moves on, like any stale web error", () => {
     auth = signedIn();
     searchParams = new URLSearchParams({ error: "AUTH-1048", cli: "1" });
     renderPage();
 
-    expect(replace).not.toHaveBeenCalled();
-    expect(errorBox()).toHaveTextContent(
-      "Borderless's answer could not be verified.",
-    );
-  });
-
-  it("without &cli=1 there is no terminal hint", () => {
-    searchParams = new URLSearchParams({ error: "AUTH-1047" });
-    renderPage();
-
-    expect(document.querySelector('[data-slot="sign-in-cli-hint"]')).toBeNull();
+    expect(replace).toHaveBeenCalledWith("/dashboard");
   });
 });
 
@@ -429,22 +396,22 @@ describe("LoginPage: a signed-in visit (the callback's success)", () => {
   });
 
   it("follows the stored return-to path once", () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     auth = signedIn();
     renderPage();
 
-    expect(replace).toHaveBeenCalledWith("/device?code=BCDF-GHJK");
+    expect(replace).toHaveBeenCalledWith("/profile?tab=mcp");
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
   });
 
   it("sends a new account to /welcome, keeping the return-to for its choice", () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     auth = signedIn(true);
     renderPage();
 
     expect(replace).toHaveBeenCalledWith("/welcome");
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
-      "/device?code=BCDF-GHJK",
+      "/profile?tab=mcp",
     );
   });
 
@@ -467,17 +434,19 @@ describe("LoginPage: a signed-in visit (the callback's success)", () => {
 
 describe("signedInLandingFor", () => {
   it("is /welcome while the welcome choice is open, without touching the return-to", () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=X");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     expect(
       signedInLandingFor({ github_restore: { available: true, prompt: true } }),
     ).toBe("/welcome");
-    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe("/device?code=X");
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
+      "/profile?tab=mcp",
+    );
   });
 
   it("is the return-to path, consumed, else the dashboard", () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=X");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     const answered = { github_restore: { available: true, prompt: false } };
-    expect(signedInLandingFor(answered)).toBe("/device?code=X");
+    expect(signedInLandingFor(answered)).toBe("/profile?tab=mcp");
     expect(signedInLandingFor(answered)).toBe("/dashboard");
     expect(signedInLandingFor(null)).toBe("/dashboard");
   });

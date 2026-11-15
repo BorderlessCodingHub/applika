@@ -69,7 +69,6 @@ const PT = flatten(readMessages("pt-BR.json"));
 const SWEEP_ALLOWED = new Set([
   "Applika",
   "applika",
-  "applika-cli",
   "Borderless",
   "GitHub",
   "LinkedIn",
@@ -239,23 +238,7 @@ function collectApiData(page: Page): {
     if (new URL(response.url()).origin !== origin) return;
     if (response.status() < 200 || response.status() >= 300) return;
     if (!(response.headers()["content-type"] ?? "").includes("json")) return;
-    // `/supports` still carries the legacy `steps`/`feedbacks` lists for old
-    // CLIs ("Offer", "Denied", "Skills"…); the web never shows them, and
-    // collecting them would hide those labels from the sweep.
-    const legacy = new URL(response.url()).pathname.endsWith("/supports");
-    pending.push(
-      response.json().then(
-        (body: unknown) => {
-          if (legacy && body && typeof body === "object") {
-            const rest: Record<string, unknown> = { ...body };
-            delete rest.steps;
-            delete rest.feedbacks;
-            walk(rest);
-          } else walk(body);
-        },
-        () => undefined,
-      ),
-    );
+    pending.push(response.json().then(walk, () => undefined));
   });
   return { strings, settled: () => Promise.all(pending) };
 }
@@ -333,7 +316,7 @@ test("a Portuguese browser gets Portuguese, and the switcher sits on every publi
   // Resolving the browser's language writes no cookie: only a pick does.
   expect(await localeCookie(context)).toBeUndefined();
 
-  for (const path of ["/", "/cookie-policy", "/login", "/cli/code"]) {
+  for (const path of ["/", "/cookie-policy", "/login"]) {
     await page.goto(path);
     await expectLanguage(page, "pt-BR");
     const group = switcher(page, "Alternar idioma");
@@ -357,10 +340,6 @@ test("a Portuguese browser gets Portuguese, and the switcher sits on every publi
   await page.goto("/login");
   await expect(
     page.getByRole("heading", { name: "Entre no Applika", level: 1 }),
-  ).toBeVisible();
-  await page.goto("/cli/code");
-  await expect(
-    page.getByRole("heading", { name: "Entre no applika-cli", level: 1 }),
   ).toBeVisible();
 });
 
@@ -529,7 +508,9 @@ test("an admin page is Portuguese", async ({ page }) => {
 
 test.describe("pt-BR sweep: no English word left on any page", () => {
   test("the sweep reads smoke.spec.ts's whole route list", () => {
-    expect(SMOKE_ROUTES).toHaveLength(26);
+    // smoke.spec.ts's PAGES rows: 26 since the phone shell added `/insights`
+    // and `/account`; 24 since ADR-0028 deleted `/device` and `/cli/code`.
+    expect(SMOKE_ROUTES).toHaveLength(24);
     expect(ENGLISH_ONLY.size).toBeGreaterThan(1000);
   });
 

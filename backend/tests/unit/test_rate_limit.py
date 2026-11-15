@@ -124,8 +124,8 @@ def test_subject_for_two_mcp_tokens_are_two_subjects():
 @pytest.mark.parametrize('bucket', ['auth', 'default'])
 def test_subject_for_an_mcp_bearer_off_mcp_counts_against_the_ip(bucket):
     """Anyone can send a fresh ``applika_mcp_…`` string per request: off
-    ``/mcp`` it is no valid JWT, so it counts against the IP (or a valid
-    cookie's user), never against a subject the caller chose."""
+    ``/mcp`` a Bearer names no subject, so it counts against the IP (or a
+    valid cookie's user), never against a subject the caller chose."""
     subjects = {
         subject_for(
             {'authorization': f'Bearer applika_mcp_fake_{n}' + '0' * 37},
@@ -198,26 +198,23 @@ def test_subject_for_no_client_host():
     assert subject_for({}, {}, None) == 'ip:unknown'
 
 
-# --- ADR-0019: Bearer first, then the cookie, then the IP --------------
+# --- ADR-0028: the cookie, then the IP; a Bearer JWT names no subject ----
 
 
-def test_subject_for_bearer_token_counts_against_its_user():
+@pytest.mark.parametrize('bucket', ['auth', 'default', 'mcp'])
+def test_subject_for_a_bearer_jwt_counts_against_the_ip(bucket):
+    """The Bearer JWT is no REST credential since ADR-0028: a valid one
+    names no subject, in any bucket."""
     token, _, _ = create_access_token('42', '7')
-    headers = {'authorization': f'Bearer {token}'}
-    assert subject_for(headers, {}, '10.0.0.1') == 'user:42'
+    for scheme in ('Bearer', 'bearer'):
+        headers = {'authorization': f'{scheme} {token}'}
+        assert subject_for(headers, {}, '10.0.0.1', bucket) == 'ip:10.0.0.1'
 
 
-def test_subject_for_bearer_wins_over_the_cookie():
+def test_subject_for_the_cookie_wins_over_a_bearer_jwt():
     bearer, _, _ = create_access_token('42', '7')
     cookie, _, _ = create_access_token('99', '8')
-    headers = {'authorization': f'bearer {bearer}'}
-    subject = subject_for(headers, {ACCESS_COOKIE_NAME: cookie}, '10.0.0.1')
-    assert subject == 'user:42'
-
-
-def test_subject_for_bad_bearer_falls_back_to_the_cookie():
-    cookie, _, _ = create_access_token('99', '8')
-    headers = {'authorization': 'Bearer not-a-jwt'}
+    headers = {'authorization': f'Bearer {bearer}'}
     subject = subject_for(headers, {ACCESS_COOKIE_NAME: cookie}, '10.0.0.1')
     assert subject == 'user:99'
 

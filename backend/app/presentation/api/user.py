@@ -25,7 +25,7 @@ from app.presentation.dependencies import (
     UserRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
-from app.presentation.schemas.application_step import AgendaStepSchema
+from app.presentation.schemas.agenda import AgendaStepSchema
 from app.presentation.schemas.features import MyFeature, MyFeatures
 from app.presentation.schemas.user import UpdateUserProfile, UserProfile
 

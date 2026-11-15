@@ -269,6 +269,6 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
 }
 
 // Finalize/reopen moved to `@/hooks/use-finalize-application` and
-// `@/hooks/use-reopen-application` (PRD 0008, ADR 0012, R-032): the legacy
-// `ApplicationFinalizePayload` (`step_id`/`feedback_id`) is CLI-0.1.4-only —
-// the web now sends the outcome-based body (or none) instead.
+// `@/hooks/use-reopen-application` (PRD 0008, ADR 0012, R-032): the web sends
+// the outcome-based body (or none); the API refuses the legacy CLI body
+// (`step_id`/`feedback_id`) with a 422 since ADR-0028.

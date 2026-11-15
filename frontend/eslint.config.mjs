@@ -92,7 +92,6 @@ const config = [
             "LinkedIn",
             "BASE",
             "PSP",
-            "applika-cli",
             "Discord",
             "English",
             "Português",

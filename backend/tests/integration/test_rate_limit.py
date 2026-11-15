@@ -161,11 +161,12 @@ async def test_two_users_at_the_limit_on_the_same_ip_do_not_share_quota(
     assert other_user.status_code == 200
 
 
-async def test_bearer_tokens_count_per_user_on_the_same_ip(
+async def test_a_bearer_jwt_counts_against_the_ip(
     async_client, redis_client, monkeypatch
 ):
-    """ADR-0019: applika-cli 1.1.0 sends ``Authorization:
-    Bearer``; the limiter counts it against the token's user, not the IP."""
+    """ADR-0028: the Bearer JWT (what applika-cli 1.1.0 sent) is no REST
+    credential and names no subject: two users' Bearers on one IP share the
+    IP's quota."""
     _enable_limiter(monkeypatch, default=2)
 
     token_a, _, _ = create_access_token('user-a', '1')
@@ -178,20 +179,12 @@ async def test_bearer_tokens_count_per_user_on_the_same_ip(
         assert ok.status_code == 200
 
     refused = await async_client.get(
-        '/supports', headers={'Authorization': f'Bearer {token_a}'}
-    )
-    assert refused.status_code == 429
-
-    # Same IP, another user's Bearer: a quota of its own.
-    other_user = await async_client.get(
         '/supports', headers={'Authorization': f'Bearer {token_b}'}
     )
-    assert other_user.status_code == 200
-    # And user A's quota is the same whether it comes as Bearer or cookie.
-    same_user_cookie = await async_client.get(
-        '/supports', cookies={ACCESS_COOKIE_NAME: token_a}
-    )
-    assert same_user_cookie.status_code == 429
+    assert refused.status_code == 429
+    keys = await redis_client.keys('applika:ratelimit:default:*')
+    assert len(keys) == 1
+    assert ':ip:' in keys[0]
 
 
 async def test_anonymous_requests_count_per_ip_second_ip_unaffected(
@@ -559,7 +552,7 @@ async def test_mcp_counts_per_token_in_its_own_bucket_with_or_without_prefix(
 async def test_a_fresh_mcp_bearer_per_request_does_not_escape_the_ip_cap(
     async_client, redis_client, monkeypatch
 ):
-    """Off ``/mcp`` an ``applika_mcp_…`` Bearer is no valid JWT: an
+    """Off ``/mcp`` an ``applika_mcp_…`` Bearer names no subject: an
     anonymous caller changing it on every ``/auth/*`` request still counts
     against its IP and is refused at the auth limit."""
     _enable_limiter(monkeypatch, auth=2)

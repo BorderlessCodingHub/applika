@@ -272,11 +272,9 @@ class BorderlessOidcClient:
         state: str,
         nonce: str,
         challenge: str,
-        prompt_login: bool,
     ) -> str:
-        """Where the browser signs in. ``prompt=login`` only for a CLI
-        sign-in (ADR-0026 §11): a web sign-in uses Borderless's own
-        session."""
+        """Where the browser signs in. No ``prompt``: a sign-in uses
+        Borderless's own browser session (ADR-0026 §11)."""
         params = {
             'response_type': 'code',
             'client_id': self.client_id,
@@ -287,8 +285,6 @@ class BorderlessOidcClient:
             'code_challenge': challenge,
             'code_challenge_method': 'S256',
         }
-        if prompt_login:
-            params['prompt'] = 'login'
         separator = '&' if '?' in discovery.authorization_endpoint else '?'
         return (
             discovery.authorization_endpoint

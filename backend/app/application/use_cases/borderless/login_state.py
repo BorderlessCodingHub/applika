@@ -5,10 +5,10 @@
 (``secrets.token_urlsafe(32)`` each: a verifier needs 43 to 128 characters)
 and stores, at ``applika:borderless:login:<state>`` for
 ``BORDERLESS_LOGIN_TTL_SECONDS``, the binding's SHA-256, the verifier, the
-nonce, the flow (``web`` or ``cli``), the CLI login id and the target the
-browser goes to once signed in (``login_target.py``). The binding goes to
-the browser in the HttpOnly ``__applika_login`` cookie; the verifier, the
-nonce and the target never leave Redis.
+nonce and the target the browser goes to once signed in
+(``WEB_SIGNIN_URI``). The binding goes to the browser in the HttpOnly
+``__applika_login`` cookie; the verifier, the nonce and the target never
+leave Redis.
 
 ``consume`` is single use (``GETDEL``): the record is spent whatever the
 outcome, and it answers only when the cookie's hash matches (a
@@ -24,7 +24,6 @@ import json
 import secrets
 import uuid
 from dataclasses import dataclass, field
-from typing import Literal
 
 import redis.asyncio as redis
 from redis.exceptions import RedisError
@@ -36,8 +35,6 @@ LOGIN_PREFIX = 'applika:borderless:login:'
 REDIS_TIMEOUT_SECONDS = 2.0
 # Redis down fails closed, like the session store: 503 AUTH-1003.
 _REDIS_ERRORS = (RedisError, OSError, TimeoutError)
-
-Flow = Literal['web', 'cli']
 
 
 def _sha256(value: str) -> str:
@@ -67,10 +64,8 @@ class LoginAttempt:
 class LoginRecord:
     """What the callback gets back for a matching state and cookie.
     ``target`` is where the attempt said it would end; the callback checks
-    it against ``BorderlessLoginTargets`` before following it."""
+    it against ``WEB_SIGNIN_URI`` before following it."""
 
-    flow: Flow
-    cli_login_id: str | None
     target: str
     verifier: str = field(repr=False)
     nonce: str = field(repr=False)
@@ -80,9 +75,7 @@ class BorderlessLoginStateUseCase:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
 
-    async def create(
-        self, flow: Flow, cli_login_id: str | None = None, *, target: str
-    ) -> LoginAttempt:
+    async def create(self, *, target: str) -> LoginAttempt:
         attempt = LoginAttempt(
             state=str(uuid.uuid4()),
             binding=secrets.token_urlsafe(32),
@@ -93,8 +86,6 @@ class BorderlessLoginStateUseCase:
             'binding_sha256': _sha256(attempt.binding),
             'verifier': attempt.verifier,
             'nonce': attempt.nonce,
-            'flow': flow,
-            'cli_login_id': cli_login_id,
             'target': target,
         }
         try:
@@ -123,7 +114,6 @@ class BorderlessLoginStateUseCase:
         try:
             record = json.loads(raw)
             expected = str(record['binding_sha256'])
-            flow = record['flow']
             verifier = str(record['verifier'])
             nonce = str(record['nonce'])
             target = record['target']
@@ -131,14 +121,9 @@ class BorderlessLoginStateUseCase:
             return None
         if not hmac.compare_digest(expected, _sha256(binding)):
             return None
-        if flow not in ('web', 'cli') or not isinstance(target, str):
+        if not isinstance(target, str):
             return None
-        cli_login_id = record.get('cli_login_id')
         return LoginRecord(
-            flow=flow,
-            cli_login_id=cli_login_id
-            if isinstance(cli_login_id, str)
-            else None,
             target=target,
             verifier=verifier,
             nonce=nonce,

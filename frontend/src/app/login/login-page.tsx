@@ -27,16 +27,14 @@ export function signedInLandingFor(
  * The browser
  * leaves for `GET /auth/borderless/login`, Borderless's own sign-in page,
  * and the API's callback brings it back here: signed in (the cookies are
- * set, this page moves on) or with `?error=<code>` (`&cli=1` when the
- * attempt came from `applika login`). No password, code or token is ever
- * handled here.
+ * set, this page moves on) or with `?error=<code>`. No password, code or
+ * token is ever handled here.
  */
 export function LoginPage() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const errorCode = searchParams.get("error");
-  const cli = searchParams.get("cli") === "1";
   const [pending, setPending] = useState(false);
   // The landing consumes the return-to path: navigate once.
   const redirected = useRef(false);
@@ -51,9 +49,7 @@ export function LoginPage() {
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
-  // A refused CLI sign-in stays on screen even with a browser session: the
-  // words are about the terminal.
-  const redirects = !cli && !isLoading && isAuthenticated;
+  const redirects = !isLoading && isAuthenticated;
 
   useEffect(() => {
     if (!redirects || redirected.current) return;
@@ -73,7 +69,6 @@ export function LoginPage() {
       }}
       pending={pending}
       errorCode={errorCode}
-      cli={cli}
       createAccountHref={APP_CONFIG.borderless.signUpUrl}
     />
   );

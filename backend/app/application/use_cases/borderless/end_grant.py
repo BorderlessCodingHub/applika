@@ -5,8 +5,9 @@ revoked), a stored refresh token that no longer decrypts, or a binding with
 no refresh token at all (a password-era binding): the binding forgets its
 refresh token and becomes ``needs_reconnect``, every open **web** session
 of the user ends ``borderless_revoked`` (the Devices list shows them
-revoked), and the Redis access token goes. CLI sessions stay open: their
-member-gated requests answer AUTH-1050 until the next sign-in.
+revoked), and the Redis access token goes. Other sessions (MCP tokens)
+stay open: their member-gated requests answer AUTH-1050 until the next
+sign-in.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession

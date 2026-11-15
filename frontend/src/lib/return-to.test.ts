@@ -13,19 +13,23 @@ afterEach(() => {
 });
 
 describe("remembersReturnTo", () => {
-  it.each(["/device", "/device/", "/profile", "/profile/"])(
+  it.each(["/profile", "/profile/"])(
     "keeps %s through the sign-in round trip",
     (path) => {
       expect(remembersReturnTo(path)).toBe(true);
     },
   );
 
-  it.each(["/dashboard", "/applications", "/profiles", "/admin", "/"])(
-    "leaves %s to the dashboard after sign-in",
-    (path) => {
-      expect(remembersReturnTo(path)).toBe(false);
-    },
-  );
+  it.each([
+    "/dashboard",
+    "/applications",
+    "/profiles",
+    "/admin",
+    "/",
+    "/device",
+  ])("leaves %s to the dashboard after sign-in", (path) => {
+    expect(remembersReturnTo(path)).toBe(false);
+  });
 });
 
 describe("storeReturnTo + consumeReturnTo", () => {

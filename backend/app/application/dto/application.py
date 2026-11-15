@@ -78,16 +78,6 @@ class ApplicationUpdateDTO(BaseModel):
     job_description: str | None = None
 
 
-class LegacyFinalizeApplicationDTO(BaseModel):
-    """The 0.1.4 finalize body (R-017), handled by the compat layer."""
-
-    step_id: int  # only strict steps
-    feedback_id: int
-    finalize_date: date
-    salary_offer: float | None = None
-    observation: str | None = None
-
-
 class FinalizeOutcomeDTO(BaseModel):
     """The new optional finalize body, once an outcome is chosen (R-032).
 
@@ -106,13 +96,6 @@ class FinalizeOutcomeDTO(BaseModel):
 
 
 class ApplicationLastStep(BaseModel):
-    id: int
-    name: str
-    color: str
-    date: date
-
-
-class ApplicationFeedback(BaseModel):
     id: int
     name: str
     color: str
@@ -141,10 +124,6 @@ class ApplicationDTO(BaseSchema):
     finalized_at: datetime | None = None
     finalized: bool
 
-    # The legacy fields installed CLIs read (R-019). They are no longer
-    # columns: ApplicationReadModel derives them from the timeline, so a
-    # plain ``model_validate(model)`` leaves them at their defaults.
-    # ``feedback`` stays null: feedbacks are not data any more.
-    salary_offer: float | None = None
+    # Not a column: ApplicationReadModel derives it from the timeline, so a
+    # plain ``model_validate(model)`` leaves it at its default.
     last_step: ApplicationLastStep | None = None
-    feedback: ApplicationFeedback | None = None

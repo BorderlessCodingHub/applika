@@ -110,11 +110,7 @@ async function supports(request: APIRequestContext) {
     headers: apiHeaders(),
   });
   expect(response.ok(), await response.text()).toBeTruthy();
-  return (await response.json()) as {
-    platforms: Array<{ id: string }>;
-    steps: Array<{ id: string; strict: boolean }>;
-    feedbacks: Array<{ id: string }>;
-  };
+  return (await response.json()) as { platforms: Array<{ id: string }> };
 }
 
 /** Yesterday, as `YYYY-MM-DD`. Never "in the future" whatever the container's clock. */
@@ -164,10 +160,9 @@ async function seedTailoredCv(
  * Finalize the application out of band, so the UI meets it already locked.
  *
  * PRD 0008 / ADR 0012, R-032: the web's close dialog now POSTs with NO body
- * for the "none" outcome (idempotent) — this mirrors that, rather than the
- * legacy `{step_id, feedback_id, finalize_date}` shape, which is
- * CLI-0.1.4-only and which the web never sends (`.claude/rules/
- * cli-compatibility.md`). Only `finalized_at` being set matters for this
+ * for the "none" outcome (idempotent) — this mirrors that. The legacy
+ * `{step_id, feedback_id, finalize_date}` body is refused with 422 since
+ * ADR-0028, and the web never sent it. Only `finalized_at` being set matters for this
  * spec's "readable but locked" assertions, so no outcome is needed.
  */
 async function finalizeApplication(

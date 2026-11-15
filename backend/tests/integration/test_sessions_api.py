@@ -41,8 +41,9 @@ ITEM_KEYS = {
 }
 
 
-def _bearer(token: str) -> dict[str, str]:
-    return {'Authorization': f'Bearer {token}'}
+def _cookie(token: str) -> dict[str, str]:
+    """The ``__access`` cookie, the only REST credential (ADR-0028)."""
+    return {ACCESS_COOKIE_NAME: token}
 
 
 async def _set_row(engine: AsyncEngine, session_id: int, **values: Any):
@@ -79,7 +80,7 @@ async def _drop_keys(redis_client, tokens) -> None:
 
 
 async def _list(client: AsyncClient, token: str) -> list[dict[str, Any]]:
-    response = await client.get('/users/me/sessions', headers=_bearer(token))
+    response = await client.get('/users/me/sessions', cookies=_cookie(token))
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -132,7 +133,7 @@ async def test_list_shape_web_and_cli_and_this_device(
     assert cli_item['scope'] is None
     # The refresh value is never listed.
     response = await real_client.get(
-        '/users/me/sessions', headers=_bearer(web.access_token)
+        '/users/me/sessions', cookies=_cookie(web.access_token)
     )
     assert web.refresh_token not in response.text
     assert cli.refresh_token not in response.text
@@ -335,7 +336,7 @@ async def test_revoke_another_device(
 
     response = await real_client.delete(
         f'/users/me/sessions/{other.session_id}',
-        headers=_bearer(caller.access_token),
+        cookies=_cookie(caller.access_token),
     )
 
     assert response.status_code == 204
@@ -368,7 +369,7 @@ async def test_revoke_this_device_clears_both_cookies(
         'revoked'
     )
     after = await real_client.get(
-        '/users/me', headers=_bearer(caller.access_token)
+        '/users/me', cookies=_cookie(caller.access_token)
     )
     assert after.status_code == 401
 
@@ -386,7 +387,7 @@ async def test_revoke_an_ended_device_is_a_no_op(
 
     response = await real_client.delete(
         f'/users/me/sessions/{ended.session_id}',
-        headers=_bearer(caller.access_token),
+        cookies=_cookie(caller.access_token),
     )
 
     assert response.status_code == 204
@@ -406,7 +407,7 @@ async def test_revoke_an_expired_device_is_a_no_op(
 
     response = await real_client.delete(
         f'/users/me/sessions/{lost.session_id}',
-        headers=_bearer(caller.access_token),
+        cookies=_cookie(caller.access_token),
     )
 
     assert response.status_code == 204
@@ -423,7 +424,7 @@ async def test_revoke_another_users_device_is_404(
 
     response = await real_client.delete(
         f'/users/me/sessions/{theirs.session_id}',
-        headers=_bearer(caller.access_token),
+        cookies=_cookie(caller.access_token),
     )
 
     assert response.status_code == 404
@@ -433,7 +434,7 @@ async def test_revoke_another_users_device_is_404(
     }
     assert (await _row(async_engine, theirs.session_id)).ended_at is None
     assert (
-        await real_client.get('/users/me', headers=_bearer(theirs.access_token))
+        await real_client.get('/users/me', cookies=_cookie(theirs.access_token))
     ).status_code == 200
 
 
@@ -446,7 +447,7 @@ async def test_an_admin_cannot_revoke_another_users_device(
 
     response = await real_client.delete(
         f'/users/me/sessions/{users.session_id}',
-        headers=_bearer(admin.access_token),
+        cookies=_cookie(admin.access_token),
     )
 
     assert response.status_code == 404
@@ -463,7 +464,7 @@ async def test_revoke_an_unknown_id_is_404(
     caller = await open_session(async_engine, redis_client, USER.id)
     response = await real_client.delete(
         '/users/me/sessions/123456789',
-        headers=_bearer(caller.access_token),
+        cookies=_cookie(caller.access_token),
     )
     assert response.status_code == 404
     assert response.json() == {
@@ -499,7 +500,7 @@ async def test_revoke_others_ends_every_live_other_device(
 
     response = await real_client.post(
         '/users/me/sessions/revoke-others',
-        headers=_bearer(caller.access_token),
+        cookies=_cookie(caller.access_token),
     )
 
     assert response.status_code == 200
@@ -510,24 +511,24 @@ async def test_revoke_others_ends_every_live_other_device(
         )
         assert (
             await real_client.get(
-                '/users/me', headers=_bearer(tokens.access_token)
+                '/users/me', cookies=_cookie(tokens.access_token)
             )
         ).status_code == 401
     assert (await _row(async_engine, ended.session_id)).end_reason == 'logout'
     assert (await _row(async_engine, lost.session_id)).ended_at is None
     assert (await _row(async_engine, caller.session_id)).ended_at is None
     assert (
-        await real_client.get('/users/me', headers=_bearer(caller.access_token))
+        await real_client.get('/users/me', cookies=_cookie(caller.access_token))
     ).status_code == 200
     assert (
         await real_client.get(
-            '/users/me', headers=_bearer(someone_else.access_token)
+            '/users/me', cookies=_cookie(someone_else.access_token)
         )
     ).status_code == 200
 
     again = await real_client.post(
         '/users/me/sessions/revoke-others',
-        headers=_bearer(caller.access_token),
+        cookies=_cookie(caller.access_token),
     )
     assert again.json() == {'revoked': 0}
 
@@ -543,17 +544,14 @@ async def test_no_feature_row_is_needed(
     """``create_all`` seeds no ``features`` row at all: if any route here
     were gated it would answer the gate's 404."""
     caller = await open_session(async_engine, redis_client, USER.id)
-    headers = _bearer(caller.access_token)
+    cookies = _cookie(caller.access_token)
     assert (
-        await real_client.get('/users/me/sessions', headers=headers)
+        await real_client.get('/users/me/sessions', cookies=cookies)
     ).status_code == 200
     assert (
         await real_client.post(
-            '/users/me/sessions/revoke-others', headers=headers
+            '/users/me/sessions/revoke-others', cookies=cookies
         )
-    ).status_code == 200
-    assert (
-        await real_client.post('/auth/device/code', json={})
     ).status_code == 200
 
 
@@ -586,6 +584,6 @@ async def test_an_mcp_token_is_a_device_with_its_scope(
     assert item['current'] is False
     assert by_id[str(web.session_id)]['scope'] is None
     response = await real_client.get(
-        '/users/me/sessions', headers=_bearer(web.access_token)
+        '/users/me/sessions', cookies=_cookie(web.access_token)
     )
     assert token not in response.text

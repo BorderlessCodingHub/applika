@@ -38,7 +38,8 @@ export default function ProtectedLayout({
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
-      // `/device?code=` must survive the sign-in round trip.
+      // `/profile?tab=mcp` (`/mcp`'s "Create a token") must survive the
+      // sign-in round trip.
       if (remembersReturnTo(window.location.pathname)) {
         storeReturnTo(window.location.pathname + window.location.search);
       }

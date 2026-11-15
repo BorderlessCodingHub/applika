@@ -1,8 +1,7 @@
 """``RateLimitMiddleware`` (ADR-0015): pure ASGI, wraps every HTTP
 route in the fixed-window Redis limiter of ``app/core/rate_limit.py``.
 
-Shape copied from ``app/presentation/deprecation.py``
-(``DeprecationHeaderMiddleware``): a pure ASGI class, ``MutableHeaders`` on
+A pure ASGI class that sets its headers with ``MutableHeaders`` on
 ``http.response.start``. Installed in ``app/main.py`` ABOVE the CORS
 middleware, so CORS wraps it: a 429 carries ``Access-Control-Allow-Origin``
 and a preflight ``OPTIONS`` is answered (and never counted) before this

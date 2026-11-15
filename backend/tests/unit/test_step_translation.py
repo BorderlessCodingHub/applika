@@ -1,8 +1,8 @@
-"""Step <-> event translation (R-016), unit level.
+"""Event -> step translation (R-016), unit level: ``last_step`` and the
+agenda. The forward direction (step -> event) left with the ``/steps``
+routes (ADR-0028).
 
 Pinned:
-* forward: every seeded step maps as the owner decided (decision (a)); an
-  unmapped definition falls back to interview/unknown;
 * reverse: every (event_type, interview_type) pair resolves to a step,
   non-null, by name first, then by mapping, then the first non-strict row;
 * the constants are the ones revision afd4074c70c2 uses, so an id read in
@@ -18,9 +18,7 @@ import pytest
 
 from app.application.use_cases.compat.step_translation import (
     REVERSE_STEP_NAMES,
-    STEP_FALLBACK,
     StepTranslator,
-    event_kind_of,
 )
 from app.core.enums import EventType, InterviewType
 from tests.unit.conftest import make_step_definition
@@ -80,42 +78,6 @@ def _revision():
     return module
 
 
-# -- Forward -----------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ('name', 'expected'),
-    [
-        ('Initial Screen', (IV, InterviewType.INITIAL_SCREENING)),
-        ('Phase 2', (IV, InterviewType.UNKNOWN)),
-        ('Phase 3', (IV, InterviewType.UNKNOWN)),
-        ('Phase 4', (IV, InterviewType.UNKNOWN)),
-        ('Offer', (EventType.OFFER, None)),
-        ('Denied', (EventType.DENIED, None)),
-    ],
-)
-def test_forward_follows_the_stored_mapping(name, expected):
-    step = next(s for s in SEEDED if s.name == name)
-    assert event_kind_of(step) == expected
-
-
-def test_forward_unmapped_definition_falls_back_to_interview_unknown():
-    step = make_step_definition(name='Take-home (admin)')
-    assert event_kind_of(step) == STEP_FALLBACK == (IV, InterviewType.UNKNOWN)
-
-
-def test_forward_interview_without_type_is_unknown():
-    step = make_step_definition(event_type=IV, interview_type=None)
-    assert event_kind_of(step) == (IV, InterviewType.UNKNOWN)
-
-
-def test_forward_non_interview_never_carries_an_interview_type():
-    step = make_step_definition(
-        event_type=EventType.OFFER, interview_type=InterviewType.FINAL
-    )
-    assert event_kind_of(step) == (EventType.OFFER, None)
-
-
 # -- Reverse -----------------------------------------------------------------
 
 
@@ -148,12 +110,12 @@ def test_reverse_by_name_on_the_seeded_catalog():
         assert step.name == name
 
 
-def test_round_trip_step_to_event_to_same_step_for_the_named_rows():
+def test_a_named_rows_own_mapping_reverses_to_that_row():
     translator = StepTranslator(SEEDED)
     for step in SEEDED:
         if step.name in {'Phase 3', 'Phase 4'}:
             continue  # several steps share interview/unknown -> Phase 2
-        back = translator.reverse(*event_kind_of(step))
+        back = translator.reverse(step.event_type, step.interview_type)
         assert back is not None
         assert back.id == step.id
 
@@ -228,10 +190,6 @@ def test_constants_match_revision_afd4074c70c2():
             revision.REVERSE_STEP_MAP[key]
             == revision.REVERSE_STEP_MAP[('interview', 'unknown')]
         )
-    assert (
-        STEP_FALLBACK[0].value,
-        STEP_FALLBACK[1] and STEP_FALLBACK[1].value,
-    ) == revision.STEP_FALLBACK
     assert set(REVERSE_STEP_NAMES) == set(ALL_PAIRS)
 
 

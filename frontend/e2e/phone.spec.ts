@@ -19,6 +19,7 @@ import {
 } from "./support/auth";
 import { clearOptOut } from "./support/beta-features";
 import { COOKIE_NOTICE_ACKNOWLEDGED } from "./support/cookie-notice";
+import { expectAnswersLikeAnUnknownPage } from "./support/unknown-page";
 import {
   PHONE,
   expectDocumentScrolls,
@@ -31,14 +32,15 @@ import {
  *
  * The public screens switch by CSS (one tree per width, `data-slot` per
  * tree; Playwright leaves `display: none` out of role queries): below md
- * `/` is v2/Landing, `/cookie-policy` v2/CookiePolicy, `/cli/code`
- * v2/CliCode, and `/mcp` 0023/McpPage (PRD 0023: the landing's phone header,
+ * `/` is v2/Landing, `/cookie-policy` v2/CookiePolicy, and `/mcp`
+ * 0023/McpPage (PRD 0023: the landing's phone header,
  * the steps, the server address with Copy, its own footer; `/cli` forwards
  * to it). The landing header and footer are md-and-up only. The phone header
  * of `/` and `/mcp` (home, theme, flags, then Sign in or Dashboard) is walked
  * from 320 to 430 in `headers.spec.ts`. `/login`
- * (option C) is walked in `borderless-signin.spec.ts`, `/device` in
- * `devices.spec.ts`, the signed-in shell in `shell-responsive.spec.ts`.
+ * (option C) is walked in `borderless-signin.spec.ts`, the signed-in shell in
+ * `shell-responsive.spec.ts`. `/device` and `/cli/code` left with the CLI
+ * (ADR-0028): they answer like any unknown page.
  *
  * The public screens are read-only: signed out, nothing is written. The
  * signed-in describes, as the seeded users (`loginAs`, never Logout, never
@@ -351,47 +353,11 @@ test.describe("public screens below md", () => {
     );
   });
 
-  test("/cli/code is the CliCode board: the code, Copy that says Copied, the expiry", async ({
-    page,
-    context,
-  }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.goto("/cli/code?code=e2e-code&state=e2e-state");
-
-    const phone = page.locator('[data-slot="cli-code-phone"]');
-    await expect(phone).toBeVisible();
-    await expect(phone).toHaveAttribute("data-state", "ready");
-    await expect(page.locator('[data-slot="cli-code-desktop"]')).toBeHidden();
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Sign in to applika-cli" }),
-    ).toBeVisible();
-    await expect(phone.locator('[data-slot="cli-code-value"]')).toHaveText(
-      "e2e-code#e2e-state",
-    );
-    await expect(
-      phone.getByText("The code works once and expires after a minute."),
-    ).toBeVisible();
-    await expectThePair(page);
-    await expectPhoneTargets(page, 4);
-    await expectNoSidewaysScroll(page);
-
-    await phone.getByRole("button", { name: "Copy", exact: true }).click();
-    await expect(
-      phone.getByRole("button", { name: "Copied", exact: true }),
-    ).toBeVisible();
-    await expect(phone.locator('[data-slot="cli-code-status"]')).toHaveText(
-      "Code copied.",
-    );
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      "e2e-code#e2e-state",
-    );
-  });
-
   test("each public screen switches light and dark, and the language, from its own pair, theme first", async ({
     page,
   }) => {
     const html = page.locator("html");
-    for (const path of ["/", "/cookie-policy", "/mcp", "/cli/code", "/login"]) {
+    for (const path of ["/", "/cookie-policy", "/mcp", "/login"]) {
       await page.goto(path);
       await expect(html, path).toHaveClass(/\bdark\b/);
       // The theme toggle sits left of the language toggle, on one row.
@@ -458,15 +424,19 @@ test.describe("public screens below md", () => {
     await expect(html).toHaveAttribute("lang", "en");
   });
 
-  test("/cli/code without its code says so, with no Copy", async ({ page }) => {
-    await page.goto("/cli/code");
-
-    const phone = page.locator('[data-slot="cli-code-phone"]');
-    await expect(phone).toHaveAttribute("data-state", "missing");
-    await expect(phone.locator('[data-slot="cli-code-missing"]')).toContainText(
-      "This sign-in link is missing its code.",
-    );
-    await expect(page.getByRole("button", { name: "Copy" })).toHaveCount(0);
+  test("/device and /cli/code, deleted with the CLI, answer like any unknown page", async ({
+    page,
+  }) => {
+    for (const path of ["/device", "/cli/code?code=e2e-code&state=e2e-state"]) {
+      await expectAnswersLikeAnUnknownPage(page, path);
+      await expect(
+        page.locator(
+          '[data-slot="cli-code-phone"], [data-slot="device-code-form"], [data-slot="device-sign-in"]',
+        ),
+        path,
+      ).toHaveCount(0);
+      await expectNoSidewaysScroll(page);
+    }
   });
 });
 

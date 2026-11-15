@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { LoginPage } from "@/app/login/login-page";
-import { CliCodeScreen } from "@/components/cli-code/cli-code-screen";
 import {
   LANGUAGE_TOGGLE_ROOT_CLASS,
   LANGUAGE_TOGGLE_VARIANTS,
@@ -22,9 +21,9 @@ import type { User } from "@/services/types/users";
 /**
  * Where the language switcher is mounted (plan 0019, PRD 0021): the signed-in
  * header, the landing header (md and up; the cookie policy and /mcp pages
- * share it), the phone landing's header (below md: /, /mcp) and the phone
- * public bar (below md: /cookie-policy), the sign-in page and the terminal
- * code page (one mount each, laid out for both widths). The `default` look
+ * share it), the phone landing's header (below md: /, /mcp), the phone
+ * public bar (below md: /cookie-policy) and the sign-in page (one mount,
+ * laid out for both widths). The `default` look
  * everywhere; the `landing` look is ported but mounted nowhere. Every mount
  * puts it right after the theme toggle. Only the phone landing's header
  * shows the flags alone.
@@ -129,11 +128,6 @@ describe("LanguageToggle mounts", () => {
     expect(group.closest("form")).toBeNull();
   });
 
-  it("the terminal code page holds it in its top-right slot, after the theme toggle", () => {
-    render(<CliCodeScreen code="abc" state="xyz" />, { wrapper: Providers });
-    expectDefaultToggleAfterTheme();
-  });
-
   it("the phone landing's header holds it, default look, flags only, after the theme toggle", () => {
     render(<PhoneLanding />, { wrapper: Providers });
     expect(expectDefaultToggleAfterTheme()).toHaveAttribute(
@@ -167,7 +161,6 @@ describe("LanguageToggle mounts", () => {
       .filter(([, text]) => text.includes("<LanguageToggle"));
     expect(mounts.map(([path]) => path).sort()).toEqual([
       "components/auth/sign-in-screen.tsx",
-      "components/cli-code/cli-code-screen.tsx",
       "components/landing/landing-header.tsx",
       "components/layout/header.tsx",
       "components/phone/landing/phone-landing-header.tsx",

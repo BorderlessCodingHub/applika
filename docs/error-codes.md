@@ -2,8 +2,7 @@
 
 Every error answer of the API is JSON: `{"detail": <English message>, "code": "<AREA>-<NNNN>"}`, plus
 `"params"` on the codes that name a value. `detail`, the HTTP status and the headers are the API's own; the
-web translates the code and fills the params into the sentence. OAuth errors on `POST /auth/token` also keep
-their RFC `error` key. Text the API returns as data (keyword reorder descriptions, device names, a job
+web translates the code and fills the params into the sentence. Text the API returns as data (keyword reorder descriptions, device names, a job
 source's last error, CV previews and exports) is not an error and carries no code.
 
 Rules (ADR-0025): a code is an area prefix and a four-digit number counted per area from 1001. A shipped code
@@ -16,9 +15,9 @@ is written `<name>`, and `<name>` is a key of `params`.
 | area | covers | codes |
 |---|---|---|
 | GEN | Framework: unknown route, method, request validation, rate limit, server errors | 8 |
-| AUTH | Sign-in, sessions, tokens, CLI sign-in, device codes, GitHub restore, MCP tokens | 52 |
+| AUTH | Sign-in, sessions, tokens, GitHub restore, MCP tokens (and the retired CLI sign-in and device codes) | 52 |
 | USR | The signed-in user (`/users/me*`) and user lookups | 1 |
-| APP | Applications, drafts, finalize, reopen, the compatibility step routes | 14 |
+| APP | Applications, drafts, finalize, reopen (and the retired compatibility step routes) | 14 |
 | EVT | Application timeline events | 10 |
 | CAT | Companies, platforms, supports | 4 |
 | CV | Master CVs, CV copies, fit, exports | 10 |
@@ -40,7 +39,7 @@ is written `<name>`, and `<name>` is a key of `params`.
 | GEN-1006 | 501 | `This endpoint has been defined but not yet implemented` | — | The route exists but raises `NotImplementedError`. | any route |
 | GEN-1007 | 400 | `There was an error parsing the body` | — | The framework could not parse the request body (FastAPI's own 400; a multipart parse error keeps its own text). | framework |
 | GEN-1008 | other | (the framework's own text) | — | Any other HTTP error the framework raises by itself. None is raised today; the status and headers are the framework's. | framework |
-| AUTH-1001 | 401 | `Not authenticated` | — | No access token (Bearer header or `__access` cookie), or no `__refresh` cookie on `GET /auth/refresh`. | `get_current_user`; `RefreshSessionUseCase` |
+| AUTH-1001 | 401 | `Not authenticated` | — | No `__access` cookie (an `Authorization: Bearer` header is ignored since ADR-0028), or no `__refresh` cookie on `GET /auth/refresh`. | `get_current_user`; `RefreshSessionUseCase` |
 | AUTH-1002 | 401 | `Session expired` | — | The access token names no live session: no `sid`, the session is gone, or it belongs to another user. | `GetCurrentUserUseCase` |
 | AUTH-1003 | 503 | `Session service unavailable` | — | The session store (Redis) cannot be reached. `Retry-After: 5`; nobody is signed out (ADR-0019). The Borderless sign-in sends it as `?error=AUTH-1003` (ADR-0026). | `SessionStore`; `BorderlessLoginStateUseCase` (`?error=`) |
 | AUTH-1004 | 401 | `Invalid email or password` | — | Borderless refused the email and password. Retired with the password sign-in (ADR-0026); never reused. | not raised since ADR-0026 |
@@ -55,52 +54,52 @@ is written `<name>`, and `<name>` is a key of `params`.
 | AUTH-1013 | 401 | `Invalid token payload` | — | The access token carries no subject. | `GetCurrentUserUseCase` |
 | AUTH-1014 | 401 | `User not found` | — | The session is live but its user no longer exists. | `GetCurrentUserUseCase`; `GET /auth/refresh`; `POST /mcp` (`AuthenticateMcpTokenUseCase`) |
 | AUTH-1015 | 401 | `Invalid or expired refresh token` | — | The refresh value names no live session. | `GET /auth/refresh` |
-| AUTH-1016 | 401 | `Sign in again with Borderless` | — | The session predates the Borderless sign-in or the user has no Borderless link; it cannot slide on. | `GET /auth/refresh` |
-| AUTH-1017 | 503 | `Borderless is unavailable, try again later` | — | Borderless did not answer or answered unexpectedly (its discovery document, the code exchange). Since ADR-0026 sent as `?error=AUTH-1017` (plus `&cli=1` on a CLI sign-in). | `GET /auth/borderless/login`, `GET /auth/cli/authorize`, `GET /auth/cli/login/{login_id}`, `GET /auth/borderless/callback` (all `?error=`) |
-| AUTH-1018 | 503 | `Borderless sign-in is not configured` | — | The API has no Borderless client configured (issuer, client id, client secret or token key unset). Since ADR-0026 sent as `?error=AUTH-1018`. | `GET /auth/borderless/login`, `GET /auth/cli/authorize`, `GET /auth/cli/login/{login_id}`, `GET /auth/borderless/callback` (all `?error=`) |
-| AUTH-1019 | 400 | `CLI login expired` | — | The browser signed in at Borderless for a CLI login that has expired, or that no longer allows its hand-off to the CLI: run `applika login` again. Since ADR-0026 sent as `?error=AUTH-1019&cli=1`. | `GET /auth/borderless/callback`, `GET /auth/cli/authorize`, `GET /auth/cli/login/{login_id}` (`?error=`) |
-| AUTH-1020 | 404 | `CLI login not found` | — | The legacy CLI login id is unknown or expired. | `GET /auth/cli/login/{login_id}` |
-| AUTH-1021 | 401 | `Invalid or expired CLI exchange code` | — | The legacy CLI exchange code is unknown, used, expired or a PKCE code. | `POST /auth/cli/exchange` |
-| AUTH-1022 | 400 | `CLI callback URL must use http` | — | The CLI callback URL is not `http`. | CLI sign-in start routes (`validate_cli_callback_url`) |
-| AUTH-1023 | 400 | `CLI callback URL must target loopback` | — | The CLI callback URL host is not 127.0.0.1, localhost or ::1. | CLI sign-in start routes (`validate_cli_callback_url`) |
-| AUTH-1024 | 400 | `CLI callback URL must include a port` | — | The CLI callback URL has no port. | CLI sign-in start routes (`validate_cli_callback_url`) |
-| AUTH-1025 | 400 | `CLI callback URL must not contain params or fragments` | — | The CLI callback URL carries params or a fragment. | CLI sign-in start routes (`validate_cli_callback_url`) |
-| AUTH-1026 | 400 | `code_challenge_method must be S256` | — | The PKCE challenge method is not S256. | `GET /auth/cli/authorize` |
-| AUTH-1027 | 400 | `Invalid code_challenge` | — | The PKCE challenge is malformed. | `GET /auth/cli/authorize` |
-| AUTH-1028 | 400 | `Invalid or expired code` | — | OAuth `invalid_grant`: the PKCE login code is unknown, used or expired. | `POST /auth/token` (`authorization_code`) |
-| AUTH-1029 | 400 | `redirect_uri does not match` | — | OAuth `invalid_grant`: the `redirect_uri` differs from the authorize request. | `POST /auth/token` (`authorization_code`) |
-| AUTH-1030 | 400 | `Invalid code_verifier` | — | OAuth `invalid_grant`: the PKCE verifier does not match the challenge. | `POST /auth/token` (`authorization_code`) |
-| AUTH-1031 | 400 | `Not authenticated` | — | OAuth `invalid_grant`: the refresh grant carried no refresh value. | `POST /auth/token` (`refresh_token`) |
-| AUTH-1032 | 400 | `Invalid or expired refresh token` | — | OAuth `invalid_grant`: the refresh value names no live session. | `POST /auth/token` (`refresh_token`) |
-| AUTH-1033 | 400 | `User not found` | — | OAuth `invalid_grant`: the session's user no longer exists. | `POST /auth/token` (`refresh_token`) |
-| AUTH-1034 | 400 | `Sign in again with Borderless` | — | OAuth `invalid_grant`: the session cannot slide on; sign in again. | `POST /auth/token` (`refresh_token`) |
-| AUTH-1035 | 400 | `Unsupported grant_type: <grant_type>` | `grant_type` | OAuth `unsupported_grant_type`. `params.grant_type` is the sent value, cut to 50 characters. | `POST /auth/token` |
-| AUTH-1036 | 400 | `Device code expired` | — | OAuth `expired_token`: the device code is unknown or expired. | `POST /auth/token` (device code) |
-| AUTH-1037 | 400 | `Polling too fast` | — | OAuth `slow_down`: the CLI polls faster than the interval. | `POST /auth/token` (device code) |
-| AUTH-1038 | 400 | `Waiting for the user to approve` | — | OAuth `authorization_pending`: the user has not approved the code yet. | `POST /auth/token` (device code) |
-| AUTH-1039 | 400 | `The sign-in was denied` | — | OAuth `access_denied`: the user denied the device code. | `POST /auth/token` (device code) |
-| AUTH-1040 | 404 | `Code not found or expired` | — | The user code typed on the device page is unknown or expired. | `/auth/device/verify`, `/auth/device/approve`, `/auth/device/deny` |
-| AUTH-1041 | 409 | `Code already used` | — | The user code was already approved or denied. | `/auth/device/approve`, `/auth/device/deny` |
-| AUTH-1042 | 503 | `Could not allocate a device code` | — | No free user code could be allocated. | `POST /auth/device/code` |
+| AUTH-1016 | 401 | `Sign in again with Borderless` | — | The session predates the Borderless sign-in or the user has no Borderless link, or it is an applika-cli session (retired by ADR-0028; the session ends `revoked`); it cannot slide on. | `GET /auth/refresh` |
+| AUTH-1017 | 503 | `Borderless is unavailable, try again later` | — | Borderless did not answer or answered unexpectedly (its discovery document, the code exchange). Since ADR-0026 sent as `?error=AUTH-1017`. | `GET /auth/borderless/login`, `GET /auth/borderless/callback` (both `?error=`) |
+| AUTH-1018 | 503 | `Borderless sign-in is not configured` | — | The API has no Borderless client configured (issuer, client id, client secret or token key unset). Since ADR-0026 sent as `?error=AUTH-1018`. | `GET /auth/borderless/login`, `GET /auth/borderless/callback` (both `?error=`) |
+| AUTH-1019 | 400 | `CLI login expired` | — | The browser signed in at Borderless for a CLI login that has expired, or that no longer allows its hand-off to the CLI: run `applika login` again. Since ADR-0026 sent as `?error=AUTH-1019&cli=1`. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1020 | 404 | `CLI login not found` | — | The legacy CLI login id is unknown or expired. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1021 | 401 | `Invalid or expired CLI exchange code` | — | The legacy CLI exchange code is unknown, used, expired or a PKCE code. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1022 | 400 | `CLI callback URL must use http` | — | The CLI callback URL is not `http`. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1023 | 400 | `CLI callback URL must target loopback` | — | The CLI callback URL host is not 127.0.0.1, localhost or ::1. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1024 | 400 | `CLI callback URL must include a port` | — | The CLI callback URL has no port. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1025 | 400 | `CLI callback URL must not contain params or fragments` | — | The CLI callback URL carries params or a fragment. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1026 | 400 | `code_challenge_method must be S256` | — | The PKCE challenge method is not S256. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1027 | 400 | `Invalid code_challenge` | — | The PKCE challenge is malformed. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1028 | 400 | `Invalid or expired code` | — | OAuth `invalid_grant`: the PKCE login code is unknown, used or expired. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1029 | 400 | `redirect_uri does not match` | — | OAuth `invalid_grant`: the `redirect_uri` differs from the authorize request. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1030 | 400 | `Invalid code_verifier` | — | OAuth `invalid_grant`: the PKCE verifier does not match the challenge. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1031 | 400 | `Not authenticated` | — | OAuth `invalid_grant`: the refresh grant carried no refresh value. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1032 | 400 | `Invalid or expired refresh token` | — | OAuth `invalid_grant`: the refresh value names no live session. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1033 | 400 | `User not found` | — | OAuth `invalid_grant`: the session's user no longer exists. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1034 | 400 | `Sign in again with Borderless` | — | OAuth `invalid_grant`: the session cannot slide on; sign in again. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1035 | 400 | `Unsupported grant_type: <grant_type>` | `grant_type` | OAuth `unsupported_grant_type`. `params.grant_type` is the sent value, cut to 50 characters. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1036 | 400 | `Device code expired` | — | OAuth `expired_token`: the device code is unknown or expired. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1037 | 400 | `Polling too fast` | — | OAuth `slow_down`: the CLI polls faster than the interval. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1038 | 400 | `Waiting for the user to approve` | — | OAuth `authorization_pending`: the user has not approved the code yet. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1039 | 400 | `The sign-in was denied` | — | OAuth `access_denied`: the user denied the device code. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1040 | 404 | `Code not found or expired` | — | The user code typed on the device page is unknown or expired. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1041 | 409 | `Code already used` | — | The user code was already approved or denied. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| AUTH-1042 | 503 | `Could not allocate a device code` | — | No free user code could be allocated. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
 | AUTH-1043 | 404 | `Session not found` | — | The session to end is not one of the caller's live sessions. | `DELETE /users/me/sessions/{session_id}` |
 | AUTH-1044 | 503 | `GitHub restore is not configured` | — | The API has no GitHub OAuth app configured. | `BeginGithubRestoreUseCase` |
 | AUTH-1045 | 409 | `This account already has its GitHub data` | — | The account already carries its GitHub identity; there is nothing to restore. | `BeginGithubRestoreUseCase` |
 | AUTH-1046 | 307 | `The sign-in expired or was started in another browser. Start it again` | — | The callback found no sign-in attempt for this state and this browser: missing, already used, older than ten minutes, opened in another browser, or replaced by a newer attempt in the same browser; or the attempt names a redirect target it may not end on (refused, never followed). Sent only as `?error=AUTH-1046` on the web sign-in page (ADR-0026). | `GET /auth/borderless/callback` (`?error=`) |
-| AUTH-1047 | 307 | `Borderless did not complete the sign-in. Try signing in again` | — | Borderless answered the sign-in with an OAuth `error`: the user cancelled, or Borderless refused. Sent only as `?error=AUTH-1047` (plus `&cli=1` on a CLI sign-in). | `GET /auth/borderless/callback` (`?error=`) |
-| AUTH-1048 | 307 | `Borderless's answer could not be verified. Try signing in again` | — | The return had no `iss` or another issuer, or no code; Borderless refused the code exchange; the id_token did not verify (signature, issuer, audience, expiry, nonce); or no refresh token came back. Sent only as `?error=AUTH-1048` (plus `&cli=1` on a CLI sign-in). | `GET /auth/borderless/callback` (`?error=`) |
-| AUTH-1049 | 401 | `Your Borderless sign-in has ended. Sign in again with Borderless` | — | Borderless refused applika's grant (30 days after the sign-in, or access revoked) or the stored grant can no longer be read: every web session of the user ends `borderless_revoked` and this refresh clears both cookies. Command-line sessions keep refreshing. | `GET /auth/refresh` (web sessions) |
-| AUTH-1050 | 403 | `Your Borderless sign-in has ended. Sign in again on the applika website to use member features` | — | The caller holds a recorded BASE or PSP badge, but Borderless refused applika's grant: member features wait for a new sign-in on the applika website. Any client, the command-line tool included. | every membership-gated route (`require_reports_badge`) |
+| AUTH-1047 | 307 | `Borderless did not complete the sign-in. Try signing in again` | — | Borderless answered the sign-in with an OAuth `error`: the user cancelled, or Borderless refused. Sent only as `?error=AUTH-1047`. | `GET /auth/borderless/callback` (`?error=`) |
+| AUTH-1048 | 307 | `Borderless's answer could not be verified. Try signing in again` | — | The return had no `iss` or another issuer, or no code; Borderless refused the code exchange; the id_token did not verify (signature, issuer, audience, expiry, nonce); or no refresh token came back. Sent only as `?error=AUTH-1048`. | `GET /auth/borderless/callback` (`?error=`) |
+| AUTH-1049 | 401 | `Your Borderless sign-in has ended. Sign in again with Borderless` | — | Borderless refused applika's grant (30 days after the sign-in, or access revoked) or the stored grant can no longer be read: every web session of the user ends `borderless_revoked` and this refresh clears both cookies. | `GET /auth/refresh` (web sessions) |
+| AUTH-1050 | 403 | `Your Borderless sign-in has ended. Sign in again on the applika website to use member features` | — | The caller holds a recorded BASE or PSP badge, but Borderless refused applika's grant: member features wait for a new sign-in on the applika website. Any client. | every membership-gated route (`require_reports_badge`) |
 | AUTH-1051 | 401 | `MCP token invalid, revoked or expired. Create a new one in Applika: Profile > MCP.` | — | The MCP server got no MCP token, a JWT, a token of the wrong shape, or a token whose session is gone (revoked, expired 90 days after its last use, or its account deleted). Sent with `WWW-Authenticate: Bearer` (ADR-0028). | `POST /mcp` (`McpAuthGuard`, `AuthenticateMcpTokenUseCase`) |
 | AUTH-1052 | other | `This MCP token's scope does not allow this tool. Create a token with more access in Applika: Profile > MCP.` | — | An MCP tool call outside the token's scope. A tool error, not an HTTP status: the JSON-RPC answer is 200 with `isError: true` and `structuredContent` `{detail, code}` (ADR-0028). | `POST /mcp` `tools/call` (MCP tool registry) |
 | USR-1001 | 404 | `User not found` | — | The user does not exist. | `UpdateUserUseCase`; admin user detail, update and feature beta list |
-| APP-1001 | 404 | `Application not found or not owned by user` | — | The application does not exist or belongs to someone else. | application, timeline, CV copy and compatibility step routes |
+| APP-1001 | 404 | `Application not found or not owned by user` | — | The application does not exist or belongs to someone else. | application, timeline and CV copy routes |
 | APP-1002 | 422 | `Cannot modify an application from an archived cycle` | — | The application belongs to an archived cycle and is read-only. | application update, delete and timeline writes |
 | APP-1003 | 409 | `Reopen the application to edit it (it is currently closed)` | — | The application is closed; reopen it first. | application writes (`guards.py`), finalize |
-| APP-1004 | 409 | `This application has already been finalized` | — | The legacy finalize route was called on a finalized application. | `POST /applications/{id}/finalize` (compatibility) |
-| APP-1005 | 404 | `Step not found or is invalid` | — | The legacy `step_id` is unknown. | compatibility step and finalize routes |
-| APP-1006 | 404 | `Feedback not found` | — | The legacy `feedback_id` is unknown. | `POST /applications/{id}/finalize` (compatibility) |
-| APP-1007 | 422 | `salary_offer is only allowed when the step is an offer` | — | A legacy finalize sent `salary_offer` on a step that is not an offer. | `POST /applications/{id}/finalize` (compatibility) |
-| APP-1008 | 404 | `Application step not found or not owned by user` | — | The legacy application step does not exist or belongs to someone else. | `/applications/{id}/steps/{sid}` (compatibility) |
+| APP-1004 | 409 | `This application has already been finalized` | — | The legacy finalize route was called on a finalized application. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| APP-1005 | 404 | `Step not found or is invalid` | — | The legacy `step_id` is unknown. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| APP-1006 | 404 | `Feedback not found` | — | The legacy `feedback_id` is unknown. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| APP-1007 | 422 | `salary_offer is only allowed when the step is an offer` | — | A legacy finalize sent `salary_offer` on a step that is not an offer. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
+| APP-1008 | 404 | `Application step not found or not owned by user` | — | The legacy application step does not exist or belongs to someone else. Retired with applika-cli (ADR-0028); never reused. | not raised since ADR-0028 |
 | APP-1009 | 404 | `Draft not found` | — | The application draft does not exist or belongs to someone else. | application draft routes |
 | APP-1010 | 422 | `Pick a master CV before finishing` | — | Finishing a draft that has no master CV picked. | finish draft |
 | APP-1011 | 409 | `You already have an application for this job` | — | Starting a draft from a job the user already applied to. | draft from a job |

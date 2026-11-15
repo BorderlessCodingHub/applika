@@ -1,22 +1,19 @@
 """Complete a Borderless sign-in at the callback (ADR-0026 §3, §4, §5).
 
 Order: the attempt (cookie hash and ``state``, single use) → the attempt's
-stored target, derived again (``BorderlessLoginTargets``) → ``iss`` equal
+stored target, equal to ``WEB_SIGNIN_URI`` → ``iss`` equal
 to the issuer (RFC 9207) → Borderless's own ``error`` → the code exchange
 (HTTP Basic, verifier, ``redirect_uri``; the id_token verified with the
 attempt's ``nonce``) → the account (``BorderlessSignInUseCase``). The
 outcome carries the checked target, the only place the callback sends the
 browser. Nothing from the query is followed or logged.
 
-Every refusal is a ``BorderlessLoginFailed`` carrying its code and, once
-the attempt is known, its flow, so the callback can send the browser to
-the sign-in page with ``?error=<code>`` (``&cli=1`` for a CLI sign-in):
+Every refusal is a ``BorderlessLoginFailed`` carrying its code, so the
+callback can send the browser to the sign-in page with ``?error=<code>``:
 
 - AUTH-1046: no attempt for this state and this browser (missing, used,
   expired, another browser, or overwritten by a newer attempt), or an
   attempt whose stored target is not the one it may end on;
-- AUTH-1019: a CLI sign-in whose CLI login expired (or no longer allows
-  a hand-off);
 - AUTH-1047: Borderless answered ``error`` (the user cancelled, or
   Borderless refused);
 - AUTH-1048: no or another ``iss``, no code, the exchange refused (4xx),
@@ -37,12 +34,7 @@ from app.application.services.borderless_oidc import (
 )
 from app.application.use_cases.borderless.login_state import (
     BorderlessLoginStateUseCase,
-    Flow,
     LoginRecord,
-)
-from app.application.use_cases.borderless.login_target import (
-    CLI_LOGIN_EXPIRED,
-    BorderlessLoginTargets,
 )
 from app.application.use_cases.borderless.sign_in import (
     BorderlessSignInUseCase,
@@ -67,26 +59,17 @@ class BorderlessLoginFailed(Exception):
     """A callback refusal: ``code`` goes to ``?error=``. Never carries a
     query value or a token."""
 
-    def __init__(
-        self,
-        code: ErrorCode,
-        flow: Flow | None = None,
-        *,
-        unexpected: bool = False,
-    ):
+    def __init__(self, code: ErrorCode, *, unexpected: bool = False):
         super().__init__(code.value)
         self.code = code
-        self.flow = flow
         self.unexpected = unexpected
 
 
 @dataclass(frozen=True)
 class LoginOutcome:
     """``target``: the attempt's stored target, checked against the allowed
-    one (``WEB_SIGNIN_URI``, or the CLI login's hand-off)."""
+    one (``WEB_SIGNIN_URI``)."""
 
-    flow: Flow
-    cli_login_id: str | None
     user_id: int
     new_account: bool
     target: str
@@ -98,12 +81,10 @@ class CompleteBorderlessLoginUseCase:
         oidc: BorderlessOidcClient,
         login_state: BorderlessLoginStateUseCase,
         sign_in: BorderlessSignInUseCase,
-        targets: BorderlessLoginTargets,
     ):
         self.oidc = oidc
         self.login_state = login_state
         self.sign_in = sign_in
-        self.targets = targets
 
     async def execute(
         self, params: Mapping[str, str], binding: str | None
@@ -126,30 +107,25 @@ class CompleteBorderlessLoginUseCase:
         except BorderlessLoginFailed:
             raise
         except (CodedRefusal, ServiceUnavailable) as exc:
-            raise BorderlessLoginFailed(exc.code, record.flow) from exc
+            raise BorderlessLoginFailed(exc.code) from exc
         except Exception as exc:
             raise BorderlessLoginFailed(
-                ErrorCode.GEN_INTERNAL_ERROR, record.flow, unexpected=True
+                ErrorCode.GEN_INTERNAL_ERROR, unexpected=True
             ) from exc
 
     async def _complete(
         self, params: Mapping[str, str], record: LoginRecord
     ) -> LoginOutcome:
-        flow = record.flow
-        await self._check_target(record)
+        self._check_target(record)
         if params.get('iss') != envs.BORDERLESS_ISSUER:
             logger.warning('Borderless callback without the issuer')
-            raise BorderlessLoginFailed(
-                ErrorCode.AUTH_BORDERLESS_UNVERIFIABLE, flow
-            )
+            raise BorderlessLoginFailed(ErrorCode.AUTH_BORDERLESS_UNVERIFIABLE)
         if params.get('error'):
             logger.info(f'Borderless sign-in refused ({LOGIN_DENIED})')
-            raise BorderlessLoginFailed(ErrorCode.AUTH_BORDERLESS_DENIED, flow)
+            raise BorderlessLoginFailed(ErrorCode.AUTH_BORDERLESS_DENIED)
         code = params.get('code')
         if not code:
-            raise BorderlessLoginFailed(
-                ErrorCode.AUTH_BORDERLESS_UNVERIFIABLE, flow
-            )
+            raise BorderlessLoginFailed(ErrorCode.AUTH_BORDERLESS_UNVERIFIABLE)
         try:
             grant = await self.oidc.exchange(
                 code, record.verifier, record.nonce
@@ -157,37 +133,30 @@ class CompleteBorderlessLoginUseCase:
         except BorderlessRejected as exc:
             logger.warning(f'Borderless sign-in refused ({LOGIN_UNVERIFIABLE})')
             raise BorderlessLoginFailed(
-                ErrorCode.AUTH_BORDERLESS_UNVERIFIABLE, flow
+                ErrorCode.AUTH_BORDERLESS_UNVERIFIABLE
             ) from exc
         except BorderlessNotConfigured as exc:
             raise BorderlessLoginFailed(
-                ErrorCode.AUTH_BORDERLESS_NOT_CONFIGURED, flow
+                ErrorCode.AUTH_BORDERLESS_NOT_CONFIGURED
             ) from exc
         except BorderlessUnavailable as exc:
             raise BorderlessLoginFailed(
-                ErrorCode.AUTH_BORDERLESS_UNAVAILABLE, flow
+                ErrorCode.AUTH_BORDERLESS_UNAVAILABLE
             ) from exc
         result = await self.sign_in.execute(grant.identity, grant)
         return LoginOutcome(
-            flow=flow,
-            cli_login_id=record.cli_login_id,
             user_id=result.user_id,
             new_account=result.new_account,
             target=record.target,
         )
 
-    async def _check_target(self, record: LoginRecord) -> None:
-        """The stored target must be the one this attempt may end on, or
-        nothing is exchanged and nobody is signed in. Logs neither URL."""
-        allowed = await self.targets.allowed(record.flow, record.cli_login_id)
-        if allowed is None and record.flow == 'cli':
-            logger.info(f'Borderless CLI sign-in refused ({CLI_LOGIN_EXPIRED})')
-            raise BorderlessLoginFailed(ErrorCode.AUTH_CLI_LOGIN_EXPIRED, 'cli')
-        if allowed is None or allowed != record.target:
+    @staticmethod
+    def _check_target(record: LoginRecord) -> None:
+        """The stored target must be ``WEB_SIGNIN_URI``, or nothing is
+        exchanged and nobody is signed in. Logs neither URL."""
+        if record.target != envs.WEB_SIGNIN_URI:
             logger.warning(
                 'Borderless sign-in refused (the attempt names a target it '
                 'may not end on)'
             )
-            raise BorderlessLoginFailed(
-                ErrorCode.AUTH_BORDERLESS_LOGIN_EXPIRED, record.flow
-            )
+            raise BorderlessLoginFailed(ErrorCode.AUTH_BORDERLESS_LOGIN_EXPIRED)

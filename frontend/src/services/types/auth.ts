@@ -12,16 +12,3 @@ export const MEMBERSHIP_LOCKED_CODE = "AUTH-1050";
 export interface GithubRestoreStart {
   authorize_url: string;
 }
-
-/**
- * `GET /auth/device/verify?user_code=` response (ADR-0019): the
- * device asking to sign in, shown on `/device` before the user approves.
- * Structurally the `DeviceRequestInfo` the approval card renders.
- */
-export interface DeviceCodeInfo {
-  device_name: string;
-  client_label: string;
-  ip: string | null;
-  requested_at: string;
-  expires_at: string;
-}

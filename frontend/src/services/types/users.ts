@@ -99,8 +99,7 @@ export type AvailabilityType = (typeof AvailabilityValues)[number];
  * `@/components/timeline/timeline-types` — re-exported here (not redefined)
  * so profile and application forms show the same list the timeline and
  * finalize dialogs do, and so `"annual"` cannot resurface on the web (the
- * API now returns `"annually"`; only the CLI keeps sending `"annual"`, which
- * is a backend/CLI compatibility concern, not a web one).
+ * API returns `"annually"`).
  */
 export const SalaryPeriodValues = SALARY_PERIODS;
 export type SalaryPeriodType = (typeof SalaryPeriodValues)[number];

@@ -7,30 +7,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { McpPage } from "@/app/(public)/mcp/mcp-page";
 import { LoginPage } from "@/app/login/login-page";
 import { WelcomeScreen } from "@/components/auth/welcome-screen";
-import { CliCodeScreen } from "@/components/cli-code/cli-code-screen";
-import { DeviceCodeForm } from "@/components/device/device-code-form";
-import { DeviceOutcome } from "@/components/device/device-outcome";
-import { DeviceRequestCard } from "@/components/device/device-request-card";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 import { HeroSection } from "@/components/landing/hero-section";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { PhoneLanding } from "@/components/phone/landing/phone-landing";
 import { PhonePublicBar } from "@/components/phone/phone-public-bar";
-import {
-  PhoneDeviceCode,
-  PhoneDeviceOutcome,
-  PhoneDeviceRequest,
-} from "@/components/phone/screens/device-screen";
 import { APP_CONFIG } from "@/config";
 import { renderInPortuguese } from "@/test/portuguese";
 
 /**
  * The public and sign-in screens in Portuguese: landing, the MCP page,
- * sign-in (web and terminal), the terminal code, the welcome choice and device
- * approval, at both widths (the phone trees and views of PRD 0021 too). The device's name
- * and client label come from the API as data and stay exactly as sent; dates
- * follow the language. English is asserted, unchanged, by the screens' own
- * tests. Screens laid out by CSS hold both trees: queries are scoped by the
+ * sign-in and the welcome choice, at both widths (the phone trees and views of
+ * PRD 0021 too). English is asserted, unchanged, by the screens' own tests. Screens laid out by CSS hold both trees: queries are scoped by the
  * tree's `data-slot`.
  */
 
@@ -197,59 +185,9 @@ describe("sign-in in Portuguese", () => {
     }
     vi.unstubAllGlobals();
   });
-
-  it("writes the terminal hint in Portuguese, the command kept", async () => {
-    searchParams = new URLSearchParams("error=AUTH-1019&cli=1");
-    await renderInPortuguese(<LoginPage />, {
-      wrapper: withQueries,
-      localeSwitch: true,
-    });
-
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Entre no Applika" }),
-    ).toBeInTheDocument();
-    for (const slot of ["sign-in-desktop", "sign-in-phone"]) {
-      const hint = tree(slot).querySelector('[data-slot="sign-in-cli-hint"]');
-      expect(hint).toHaveTextContent(
-        "Volte ao seu terminal e execute applika login novamente.",
-      );
-      expect(
-        within(hint as HTMLElement).getByText("applika login").tagName,
-      ).toBe("CODE");
-    }
-  });
 });
 
-describe("terminal code and welcome in Portuguese", () => {
-  it("writes the terminal code screen in Portuguese, the code as sent", async () => {
-    await renderInPortuguese(<CliCodeScreen code="abc" state="xyz" />, {
-      localeSwitch: true,
-    });
-
-    for (const slot of ["cli-code-desktop", "cli-code-phone"]) {
-      const view = within(tree(slot));
-      expect(
-        view.getByRole("heading", { name: "Entre no applika-cli" }),
-      ).toBeInTheDocument();
-      expect(view.getByRole("button", { name: "Copiar" })).toBeInTheDocument();
-      expect(view.getByText("abc#xyz")).toBeInTheDocument();
-      expect(
-        view.getByText("O código funciona uma vez e expira em um minuto."),
-      ).toBeInTheDocument();
-    }
-  });
-
-  it("says the code is missing in Portuguese", async () => {
-    await renderInPortuguese(<CliCodeScreen code={null} state={null} />, {
-      localeSwitch: true,
-    });
-    for (const slot of ["cli-code-desktop", "cli-code-phone"]) {
-      expect(
-        within(tree(slot)).getByText("Falta o código neste link de acesso."),
-      ).toBeInTheDocument();
-    }
-  });
-
+describe("welcome in Portuguese", () => {
   it("writes the welcome choice in Portuguese", async () => {
     await renderInPortuguese(
       <WelcomeScreen onRestore={vi.fn()} onStartFresh={vi.fn()} />,
@@ -456,154 +394,6 @@ describe("the Applika MCP page in Portuguese", () => {
   });
 });
 
-describe("device approval in Portuguese", () => {
-  const request = {
-    device_name: "ada-laptop",
-    client_label: "Chrome on macOS",
-    ip: null,
-    requested_at: "2026-10-15T14:32:00Z",
-    expires_at: "2026-10-15T14:42:00Z",
-  };
-
-  it("labels the request in Portuguese and shows the device's data as sent", async () => {
-    await renderInPortuguese(
-      <DeviceRequestCard
-        request={request}
-        userCode="BCDF-GHJK"
-        onApprove={vi.fn()}
-        onDeny={vi.fn()}
-        onUseDifferentCode={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "Um dispositivo quer entrar" }),
-    ).toBeInTheDocument();
-    const term = (name: string) =>
-      screen.getByText(name, { selector: "dt" }).nextElementSibling;
-    expect(term("Dispositivo")).toHaveTextContent("ada-laptop");
-    // The client label is data from the API: English, exactly as sent.
-    expect(term("Cliente")).toHaveTextContent(/^Chrome on macOS$/);
-    expect(term("Endereço IP")).toHaveTextContent("Não registrado");
-    // Dates follow the language: "15 de out. de 2026, …".
-    expect(term("Solicitado")?.textContent).toMatch(/^15 de out\. de 2026/);
-    expect(screen.getByRole("button", { name: "Aprovar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Recusar" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Usar outro código" }),
-    ).toBeInTheDocument();
-  });
-
-  it("asks for the whole code in Portuguese", async () => {
-    await renderInPortuguese(
-      <DeviceCodeForm code="BCD" onCodeChange={vi.fn()} onSubmit={vi.fn()} />,
-    );
-    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Digite as 8 letras do código.",
-    );
-    expect(screen.getByLabelText("Código do dispositivo")).toBeInTheDocument();
-  });
-
-  it("writes both outcomes in Portuguese", async () => {
-    const { unmount } = await renderInPortuguese(
-      <DeviceOutcome outcome="approved" />,
-    );
-    expect(
-      screen.getByRole("heading", {
-        name: "Dispositivo conectado. Você pode voltar ao seu terminal.",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Ver seus dispositivos" }),
-    ).toHaveAttribute("href", "/profile?tab=devices");
-    unmount();
-
-    await renderInPortuguese(
-      <DeviceOutcome outcome="denied" onStartOver={vi.fn()} />,
-    );
-    expect(
-      screen.getByRole("button", { name: "Digitar outro código" }),
-    ).toBeInTheDocument();
-  });
-});
-
-describe("phone device sign-in in Portuguese", () => {
-  const request = {
-    device_name: "ada-laptop",
-    client_label: "Chrome on macOS",
-    ip: null,
-    requested_at: "2026-10-15T14:32:00Z",
-    expires_at: "2026-10-15T14:42:00Z",
-  };
-
-  it("labels the code step in Portuguese", async () => {
-    await renderInPortuguese(
-      <PhoneDeviceCode code="BCD" onCodeChange={vi.fn()} onSubmit={vi.fn()} />,
-    );
-
-    expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "Conectar um dispositivo",
-      }),
-    ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(
-      document.querySelector('[data-slot="device-code-error"]'),
-    ).toHaveTextContent("Digite as 8 letras do código.");
-    expect(screen.getByLabelText("Código do dispositivo")).toBeInTheDocument();
-  });
-
-  it("labels the request and its warning in Portuguese, the data as sent", async () => {
-    await renderInPortuguese(
-      <PhoneDeviceRequest
-        request={request}
-        userCode="BCDF-GHJK"
-        onApprove={vi.fn()}
-        onDeny={vi.fn()}
-        onUseDifferentCode={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "Um dispositivo quer entrar" }),
-    ).toBeInTheDocument();
-    const term = (name: string) =>
-      screen.getByText(name, { selector: "dt" }).nextElementSibling;
-    expect(term("Cliente")).toHaveTextContent(/^Chrome on macOS$/);
-    expect(term("Endereço IP")).toHaveTextContent("Não registrado");
-    expect(term("Solicitado")?.textContent).toMatch(/^15 de out\. de 2026/);
-    expect(screen.getByRole("note")).toHaveTextContent(
-      "Só aprove se foi você quem iniciou este acesso",
-    );
-    expect(screen.getByRole("button", { name: "Aprovar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Recusar" })).toBeInTheDocument();
-  });
-
-  it("writes both outcomes in Portuguese", async () => {
-    const { unmount } = await renderInPortuguese(
-      <PhoneDeviceOutcome outcome="approved" />,
-    );
-    expect(
-      screen.getByRole("link", { name: "Ver seus dispositivos" }),
-    ).toHaveAttribute("href", "/profile?tab=devices");
-    unmount();
-
-    await renderInPortuguese(
-      <PhoneDeviceOutcome outcome="denied" onStartOver={vi.fn()} />,
-    );
-    expect(
-      screen.getByRole("heading", {
-        name: "Acesso recusado. O dispositivo não foi conectado.",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Digitar outro código" }),
-    ).toBeInTheDocument();
-  });
-});
-
 describe("feedback dialog in Portuguese", () => {
   it("writes the dialog in Portuguese with the count by locale", async () => {
     await renderInPortuguese(<FeedbackDialog open onOpenChange={vi.fn()} />);
@@ -655,15 +445,18 @@ describe("sign-in refusal in Portuguese (AC21)", () => {
     },
   );
 
-  it("an unlisted code reads the generic line in Portuguese", async () => {
-    searchParams = new URLSearchParams({ error: "NOPE-0000" });
-    await renderInPortuguese(<LoginPage />, {
-      wrapper: withQueries,
-      localeSwitch: true,
-    });
+  it.each(["NOPE-0000", "AUTH-1019"])(
+    "an unlisted code (%s) reads the generic line in Portuguese",
+    async (code) => {
+      searchParams = new URLSearchParams({ error: code });
+      await renderInPortuguese(<LoginPage />, {
+        wrapper: withQueries,
+        localeSwitch: true,
+      });
 
-    expect(
-      document.querySelector('[data-slot="sign-in-error"]'),
-    ).toHaveTextContent("Algo deu errado");
-  });
+      expect(
+        document.querySelector('[data-slot="sign-in-error"]'),
+      ).toHaveTextContent("Algo deu errado");
+    },
+  );
 });

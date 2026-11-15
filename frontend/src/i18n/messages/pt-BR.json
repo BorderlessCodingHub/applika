@@ -30,8 +30,6 @@
     "signIn": {
       "title": "Entre no Applika",
       "pending": "Abrindo a Borderless…",
-      "cliCommand": "applika login",
-      "cliRetry": "Volte ao seu terminal e execute <code>{command}</code> novamente.",
       "opensInNewTab": "Abre em uma nova aba.",
       "optionC": {
         "backToHome": "Voltar ao início",
@@ -540,47 +538,6 @@
     "freshBody": "Você ainda pode restaurar pelo seu perfil depois, desde que esta conta não tenha dados.",
     "startFresh": "Começar do zero"
   },
-  "cliCode": {
-    "title": "Entre no applika-cli",
-    "instruction": "Cole este código no seu terminal",
-    "copy": "Copiar",
-    "copied": "Copiado",
-    "copiedStatus": "Código copiado.",
-    "copyFailed": "Não foi possível copiar. O código está selecionado; copie-o pelo teclado.",
-    "expiry": "O código funciona uma vez e expira em um minuto.",
-    "missingTitle": "Falta o código neste link de acesso.",
-    "missingBody": "Execute o comando de login no seu terminal novamente."
-  },
-  "device": {
-    "title": "Conectar um dispositivo",
-    "lead": "Digite o código que seu terminal mostra. Você verá qual dispositivo está pedindo acesso antes de aprovar.",
-    "codeLabel": "Código do dispositivo",
-    "codeHint": "8 letras, mostradas no seu terminal como XXXX-XXXX.",
-    "codePlaceholder": "XXXX-XXXX",
-    "incomplete": "Digite as 8 letras do código.",
-    "continue": "Continuar",
-    "requestTitle": "Um dispositivo quer entrar",
-    "requestLead": "Confira se estes dados correspondem ao dispositivo que você está conectando.",
-    "terms": {
-      "code": "Código",
-      "device": "Dispositivo",
-      "client": "Cliente",
-      "ip": "Endereço IP",
-      "requested": "Solicitado",
-      "expires": "Código expira"
-    },
-    "notRecorded": "Não registrado",
-    "warning": "Só aprove se foi você quem iniciou este acesso",
-    "warningDetail": "Se alguém enviou este código ou link para você, recuse.",
-    "approve": "Aprovar",
-    "deny": "Recusar",
-    "differentCode": "Usar outro código",
-    "approved": "Dispositivo conectado. Você pode voltar ao seu terminal.",
-    "seeDevices": "Ver seus dispositivos",
-    "denied": "Acesso recusado. O dispositivo não foi conectado.",
-    "anotherCode": "Digitar outro código",
-    "errorFallback": "Algo deu errado. Tente novamente."
-  },
   "nav": {
     "primary": "Principal",
     "dashboard": "Painel",
@@ -900,7 +857,7 @@
   },
   "devices": {
     "activeTitle": "Ativos",
-    "activeDescription": "Navegadores, CLIs e conexões MCP conectados à sua conta. Revogue qualquer um que você não reconheça.",
+    "activeDescription": "Navegadores e conexões MCP conectados à sua conta. Revogue qualquer um que você não reconheça.",
     "endedTitle": "Encerrados (últimos 30 dias)",
     "endedEmpty": "Nenhum dispositivo foi encerrado nos últimos 30 dias.",
     "thisDevice": "Este dispositivo",
@@ -920,7 +877,7 @@
     "loadErrorBody": "Verifique sua conexão e tente novamente.",
     "retry": "Tentar de novo",
     "emptyTitle": "Nenhum dispositivo ativo",
-    "emptyBody": "Os navegadores e CLIs em que você entrar, e suas conexões MCP, aparecem aqui.",
+    "emptyBody": "Os navegadores em que você entrar e suas conexões MCP aparecem aqui.",
     "never": "Nunca",
     "notRecorded": "Não registrado",
     "revokeTitle": "Revogar o acesso de {name}?",
@@ -2420,9 +2377,8 @@
     "account": {
       "workspace": "Espaço de trabalho",
       "viewProfile": "Ver perfil",
-      "devices": "Dispositivos e CLI",
+      "devices": "Dispositivos",
       "signedIn": "{count, plural, =0 {# conectados} one {# conectado} other {# conectados}}",
-      "codeFormat": "XXXX-XXXX",
       "reportDay": "Dia {day}",
       "language": "Idioma",
       "english": "English",

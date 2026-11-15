@@ -73,17 +73,11 @@ async def test_the_coded_refusal_and_session_bodies_match_rest_too():
         assert result.structuredContent == json.loads(bytes(rest.body))
 
 
-async def test_rest_keeps_retry_after_and_the_oauth_error_key():
+async def test_rest_keeps_retry_after():
     response = await handlers._session_service_unavailable_handler(
         _request(), exceptions.SessionServiceUnavailable()
     )
     assert response.headers['retry-after'] == '5'
-    oauth = exceptions.OAuthError(
-        'slow_down', 'Polling too fast', ErrorCode.AUTH_DEVICE_SLOW_DOWN
-    )
-    answer = handlers.error_answer(oauth)
-    assert answer is not None
-    assert list(answer.body) == ['error', 'detail', 'code']
 
 
 class _Body(BaseModel):

@@ -72,23 +72,16 @@ describe("SessionService", () => {
   });
 });
 
-describe("AuthService device code calls", () => {
-  it("verifies with GET /auth/device/verify?user_code=", async () => {
-    await new AuthService().verifyDeviceCode("BCDF-GHJK");
-    expect(get).toHaveBeenCalledWith("/auth/device/verify", {
-      params: { user_code: "BCDF-GHJK" },
-    });
-  });
-
-  it("approves and denies with POST {user_code}", async () => {
-    await new AuthService().approveDeviceCode("BCDF-GHJK");
-    await new AuthService().denyDeviceCode("BCDF-GHJK");
-    expect(post).toHaveBeenNthCalledWith(1, "/auth/device/approve", {
-      user_code: "BCDF-GHJK",
-    });
-    expect(post).toHaveBeenNthCalledWith(2, "/auth/device/deny", {
-      user_code: "BCDF-GHJK",
-    });
+describe("AuthService after the CLI retirement (ADR-0028)", () => {
+  it("has no device-code call: the web reaches no deleted CLI route", () => {
+    expect(Object.getOwnPropertyNames(AuthService.prototype).sort()).toEqual([
+      "borderlessLoginUrl",
+      "constructor",
+      "dismissGithubRestore",
+      "logout",
+      "refresh",
+      "startGithubRestore",
+    ]);
   });
 });
 

@@ -1,7 +1,7 @@
 # Applika.dev — Backend
 
-The API behind the web app and `applika-cli`, plus a background worker that
-collects job postings. FastAPI, async SQLAlchemy, PostgreSQL and Redis, laid
+The API behind the web app and its hosted MCP server, plus a background
+worker that collects job postings. FastAPI, async SQLAlchemy, PostgreSQL and Redis, laid
 out in Clean Architecture layers.
 
 How it fits with the rest of production: [docs/infrastructure.md](../docs/infrastructure.md).
@@ -49,10 +49,14 @@ and every revision has a working downgrade
 
 Users sign in with their [Borderless](https://borderlesscoding.com) account
 through OpenID Connect ([ADR-0026](../docs/adr/0026-borderless-openid-connect-sign-in.md)).
-The web gets two HTTP-only cookies (`__access`, `__refresh`); the CLI gets the
-same tokens and sends `Authorization: Bearer`. Every sign-in is a device the
-user can see and revoke. A user's BASE or PSP membership at Borderless becomes
-a badge that unlocks the biweekly reports.
+The web gets two HTTP-only cookies (`__access`, `__refresh`); the `__access`
+cookie is the only credential the REST routes read. An AI assistant uses an
+MCP token the user creates under Profile > MCP. Every sign-in and every MCP
+token is a device the user can see and revoke. `applika-cli` is retired
+([ADR-0028](../docs/adr/0028-retire-cli-for-hosted-mcp.md)): its sign-in
+routes are gone and a `cli` session from before fails its next renewal.
+A user's BASE or PSP membership at Borderless becomes a badge that unlocks
+the biweekly reports.
 
 For local runs, `make run-fake-auth` at the repository root starts a fake
 Borderless and prints the settings to use.
@@ -76,8 +80,6 @@ Read from the environment or a `.env` file (`app/config/settings.py`).
 | `CORS_ORIGINS` | the local web, `http://127.0.0.1:8080` |
 | `WEB_SIGNIN_URI` — the web sign-in page every sign-in ends on | `http://127.0.0.1:8080/login` |
 | `BORDERLESS_REDIRECT_URI` — must match what is registered at Borderless | `http://127.0.0.1:8000/api/auth/borderless/callback` |
-| `DEVICE_VERIFICATION_URI` — shown by `applika login --device` | `http://127.0.0.1:8080/device` |
-| `CLI_MANUAL_REDIRECT_URI` — shown by `applika login --manual` | `http://127.0.0.1:8080/cli/code` |
 | `ACCOUNT_LINK_REDIRECT_URI` — where the GitHub data restore returns | `http://127.0.0.1:8080/profile` |
 
 **Common optional settings**
@@ -105,9 +107,9 @@ Everything lives under `/api`; the OpenAPI document is at `/api/docs`
 
 | Area | Routes |
 |---|---|
-| Sign-in | `/auth/borderless/*`, `/auth/refresh`, `/auth/logout`; for the CLI `/auth/cli/authorize`, `/auth/token`, `/auth/revoke`, `/auth/device/*` |
+| Sign-in | `/auth/borderless/*`, `/auth/refresh`, `/auth/logout` |
 | Account | `/users/me`, `/users/me/agenda`, `/users/me/features`, `/users/me/sessions` (devices), `/users/me/mcp-tokens` (create an MCP token) |
-| MCP server | `POST /mcp` — streamable HTTP, stateless, JSON; answers only an MCP token (`Authorization: Bearer applika_mcp_…`) and offers the CLI's commands as tools, by the token's scope (`read`, `write`, `delete`) and the `cvs` feature (ADR-0028). Not beta-gated |
+| MCP server | `POST /mcp` — streamable HTTP, stateless, JSON; answers only an MCP token (`Authorization: Bearer applika_mcp_…`) and offers what applika-cli did as tools, by the token's scope (`read`, `write`, `delete`) and the `cvs` feature (ADR-0028). Not beta-gated |
 | Applications | `/applications`, their `/timeline`, `/finalize`, `/reopen`, `/applications/statistics*` |
 | Cycles, companies, platforms | `/cycles`, `/companies`, `/platforms`, `/supports` |
 | Reports | `/reports` — for Borderless BASE and PSP members |
@@ -115,8 +117,8 @@ Everything lives under `/api`; the OpenAPI document is at `/api/docs`
 | Job board (beta `jobs`) | `/jobs`, `/job-searches` |
 | Admin | `/admin/*` — users, statistics, companies, platforms, report webhooks, job sources, features |
 
-Routes that published CLI versions call are never broken: an old payload is
-translated in a compatibility layer and the route is marked deprecated.
+The routes only `applika-cli` used, and the fields only it read, were
+removed with it (ADR-0028); they answer 404 like any unknown address.
 
 ## Beta features
 

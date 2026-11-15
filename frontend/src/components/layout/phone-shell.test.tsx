@@ -240,7 +240,6 @@ describe("PhoneShell below md", () => {
     ["/cycles", "Account", "/account"],
     ["/reports", "Account", "/account"],
     ["/profile", "Account", "/account"],
-    ["/device", "Account", "/account"],
     ["/admin", "Account", "/account"],
     ["/admin/users", "Account", "/account"],
     ["/admin/report-webhooks", "Account", "/account"],
@@ -799,14 +798,12 @@ describe("phone-nav", () => {
     ).toEqual([
       ["Profile", "/profile"],
       ["MCP", "/profile?tab=mcp"],
-      ["Devices & CLI", "/profile?tab=devices"],
-      ["Sign in a device", "/device"],
+      ["Devices", "/profile?tab=devices"],
     ]);
     expect(rows(true, BOTH, true).account.map((row) => row.key)).toEqual([
       "profile",
       "mcp",
       "devices",
-      "device",
       "admin",
     ]);
   });

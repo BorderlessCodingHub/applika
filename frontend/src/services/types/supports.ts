@@ -8,10 +8,9 @@ export interface Platform {
 }
 
 /**
- * `GET /supports` (PRD 0008, ADR 0012, R-021). The backend still returns
- * `steps`/`feedbacks` on the wire — frozen for CLI 0.1.4 — but the web no
- * longer models or reads them: step/feedback definitions are gone from the
- * product, replaced by the timeline's hardcoded event/interview types.
+ * `GET /supports` (PRD 0008, ADR 0012, R-021): the platforms only. The
+ * `steps`/`feedbacks` only applika-cli read left the answer with the CLI
+ * (ADR-0028); the timeline's hardcoded event/interview types replaced them.
  */
 export interface Supports {
   platforms: Platform[];

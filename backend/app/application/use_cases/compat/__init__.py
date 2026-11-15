@@ -1,6 +1,6 @@
-"""The compatibility layer for installed ``applika-cli`` 0.1.4 (ADR 0009).
+"""The retired step vocabulary, read side only (ADR 0009, ADR-0028).
 
-It translates the retired step/feedback vocabulary onto the timeline and
-back. Nothing here owns data: every write lands in ``timeline_events`` and
-``applications.finalized_at`` through the same rules the timeline uses.
+``step_translation`` maps a timeline event back to its ``steps_definition``
+row for the ``last_step`` of every application and the agenda. Nothing here
+owns or writes data.
 """

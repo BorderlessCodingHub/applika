@@ -96,32 +96,14 @@ class SessionServiceUnavailable(ServiceUnavailable):
 
 class InvalidSession(UnicornException):
     """A refresh value or session that no longer resolves to a live session
-    of a live user. ``/auth/refresh`` answers it with 401 and the
-    ``refresh_token`` grant of ``POST /auth/token`` with ``invalid_grant``.
-    Also every 401 of the signed-in check (``GetCurrentUserUseCase``,
-    ``get_current_user``): no token, a bad or expired token, a dead
-    session."""
-
-
-class OAuthError(UnicornException):
-    """An RFC 6749 error on ``POST /auth/token``: 400
-    ``{"error": <rfc error>, "detail": <message>, "code": <ErrorCode>}``."""
-
-    def __init__(
-        self,
-        error: str,
-        message: str,
-        code: ErrorCode,
-        params: ErrorParams | None = None,
-    ):
-        super().__init__(message, code, params)
-        self.error = error
+    of a live user. ``/auth/refresh`` answers it with 401. Also every 401 of
+    the signed-in check (``GetCurrentUserUseCase``, ``get_current_user``):
+    no token, a bad or expired token, a dead session."""
 
 
 class InvalidRequest(UnicornException):
     """A request the API refuses as malformed in a way the schema cannot
-    express (a bad PKCE challenge on ``/auth/cli/authorize``).
-    Mapped to 400 ``{"detail": <message>}``."""
+    express. Mapped to 400 ``{"detail": <message>}``."""
 
 
 class CodedRefusal(UnicornException):

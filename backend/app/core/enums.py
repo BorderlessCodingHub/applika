@@ -151,9 +151,8 @@ class DeniedReason(StrEnum):
     oldes feedback definition values)" — "Catalog-based list (Recommended)".
     Fixed in code, no catalog, exactly like ``InterviewType``. Migration R3
     (``c8b3e9f4a1d6``) backfills every existing ``denied`` event from the
-    application's legacy feedback name, matched by name (see
-    ``use_cases/compat/legacy_finalize.LEGACY_FEEDBACK_TO_DENIED_REASON``,
-    pinned equal to the migration's own map).
+    application's legacy feedback name, matched by name (the migration's
+    own ``FEEDBACK_TO_DENIED_REASON``).
     """
 
     UNKNOWN = 'unknown'

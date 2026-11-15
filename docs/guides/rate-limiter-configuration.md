@@ -15,7 +15,7 @@ compose locally), then restart the API. Values are read on every request.
 | --- | --- | --- |
 | `RATE_LIMIT_ENABLED` | `true` | Turns the limiter on or off. Off means no counting, no `X-RateLimit-*` headers and no 429. |
 | `RATE_LIMIT_DEFAULT` | `120` | Requests allowed per window, per user or IP, on every route outside `/auth/*`. |
-| `RATE_LIMIT_AUTH` | `10` | Requests allowed per window, per user or IP, on `/auth/*` (sign-in, session refresh, logout, CLI login). |
+| `RATE_LIMIT_AUTH` | `10` | Requests allowed per window, per user or IP, on `/auth/*` (sign-in, session refresh, logout). |
 | `RATE_LIMIT_MCP` | `120` | Requests allowed per window, per MCP token, on `/mcp` (the hosted MCP server, ADR-0028). |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | Width of the counting window, in seconds. Every limit shares it. |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` (uvicorn's default) | Proxies whose `X-Forwarded-For` header uvicorn trusts to find the real client IP. Read by uvicorn, not by Applika code. |
@@ -36,12 +36,12 @@ Each request adds one to a counter chosen by bucket, subject and window.
 - **Subject.** On `/mcp` (bucket `mcp`) only, a request whose `Authorization: Bearer` is an MCP
   token (it starts `applika_mcp_`) counts against that token: `mcp:<first 32 hex characters of
   its sha256>`. The limiter only hashes it, never looks it up, and the token never appears in a
-  Redis key; two AI apps sharing one token share its count. On every other route an
-  `applika_mcp_` Bearer is no valid session token, so it counts like any invalid Bearer: against
-  the IP (or a valid cookie's user). Otherwise a request with a valid, unexpired session
-  token (`Authorization: Bearer`, else the `__access` cookie) counts against that user. Anything
-  else (no token, expired, forged) counts against the client IP. Two signed-in users on one IP
-  keep separate counts.
+  Redis key; two AI apps sharing one token share its count. On every other route a Bearer,
+  whatever it holds, names no subject: a Bearer JWT is no REST credential since ADR-0028 (it
+  served only applika-cli), and an `applika_mcp_` Bearer counts against the IP (or a valid
+  cookie's user). Otherwise a request whose `__access` cookie holds a valid, unexpired session
+  token counts against that user. Anything else (no token, expired, forged, a Bearer) counts
+  against the client IP. Two signed-in users on one IP keep separate counts.
 - **Window.** Fixed windows of `RATE_LIMIT_WINDOW_SECONDS`, aligned to the clock. The count resets
   when the window ends, so a client can send up to twice the limit across a window boundary.
 - **Not counted.** Browser preflight requests (`OPTIONS`), and every request while
@@ -69,10 +69,8 @@ CORS exposes all four headers, so the web app can read them from another origin.
 
 - **Web app.** A 429 on session refresh or `/users/me` keeps the user signed in and retries after
   `Retry-After`. Other refused requests show the server's message in the usual error toast.
-- **applika-cli 1.0.1.** A 429 on the automatic session refresh keeps the stored session; the
-  command prints the message and exits 1. Run it again after the wait.
-- **applika-cli 0.1.4, 0.2.0, 1.0.0.** Other commands print the message and exit 1. A 429 on the
-  session refresh deletes the stored session, so the user must run `applika login` again.
+- **MCP clients.** A 429 on `/mcp` is the same JSON 429 with `Retry-After`, counted in the `mcp`
+  bucket per token. applika-cli is retired (ADR-0028).
 
 ## Production behind Traefik
 
@@ -131,7 +129,6 @@ The `/auth/*` limit of 10 is the tight one: each full page load of the web app s
 | Reloading pages quickly triggers 429 | Two refresh calls per page load use 2 of the 10 | Raise `RATE_LIMIT_AUTH`, or remove the duplicate refresh call (open follow-up) |
 | Applications page says "Found N applications" with no rows | `/supports` got a 429 and the list renders nothing until the next refetch | Raise `RATE_LIMIT_DEFAULT`; the blank state is an open follow-up |
 | No `X-RateLimit-*` headers on any answer | Limiter off, or Redis unreachable | Check `RATE_LIMIT_ENABLED`; search the log for `rate_limit_unavailable` |
-| CLI 1.0.0 or older users asked to log in again | A 429 on their automatic session refresh | Ask them to upgrade to applika-cli 1.0.1 |
 
 To check the headers from a shell, run
 `curl -si https://<api host>/users/me -b '__access=<token>' | grep -i ratelimit`, then repeat it to

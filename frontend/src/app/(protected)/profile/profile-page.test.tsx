@@ -179,8 +179,8 @@ describe("ProfilePage GitHub restore notices", () => {
 /**
  * PRD 0014 (AC2, AC8) and PRD 0023: "Profile" (today's content), "MCP" and
  * "Devices" tabs, side by side in that order, for every user — no feature
- * gate. `?tab=devices` (the `/device` page's "See your devices") opens
- * Devices; `?tab=mcp` (`/mcp`'s "Create a token") opens MCP.
+ * gate. `?tab=devices` (the Account hub's "Devices") opens Devices;
+ * `?tab=mcp` (`/mcp`'s "Create a token") opens MCP.
  */
 describe("ProfilePage tabs", () => {
   it("shows Profile, MCP and Devices tabs, Profile selected with today's content", () => {

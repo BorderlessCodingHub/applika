@@ -4,19 +4,6 @@ from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema
 
 
-class FeedbackDefinitionSchema(BaseSchema):
-    id: SnowflakeID
-    name: str
-    color: str
-
-
-class StepDefinitionSchema(BaseSchema):
-    id: SnowflakeID
-    name: str
-    color: str
-    strict: bool
-
-
 class PlatformSchema(BaseSchema):
     id: SnowflakeID
     name: str
@@ -25,6 +12,4 @@ class PlatformSchema(BaseSchema):
 
 
 class SupportSchema(BaseModel):
-    feedbacks: list[FeedbackDefinitionSchema]
-    steps: list[StepDefinitionSchema]
     platforms: list[PlatformSchema]

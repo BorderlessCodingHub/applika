@@ -34,8 +34,8 @@ from app.core.tokens import decode_token
 from app.domain.models import UserSessionModel
 from app.main import app as main_app
 from app.presentation.dependencies import get_session_store
-from tests.base_db_setup import base_data
 from tests import borderless_flow as flow
+from tests.base_db_setup import base_data
 from tests.fixtures.borderless.fake_oidc import FakeBorderless
 from tests.integration.conftest import BOUND_SUB
 from tests.sessions_seed import BROWSER_USER_AGENT, open_session
@@ -98,8 +98,9 @@ async def _set_row(engine: AsyncEngine, session_id: int, **values: Any):
         await session.commit()
 
 
-def _bearer(token: str) -> dict[str, str]:
-    return {'Authorization': f'Bearer {token}'}
+def _cookie(token: str) -> dict[str, str]:
+    """The ``__access`` cookie, the only REST credential (ADR-0028)."""
+    return {ACCESS_COOKIE_NAME: token}
 
 
 def _set_cookie(response, name: str) -> str | None:
@@ -301,7 +302,7 @@ async def test_refresh_copies_the_live_last_use_onto_the_row(
 ):
     tokens = await open_session(async_engine, redis_client, USER.id)
     used = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+        '/users/me', cookies=_cookie(tokens.access_token)
     )
     assert used.status_code == 200
     live = await redis_client.hgetall(f'applika:session:id:{tokens.session_id}')
@@ -372,15 +373,12 @@ async def test_a_jwt_without_sid_is_session_expired(
         envs.JWT_SECRET,
         algorithm=envs.JWT_ALGORITHM,
     )
-    for response in (
-        await real_client.get('/users/me', cookies={ACCESS_COOKIE_NAME: token}),
-        await real_client.get('/users/me', headers=_bearer(token)),
-    ):
-        assert response.status_code == 401
-        assert response.json() == {
-            'detail': 'Session expired',
-            'code': 'AUTH-1002',
-        }
+    response = await real_client.get('/users/me', cookies=_cookie(token))
+    assert response.status_code == 401
+    assert response.json() == {
+        'detail': 'Session expired',
+        'code': 'AUTH-1002',
+    }
 
 
 async def test_no_credentials_is_not_authenticated(real_client: AsyncClient):
@@ -421,7 +419,7 @@ async def test_logout_ends_the_session(
     )
 
     after = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+        '/users/me', cookies=_cookie(tokens.access_token)
     )
     assert after.status_code == 401
     assert after.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
@@ -445,17 +443,17 @@ async def test_a_revoked_device_is_refused_on_its_next_request(
     laptop = await open_session(async_engine, redis_client, USER.id)
     phone = await open_session(async_engine, redis_client, USER.id)
     assert (
-        await real_client.get('/users/me', headers=_bearer(phone.access_token))
+        await real_client.get('/users/me', cookies=_cookie(phone.access_token))
     ).status_code == 200
 
     revoked = await real_client.delete(
         f'/users/me/sessions/{phone.session_id}',
-        headers=_bearer(laptop.access_token),
+        cookies=_cookie(laptop.access_token),
     )
     assert revoked.status_code == 204
 
     refused = await real_client.get(
-        '/users/me', headers=_bearer(phone.access_token)
+        '/users/me', cookies=_cookie(phone.access_token)
     )
     assert refused.status_code == 401
     assert refused.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
@@ -467,7 +465,7 @@ async def test_a_revoked_device_is_refused_on_its_next_request(
         )
     ).status_code == 401
     assert (
-        await real_client.get('/users/me', headers=_bearer(laptop.access_token))
+        await real_client.get('/users/me', cookies=_cookie(laptop.access_token))
     ).status_code == 200
 
 
@@ -476,12 +474,12 @@ async def test_ending_a_session_copies_its_last_use(
 ):
     laptop = await open_session(async_engine, redis_client, USER.id)
     phone = await open_session(async_engine, redis_client, USER.id, ip=None)
-    await real_client.get('/users/me', headers=_bearer(phone.access_token))
+    await real_client.get('/users/me', cookies=_cookie(phone.access_token))
     live = await redis_client.hgetall(f'applika:session:id:{phone.session_id}')
 
     await real_client.delete(
         f'/users/me/sessions/{phone.session_id}',
-        headers=_bearer(laptop.access_token),
+        cookies=_cookie(laptop.access_token),
     )
 
     row = await _row(async_engine, phone.session_id)
@@ -514,7 +512,7 @@ async def test_refresh_reads_the_membership(
         g['grant_type'] for g in fake_borderless.log['grants'][BOUND_SUB]
     ] == ['refresh_token']
     me = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+        '/users/me', cookies=_cookie(tokens.access_token)
     )
     assert [b['badge'] for b in me.json()['badges']] == ['borderless_base']
 
@@ -540,7 +538,7 @@ async def test_borderless_failure_never_fails_a_refresh(
 
     assert ok.status_code == 200
     me = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+        '/users/me', cookies=_cookie(tokens.access_token)
     )
     assert [b['badge'] for b in me.json()['badges']] == ['borderless_psp']
     assert me.json()['borderless']['status'] == 'active'
@@ -615,7 +613,7 @@ async def test_a_token_minted_with_a_github_id_sub_is_refused(
         envs.JWT_SECRET,
         algorithm=envs.JWT_ALGORITHM,
     )
-    response = await real_client.get('/users/me', headers=_bearer(legacy))
+    response = await real_client.get('/users/me', cookies=_cookie(legacy))
     assert response.status_code == 401
     assert response.json()['detail'] == 'Session expired'
 
@@ -633,14 +631,14 @@ async def test_a_lost_key_reads_as_expired_and_cannot_refresh(
     await redis_client.delete(*_keys(lost.refresh_token, lost.session_id))
 
     listed = await real_client.get(
-        '/users/me/sessions', headers=_bearer(current.access_token)
+        '/users/me/sessions', cookies=_cookie(current.access_token)
     )
     by_id = {item['id']: item for item in listed.json()}
     assert by_id[str(lost.session_id)]['status'] == 'expired'
     assert by_id[str(current.session_id)]['status'] == 'active'
 
     assert (
-        await real_client.get('/users/me', headers=_bearer(lost.access_token))
+        await real_client.get('/users/me', cookies=_cookie(lost.access_token))
     ).status_code == 401
     assert (
         await real_client.get(
@@ -661,7 +659,7 @@ async def test_a_session_past_its_end_cannot_be_used_once_redis_drops_it(
         await redis_client.expireat(key, int(datetime.now(UTC).timestamp()) - 1)
 
     response = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+        '/users/me', cookies=_cookie(tokens.access_token)
     )
     assert response.status_code == 401
     assert response.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
@@ -696,7 +694,7 @@ async def test_redis_down_is_503_on_an_authenticated_route(
 
     for response in (
         await real_client.get(
-            '/users/me', headers=_bearer(tokens.access_token)
+            '/users/me', cookies=_cookie(tokens.access_token)
         ),
         await real_client.get(
             '/users/me', cookies={ACCESS_COOKIE_NAME: tokens.access_token}
@@ -748,31 +746,9 @@ async def test_a_revoked_session_stays_refused_during_an_outage(
     await redis_client.delete(*_keys(tokens.refresh_token, tokens.session_id))
 
     response = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+        '/users/me', cookies=_cookie(tokens.access_token)
     )
     assert response.status_code == 503
-
-
-async def test_redis_down_is_503_on_the_cli_routes(
-    real_client: AsyncClient, redis_client, redis_down
-):
-    """Fail closed on the CLI sign-in routes too (contract: 503 on
-    ``/auth/token``). ``/auth/revoke`` answers 503 rather than a 204 that
-    would claim the session ended (MET DIFFERENTLY, ADR-0019)."""
-    for response in (
-        await real_client.post(
-            '/auth/token',
-            json={'grant_type': 'refresh_token', 'refresh_token': 'x'},
-        ),
-        await real_client.post('/auth/revoke', json={'refresh_token': 'x'}),
-        await real_client.post('/auth/device/code', json={}),
-    ):
-        assert response.status_code == 503
-        assert response.json() == {
-            'detail': 'Session service unavailable',
-            'code': 'AUTH-1003',
-        }
-        assert response.headers['Retry-After'] == '5'
 
 
 async def test_redis_down_is_503_on_logout_and_keeps_the_cookies(
@@ -848,7 +824,7 @@ async def test_a_refused_request_never_recreates_the_session_key(
     await redis_client.delete(refresh_key, id_key)
 
     response = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+        '/users/me', cookies=_cookie(tokens.access_token)
     )
 
     assert response.status_code == 401

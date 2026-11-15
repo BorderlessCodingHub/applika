@@ -8,9 +8,9 @@ class StepDefinitionRepository:
     """Read-only access to the frozen ``steps_definition`` catalog.
 
     The catalog is retired (R-021): nobody creates, edits or deletes a step
-    definition any more. It stays readable only for the compat layer serving
-    installed ``applika-cli`` 0.1.4 (``/supports``, ``/steps``, body
-    ``/finalize``) and for the step <-> event translator.
+    definition any more. It stays readable only for the event -> step
+    translator (``compat/step_translation.py``: ``last_step`` and the
+    agenda).
     """
 
     def __init__(self, session: AsyncSession):
@@ -21,28 +21,3 @@ class StepDefinitionRepository:
             select(StepDefinitionModel).order_by(StepDefinitionModel.id)
         )
         return list(result.all())
-
-    async def get_by_id(self, id: int) -> StepDefinitionModel | None:
-        return await self.session.scalar(
-            select(StepDefinitionModel).where(StepDefinitionModel.id == id)
-        )
-
-    async def get_by_id_strict_only(
-        self, id: int
-    ) -> StepDefinitionModel | None:
-        return await self.session.scalar(
-            select(StepDefinitionModel).where(
-                StepDefinitionModel.id == id,
-                StepDefinitionModel.strict.is_(True),
-            )
-        )
-
-    async def get_by_id_non_strict_only(
-        self, id: int
-    ) -> StepDefinitionModel | None:
-        return await self.session.scalar(
-            select(StepDefinitionModel).where(
-                StepDefinitionModel.id == id,
-                StepDefinitionModel.strict.is_(False),
-            )
-        )

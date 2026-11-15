@@ -1,20 +1,16 @@
-"""Step <-> timeline event translation for ``applika-cli`` 0.1.4 (R-016).
+"""Timeline event -> step translation (R-016): the ``last_step`` of every
+application and the agenda's step fields.
 
-Forward: a legacy ``step_id`` becomes the ``(event_type, interview_type)``
-stored in ``steps_definition.event_type`` / ``interview_type``, the mapping
-store revision ``afd4074c70c2`` filled from the owner's decision (a). A
-definition with no mapping (created after that revision) falls back to
-interview/unknown, the revision's ``STEP_FALLBACK``.
-
-Reverse: an event becomes one ``steps_definition`` row, never null while the
-catalog has a row. The resolution is **identical** to the revision's
+An event becomes one ``steps_definition`` row, never null while the catalog
+has a row. The resolution is **identical** to revision ``afd4074c70c2``'s
 ``_reverse_step_id_sql`` (and to the one its downgrade uses): by the name in
-``REVERSE_STEP_NAMES``, else the first row (by id) with the same mapping,
-else the first non-strict row (``ORDER BY strict, id``). So an id a 0.1.4
-client read from ``GET /steps`` stays the id it resends on ``steps edit``,
-in this release, after a rollback, and after the contract migration
-(plan 0008 "Risks": the reverse map must be stable across releases). The
-catalog is frozen (R-021), so nothing moves the answer.
+``REVERSE_STEP_NAMES``, else the first row (by id) with the same mapping
+(``steps_definition.event_type`` / ``interview_type``, the mapping store
+that revision filled from the owner's decision (a)), else the first
+non-strict row (``ORDER BY strict, id``). So the step an event is shown as
+stays the same in this release, after a rollback, and after the contract
+migration (plan 0008 "Risks": the reverse map must be stable across
+releases). The catalog is frozen (R-021), so nothing moves the answer.
 """
 
 from collections.abc import Iterable
@@ -24,9 +20,6 @@ from app.core.enums import EventType, InterviewType
 from app.domain.models import StepDefinitionModel
 
 EventKind = tuple[EventType, InterviewType | None]
-
-STEP_FALLBACK: EventKind = (EventType.INTERVIEW, InterviewType.UNKNOWN)
-"""What an unmapped step definition becomes (revision ``STEP_FALLBACK``)."""
 
 REVERSE_FALLBACK_NAME = 'Phase 2'
 
@@ -45,18 +38,6 @@ revision's ``REVERSE_STEP_MAP`` with the enums instead of strings, minus its
 ``note`` and ``feedback`` entries (ADR-0020): those named "Phase 2", the same
 step as interview/unknown, which is what a former note or feedback is now,
 so no step id a 0.1.4 client reads moves."""
-
-
-def event_kind_of(step: StepDefinitionModel) -> EventKind:
-    """The event a legacy step definition becomes."""
-    if step.event_type is None:
-        return STEP_FALLBACK
-    if step.event_type is EventType.INTERVIEW:
-        return (
-            EventType.INTERVIEW,
-            step.interview_type or InterviewType.UNKNOWN,
-        )
-    return (step.event_type, None)
 
 
 @dataclass(frozen=True)
