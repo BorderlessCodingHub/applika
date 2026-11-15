@@ -20,21 +20,21 @@ You need Docker. Everything else runs in containers.
 
 ```bash
 cp .env.example .env
-make run-fake-auth      # a fake Borderless sign-in; prints the .env values to paste
-make up-build           # api, web, worker, scheduler, Postgres and Redis
+make up-build           # api, web, worker, scheduler, Postgres, Redis and a fake Borderless
 ```
 
 - Web app: <http://127.0.0.1:8080>
 - API docs: <http://127.0.0.1:8000/api/docs>
 
 Sign-in goes through [Borderless](https://borderlesscoding.com). Locally, the
-fake Borderless stands in for it: paste the values `make run-fake-auth` prints
-into `.env`, run `make up` again, and sign in with one of the accounts in
-`backend/tests/fixtures/borderless/accounts.json`.
+stack's fake Borderless (`borderless-fake`, on <http://127.0.0.1:8081>) stands
+in for it: the API points at it by default, so sign in with one of the
+accounts in `backend/tests/fixtures/borderless/accounts.json`. To use a real
+OAuth server instead, set the `BORDERLESS_*` values in `.env` (see
+`.env.example`); they override the fake.
 
 ```bash
 make stop               # stop the stack, keep the data
-make stop-fake-auth     # stop the fake Borderless
 docker compose down -v  # remove everything, database included
 make help               # every target
 ```
@@ -45,7 +45,7 @@ The web app is a static export, so the stack only shows a frontend change
 after a rebuild. For a fast loop, run the frontend on your machine instead:
 
 ```bash
-docker compose up -d --wait api worker scheduler
+docker compose up -d --wait api worker scheduler borderless-fake
 cd frontend && pnpm install && pnpm dev     # http://127.0.0.1:8080
 ```
 

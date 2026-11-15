@@ -58,8 +58,8 @@ routes are gone and a `cli` session from before fails its next renewal.
 A user's BASE or PSP membership at Borderless becomes a badge that unlocks
 the biweekly reports.
 
-For local runs, `make run-fake-auth` at the repository root starts a fake
-Borderless and prints the settings to use.
+For local runs, the repository root's `docker-compose.yml` starts a fake
+Borderless (`borderless-fake`) and points the API at it.
 
 ## Settings
 

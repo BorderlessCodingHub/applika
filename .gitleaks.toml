@@ -52,7 +52,7 @@ keywords = ["applika_mcp_"]
   regexes = ['''^applika_mcp_fake_''']
 
 # Synthetic clients: the fake Borderless's (backend/tests/fixtures/borderless,
-# docker-compose.e2e.yml, the root Makefile) and the E2E stack's dummy GitHub
+# docker-compose.yml, docker-compose.e2e.yml) and the E2E stack's dummy GitHub
 # and Discord apps. Never a real client.
 [[allowlists]]
 description = "synthetic OAuth clients for tests and the E2E stack"
@@ -67,6 +67,14 @@ condition = "AND"
 paths = ['''^docker-compose\.e2e\.yml$''']
 regexTarget = "match"
 regexes = ['''_TOKEN_ENCRYPTION_KEY:''']
+
+# The local stack's throwaway Fernet key for the fake Borderless: base64url of
+# "applika-local-dev-key-not-secret", the default in docker-compose.yml and the
+# value in .env.example. It only encrypts the fake's tokens in a local database.
+[[allowlists]]
+description = "local stack synthetic encryption key"
+regexTarget = "secret"
+regexes = ['''^YXBwbGlrYS1sb2NhbC1kZXYta2V5LW5vdC1zZWNyZXQ''']
 
 # Synthetic tokens and passwords that backend tests use as fixtures.
 [[allowlists]]

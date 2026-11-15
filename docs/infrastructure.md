@@ -531,8 +531,10 @@ flowchart LR
   service `borderless-fake` runs it from its own test-only image (`applika-e2e-borderless-fake`, built
   from `backend/tests/fixtures/borderless/Dockerfile`), never the API image (issuer
   `http://borderless-fake:8081/api/auth`, the browser reaches it at `http://127.0.0.1:8181`, access
-  tokens of 2 seconds), locally
-  `cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth`.
+  tokens of 2 seconds), locally the service `borderless-fake` of the root `docker-compose.yml`, from the
+  same Dockerfile as `applika-borderless-fake` (issuer `http://borderless-fake:8081/api/auth`, the browser
+  reaches it at `http://127.0.0.1:8081`; the API's Borderless settings default to it, and `.env` overrides
+  them to use a real provider).
   The real Borderless lists only the production redirect URI, so nothing but production reaches it.
 
 ```mermaid
