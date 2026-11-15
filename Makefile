@@ -3,7 +3,7 @@
 #
 #   make help             list the targets
 #   make leaks            gitleaks: no secret in any commit or pending change
-#   make full-gate        leaks, then api-gate, front-gate, cli-gate and e2e-gate in a row
+#   make full-gate        leaks, then api-gate, front-gate and e2e-gate in a row
 #   make up-build         build and start the local stack (docker-compose.yml)
 #   make run-fake-auth    start the fake Borderless for hand tests on that stack
 
@@ -39,7 +39,7 @@ FAKE_AUTH_ISSUER     ?= http://$(FAKE_AUTH_CONTAINER):8081/api/auth
 # Where the browser opens the fake's sign-in page.
 FAKE_AUTH_PUBLIC_URL ?= http://127.0.0.1:$(FAKE_AUTH_PORT)
 
-.PHONY: help leaks front-gate api-gate cli-gate e2e-gate full-gate \
+.PHONY: help leaks front-gate api-gate e2e-gate full-gate \
         up build up-build stop run-fake-auth stop-fake-auth
 
 help: ## List the targets
@@ -80,19 +80,13 @@ api-gate: ## Backend: ruff format check, ruff check, ty, pytest (unit + integrat
 	cd backend && uv run ty check
 	cd backend && uv run pytest . --cov=app --cov-fail-under=90
 
-cli-gate: ## CLI: ruff format check, ruff check, pytest
-	cd cli && uv run ruff format --check .
-	cd cli && uv run ruff check .
-	cd cli && uv run pytest tests -q
-
 e2e-gate: ## E2E: Playwright on the real stack (docker-compose.e2e.yml, torn down after)
 	frontend/scripts/e2e.sh
 
-full-gate: ## Every gate in one command: leaks first, then api, front, cli and e2e
+full-gate: ## Every gate in one command: leaks first, then api, front and e2e
 	$(MAKE) leaks
 	$(MAKE) api-gate
 	$(MAKE) front-gate
-	$(MAKE) cli-gate
 	$(MAKE) e2e-gate
 
 # ---- Local stack (docker-compose.yml), detached ------------------------------

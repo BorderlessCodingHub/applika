@@ -25,14 +25,12 @@ Gathered on 2026-10-19 from the repository (`.github/workflows/`, `backend/app/c
 |---|---|
 | Main repository | `github.com/ProgramadoresSemPatria/applika` (ProgramadoresSemPatria org). **to transfer** |
 | Working fork | `github.com/luis0ares/applika`, Luis's personal fork used for development. Not the production repository |
-| URL declared in the CLI package | `github.com/ApplikaDev/applika` (`cli/pyproject.toml`, `[project.urls]`) |
 | Destination | A repository on BorderlessCodingHub, with full history and Borderless as owner |
 | Branches | `develop` (integration) and `main` (release; a push to `main` triggers the deploy) |
 | Old repository | Archive `ProgramadoresSemPatria/applika`, or leave a notice in its README pointing to the new one |
 
 When transferring: GitHub Secrets do **not** come along if the repository is re-created (they only
-come with a GitHub repository transfer). Re-create the ones in section 3.1 in the new repository, and
-the `pypi` environment.
+come with a GitHub repository transfer). Re-create the ones in section 3.1 in the new repository.
 
 ## 2. Database
 
@@ -93,13 +91,13 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | Image registry | GitHub Container Registry: `ghcr.io/<owner>/applika-api` and `ghcr.io/<owner>/applika`, tag `latest` only (CD deletes untagged versions) |
 | Pipeline | 1. Push to `main` → GitHub Actions (`backend-cd.yaml`, `frontend-cd.yaml`) builds and publishes the images to GHCR. 2. The deploy job calls Coolify's deploy API (`/api/v1/deploy?uuid=…`), which pulls `latest` and restarts each resource |
 | Migrations | Outside the pipeline, manual (section 2) |
-| CI | `backend-ci.yaml`, `frontend-ci.yaml` (includes e2e against the real stack), `cli-ci.yaml` |
+| CI | `backend-ci.yaml`, `frontend-ci.yaml` (includes e2e against the real stack). `cli-ci.yaml` left with the CLI's source ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)) |
 
 ## 5. Domain
 
 | Item | Status |
 |---|---|
-| Domain | `applika.dev` (site) and `applika.dev/api` (API, the CLI's default) |
+| Domain | `applika.dev` (site) and `applika.dev/api` (API; the MCP server at `applika.dev/api/mcp`) |
 | Registrar | **Hostinger** |
 | Registration owner | **Luis** (personal). **to transfer** |
 | DNS | **Hostinger** (same account as the registration) |
@@ -116,15 +114,17 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | Analytics | None: the cookie policy states there are no analytics cookies | — | — |
 | AI APIs | None: fit score and tailoring are computed in the backend, without an LLM | — | — |
 
-## 7. CLI
+## 7. CLI (retired)
+
+`applika-cli` is retired for the hosted MCP server ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)): AI apps use Applika through
+`https://applika.dev/api/mcp` with a token from Profile › MCP.
 
 | Item | Status |
 |---|---|
-| Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli` |
-| Publishing | None since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed, so no `applika-cli` version is published or supported, 0.1.x included |
-| Authors in the package | Luis Eduardo Soares, David Alecrim (`cli/pyproject.toml`) |
-| PyPI owner | **Luis** (personal). **to transfer**: create a Borderless organisation or account on PyPI and add it as owner |
-| Recommendation | Replace the token with PyPI Trusted Publishing pointing at the new repository |
+| Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli`. No version is published or supported, 0.1.x included |
+| Publishing | None since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md): `cli-cd.yaml` is removed |
+| Source, tests, CI and gate | Removed from the repository in the sunset release (`cli/`, `cli-ci.yaml` and its `make` gate); git history keeps them |
+| PyPI owner | **Luis** (personal). Nothing is published there any more (section 9) |
 
 ## 8. In development (not in production yet)
 
@@ -133,7 +133,7 @@ infrastructure when they go to production.
 
 | Item | What it is | Infrastructure it will need |
 |---|---|---|
-| New Redis uses | Redis already runs in production (refresh token and GitHub cache). In development: the rate limiter ([ADR-0015](adr/0015-redis-api-rate-limiter.md)), the taskiq queue ([ADR-0016](adr/0016-taskiq-worker-for-background-jobs.md)) and CLI 1.1.0 device sessions ([ADR-0019](adr/0019-device-sessions-and-cli-oauth.md)) | The same swarm Redis; env `TASKIQ_BROKER_URL` only if the queue uses another Redis; env `DEVICE_VERIFICATION_URI` and `CLI_MANUAL_REDIRECT_URI` for the CLI 1.1.0 sign-in |
+| New Redis uses | Redis already runs in production (refresh token and GitHub cache). In development: the rate limiter ([ADR-0015](adr/0015-redis-api-rate-limiter.md)), the taskiq queue ([ADR-0016](adr/0016-taskiq-worker-for-background-jobs.md)), device sessions ([ADR-0019](adr/0019-device-sessions-and-cli-oauth.md); the CLI sign-in it added is retired, [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)) and the MCP tokens ([ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)) | The same swarm Redis; env `TASKIQ_BROKER_URL` only if the queue uses another Redis |
 | taskiq worker and scheduler | Background jobs with the same image as the API ([ADR-0016](adr/0016-taskiq-worker-for-background-jobs.md)). Depend on Redis | Swarm services; the workflows already look for `SWARM_WORKER_SERVICE_NAME` and `SWARM_SCHEDULER_SERVICE_NAME` |
 | Job collection (job board) | Hourly collection by the worker. Depends on the worker | Public APIs Himalayas and RemoteOK, no account; env `JOBS_*` |
 | Rate limiter | Per-user/IP limit on the API. Depends on Redis | env `RATE_LIMIT_*` and `FORWARDED_ALLOW_IPS` (Traefik as trusted proxy) |
@@ -155,4 +155,4 @@ Every account in Brunno's or Luis's personal name.
 | Postgres and backups | Brunno (personal) | Borderless | to transfer |
 | Domain registration `applika.dev` (Hostinger) | Luis (personal) | Borderless | to transfer |
 | DNS (Hostinger) | Luis (personal) | Borderless | to transfer |
-| PyPI `applika-cli` | Luis (personal) | Borderless PyPI organisation | to transfer |
+| PyPI `applika-cli` (retired: nothing published since [ADR-0028](adr/0028-retire-cli-for-hosted-mcp.md)) | Luis (personal) | Borderless PyPI organisation | to transfer |

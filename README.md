@@ -2,9 +2,9 @@
 
 A job application tracker for active job seekers. Log every application,
 follow its timeline (interviews, offers, denials), see your statistics and
-agenda, and file biweekly reports — from the web or from the terminal.
+agenda, and file biweekly reports — from the web or from your AI assistant.
 
-**Use it:** <https://applika.dev> · **CLI:** [`applika-cli` on PyPI](https://pypi.org/project/applika-cli/)
+**Use it:** <https://applika.dev> · **AI assistants:** the Applika MCP server, <https://applika.dev/mcp>
 
 ## What's in this repository
 
@@ -12,7 +12,6 @@ agenda, and file biweekly reports — from the web or from the terminal.
 |---|---|---|
 | [`backend/`](backend/README.md) | The API and its background worker | Python 3.14, FastAPI, PostgreSQL, Redis, taskiq |
 | [`frontend/`](frontend/README.md) | The web app | Next.js 16 (static export), React 19, Tailwind 4 |
-| [`cli/`](cli/README.md) | `applika`, the command-line client | Python 3.10+, Typer |
 | [`docs/`](docs/) | Product requirements, architecture decisions, plans, infrastructure | |
 
 ## Run it locally
@@ -68,11 +67,11 @@ everyone is a click there, not a deploy.
 ## Checks before a pull request
 
 ```bash
-make full-gate      # secrets scan, then backend, frontend, CLI and end-to-end tests
+make full-gate      # secrets scan, then backend, frontend and end-to-end tests
 ```
 
-Or one part at a time: `make api-gate`, `make front-gate`, `make cli-gate`,
-`make e2e-gate`, `make leaks`.
+Or one part at a time: `make api-gate`, `make front-gate`, `make e2e-gate`,
+`make leaks`.
 
 Work goes to `develop`; merging `develop` into `main` is a release.
 Database migrations never drop a column or table
@@ -85,6 +84,9 @@ Database migrations never drop a column or table
 - [docs/adr/](docs/adr/) — architecture decisions
 - [docs/plan/](docs/plan/) — technical plans per feature
 - [docs/error-codes.md](docs/error-codes.md) — every API error code
-- Changelogs: [backend](backend/CHANGELOG.md), [CLI](cli/CHANGELOG.md)
+- Changelog: [backend](backend/CHANGELOG.md). The command-line client
+  `applika-cli` was retired for the MCP server
+  ([ADR-0028](docs/adr/0028-retire-cli-for-hosted-mcp.md)); its source and
+  changelog stay in git history.
 
 See also [CONTRIBUTORS.md](CONTRIBUTORS.md) and [SECURITY.md](SECURITY.md).
