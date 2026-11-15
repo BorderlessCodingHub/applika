@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CliPage } from "@/app/(public)/cli/cli-page";
+import { McpPage } from "@/app/(public)/mcp/mcp-page";
 import { LoginPage } from "@/app/login/login-page";
 import { WelcomeScreen } from "@/components/auth/welcome-screen";
 import { CliCodeScreen } from "@/components/cli-code/cli-code-screen";
@@ -21,12 +21,13 @@ import {
   PhoneDeviceOutcome,
   PhoneDeviceRequest,
 } from "@/components/phone/screens/device-screen";
+import { APP_CONFIG } from "@/config";
 import { renderInPortuguese } from "@/test/portuguese";
 
 /**
- * The public and sign-in screens in Portuguese: landing, sign-in (web and
- * terminal), the terminal code, the welcome choice and device approval, at
- * both widths (the phone trees and views of PRD 0021 too). The device's name
+ * The public and sign-in screens in Portuguese: landing, the MCP page,
+ * sign-in (web and terminal), the terminal code, the welcome choice and device
+ * approval, at both widths (the phone trees and views of PRD 0021 too). The device's name
  * and client label come from the API as data and stay exactly as sent; dates
  * follow the language. English is asserted, unchanged, by the screens' own
  * tests. Screens laid out by CSS hold both trees: queries are scoped by the
@@ -357,41 +358,51 @@ describe("phone landing and public bar in Portuguese", () => {
   });
 });
 
-describe("the applika-cli page in Portuguese", () => {
-  it("writes v3/Cli and today's page in Portuguese, commands and brand kept", async () => {
-    await renderInPortuguese(<CliPage />, { localeSwitch: true });
-    const phone = within(tree("cli-phone"));
-    const desktop = within(tree("cli-desktop"));
+describe("the Applika MCP page in Portuguese", () => {
+  it("writes both trees in Portuguese, app names and the address kept", async () => {
+    await renderInPortuguese(<McpPage />, { localeSwitch: true });
+    const phone = within(tree("mcp-phone"));
+    const desktop = within(tree("mcp-desktop"));
 
     for (const view of [phone, desktop]) {
-      expect(view.getByText("Linha de comando")).toBeInTheDocument();
+      expect(view.getByText("Servidor MCP")).toBeInTheDocument();
       expect(
-        view.getByRole("heading", { level: 1, name: "applika-cli" }),
+        view.getByRole("heading", {
+          level: 1,
+          name: "O Applika no seu assistente de IA",
+        }),
       ).toBeInTheDocument();
       expect(
         view
           .getAllByRole("heading", { level: 2 })
           .map((heading) => heading.textContent),
       ).toEqual([
-        "Instalação",
-        "Entrar",
-        "Acompanhe pelo terminal",
-        "Ensine seu assistente de IA",
-        "Todo o resto",
+        "Conecte em três passos",
+        "Endereço do servidor",
+        "Funciona com",
+        "O que seu assistente pode fazer",
+        "Você escolhe o alcance",
+        "Você continua no controle",
       ]);
       expect(
-        view.getAllByRole("button", { name: "Copiar comando" }),
-      ).toHaveLength(4);
+        view
+          .getAllByRole("heading", { level: 3 })
+          .map((heading) => heading.textContent),
+      ).toEqual(["Crie um token", "Copie a configuração", "Cole e peça"]);
       expect(
-        view.getByRole("link", { name: "página inicial" }),
-      ).toHaveAttribute("href", "/");
+        view.getByRole("link", { name: "Criar um token" }),
+      ).toHaveAttribute("href", "/profile?tab=mcp");
+      expect(
+        view.getByRole("button", { name: "Copiar o endereço do servidor" }),
+      ).toBeInTheDocument();
+      // Product names are data: the same in every language.
+      expect(view.getByText("Claude Code")).toBeInTheDocument();
+      expect(view.getByText("Gemini CLI")).toBeInTheDocument();
+      expect(view.getByText("Leitura e escrita")).toBeInTheDocument();
     }
 
-    // The phone tree's own header, list and footer.
+    // The phone tree's own header and footer.
     const header = within(phone.getByRole("banner"));
-    expect(
-      header.getByRole("link", { name: "Página inicial do Applika.dev" }),
-    ).toHaveAttribute("href", "/");
     expect(
       header.getByRole("radiogroup", { name: "Alternar idioma" }),
     ).toHaveAttribute("data-flags-only", "");
@@ -399,48 +410,43 @@ describe("the applika-cli page in Portuguese", () => {
       "href",
       "/login",
     );
-    expect(
-      phone.getAllByRole("link", { name: "Ver no PyPI Abre em uma nova aba." }),
-    ).toHaveLength(2);
-    expect(phone.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
-      "Padrão: seu navegador abre e o login volta sozinho para o terminal.",
-      "Navegador em outra máquina: --manual mostra um código no navegador para você colar no terminal.",
-      "Sem navegador (SSH, contêineres): --device mostra um código curto para aprovar em qualquer navegador conectado.",
-    ]);
+    expect(phone.getByRole("link", { name: "Início" })).toHaveAttribute(
+      "href",
+      "/",
+    );
     expect(
       phone.getByRole("link", { name: "Política de cookies" }),
     ).toHaveAttribute("href", "/cookie-policy");
     expect(phone.getByRole("contentinfo")).toHaveTextContent("© Applika.dev");
-    // The commands stay English.
-    expect(
-      tree("cli-phone").querySelector('[data-slot="cli-phone-commands"]'),
-    ).toHaveTextContent("$ uv tool install applika-cli");
   });
 
-  it("says Copiado once Copy has written the commands", async () => {
+  it("says the address was copied, in Portuguese", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
     });
-    await renderInPortuguese(<CliPage />, { localeSwitch: true });
-    const phone = within(tree("cli-phone"));
+    await renderInPortuguese(<McpPage />, { localeSwitch: true });
+    const phone = within(tree("mcp-phone"));
 
     await user.click(
-      phone.getAllByRole("button", { name: "Copiar comando" })[0],
+      phone.getByRole("button", { name: "Copiar o endereço do servidor" }),
     );
 
-    expect(phone.getByRole("button", { name: "Copiado" })).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(APP_CONFIG.mcp.endpoint);
     expect(
-      tree("cli-phone").querySelector('[data-slot="cli-phone-copy-status"]'),
-    ).toHaveTextContent("Copiado");
+      phone.getByRole("button", { name: "Endereço do servidor copiado" }),
+    ).toBeInTheDocument();
+    expect(phone.getByRole("status")).toHaveTextContent(
+      "Endereço do servidor copiado",
+    );
   });
 
   it("offers Painel to a signed-in visitor, in the phone header", async () => {
     auth = { isAuthenticated: true, isLoading: false };
-    await renderInPortuguese(<CliPage />, { localeSwitch: true });
-    const header = within(within(tree("cli-phone")).getByRole("banner"));
+    await renderInPortuguese(<McpPage />, { localeSwitch: true });
+    const header = within(within(tree("mcp-phone")).getByRole("banner"));
 
     expect(header.getByRole("link", { name: "Painel" })).toHaveAttribute(
       "href",

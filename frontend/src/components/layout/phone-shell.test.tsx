@@ -129,12 +129,12 @@ describe("AppShell at md and up", () => {
   });
 
   it.each(["/dashboard", "/applications", "/agenda", "/admin/companies"])(
-    "shows the applika-cli banner on %s, as today",
+    "shows the Applika MCP banner on %s, as today",
     (path) => {
       renderShell(path);
 
       expect(
-        screen.getByRole("region", { name: "applika-cli announcement" }),
+        screen.getByRole("region", { name: "Applika MCP announcement" }),
       ).toBeInTheDocument();
     },
   );
@@ -405,11 +405,11 @@ describe("PhoneShell below md", () => {
     },
   );
 
-  it("shows the applika-cli banner on Today, in the board's margins", () => {
+  it("shows the Applika MCP banner on Today, in the board's margins", () => {
     mockPhoneViewport();
     renderShell("/dashboard");
     const banner = screen.getByRole("region", {
-      name: "applika-cli announcement",
+      name: "Applika MCP announcement",
     });
 
     expect(banner.parentElement).toHaveClass("px-5", "pt-5", "empty:hidden");
@@ -427,12 +427,12 @@ describe("PhoneShell below md", () => {
     "/admin",
     "/admin/companies",
     "/somewhere/new",
-  ])("shows no applika-cli banner on %s", (path) => {
+  ])("shows no Applika MCP banner on %s", (path) => {
     mockPhoneViewport();
     renderShell(path);
 
     expect(
-      screen.queryByRole("region", { name: "applika-cli announcement" }),
+      screen.queryByRole("region", { name: "Applika MCP announcement" }),
     ).not.toBeInTheDocument();
   });
 
@@ -446,13 +446,13 @@ describe("PhoneShell below md", () => {
       );
 
       expect(
-        screen.queryByRole("region", { name: "applika-cli announcement" }),
+        screen.queryByRole("region", { name: "Applika MCP announcement" }),
       ).not.toBeInTheDocument();
       expect(
-        window.localStorage.getItem("applika.cli-banner-dismissed"),
+        window.localStorage.getItem("applika.mcp-banner-dismissed"),
       ).not.toBeNull();
     } finally {
-      window.localStorage.removeItem("applika.cli-banner-dismissed");
+      window.localStorage.removeItem("applika.mcp-banner-dismissed");
     }
   });
 
@@ -793,16 +793,18 @@ describe("phone-nav", () => {
     expect(after).not.toContain("jobs");
   });
 
-  it("lists Admin for an admin only, with the account entries everyone has", () => {
+  it("lists Admin for an admin only, with the account entries everyone has (MCP between Profile and Devices, no beta)", () => {
     expect(
       rows(false, BOTH, true).account.map((row) => [row.label, row.href]),
     ).toEqual([
       ["Profile", "/profile"],
+      ["MCP", "/profile?tab=mcp"],
       ["Devices & CLI", "/profile?tab=devices"],
       ["Sign in a device", "/device"],
     ]);
     expect(rows(true, BOTH, true).account.map((row) => row.key)).toEqual([
       "profile",
+      "mcp",
       "devices",
       "device",
       "admin",

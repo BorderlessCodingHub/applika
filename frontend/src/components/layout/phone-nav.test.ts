@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { navItemsFor } from "./nav";
 import {
   PHONE_PARENTS,
+  accountRows,
   isPhoneScreen,
   normalizePath,
   phoneBackFor,
@@ -139,7 +141,36 @@ describe("isPhoneScreen", () => {
     expect(isPhoneScreen("/somewhere/new")).toBe(false);
   });
 
-  it("never maps the public /cli: its phone tree is the page's own, outside the shell", () => {
+  it("never maps the public /mcp (nor /cli, its forward): its phone tree is the page's own, outside the shell", () => {
+    expect(isPhoneScreen("/mcp")).toBe(false);
     expect(isPhoneScreen("/cli")).toBe(false);
+  });
+});
+
+/**
+ * PRD 0023: the Account hub opens Profile › MCP from its own row, between
+ * Profile and Devices & CLI, for every user (no beta gate, ADR-0028); the
+ * MCP section is `/profile`, so its back bar is the Account hub's.
+ */
+describe("accountRows: MCP", () => {
+  it("puts MCP between Profile and Devices & CLI, for users and admins, with no feature", () => {
+    for (const isAdmin of [false, true]) {
+      const { account } = accountRows(
+        navItemsFor(isAdmin, [], { hasReportsBadge: false }),
+      );
+      const keys = account.map((row) => row.key);
+      expect(keys.slice(0, 3)).toEqual(["profile", "mcp", "devices"]);
+      const mcp = account.find((row) => row.key === "mcp")!;
+      expect([mcp.label, mcp.href, mcp.beta]).toEqual([
+        "MCP",
+        "/profile?tab=mcp",
+        undefined,
+      ]);
+    }
+  });
+
+  it("returns from /profile?tab=mcp to the Account hub", () => {
+    const back = phoneBackFor(normalizePath("/profile"));
+    expect(back && [back.href, back.label]).toEqual(["/account", "Account"]);
   });
 });

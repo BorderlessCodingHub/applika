@@ -87,6 +87,29 @@ describe("ProtectedLayout return-to", () => {
     expect(replace).toHaveBeenCalledTimes(1);
   });
 
+  it("a signed-out visit to /profile?tab=mcp (/mcp's Create a token) stores it, then goes to /login", () => {
+    auth = { isAuthenticated: false, isLoading: false };
+    visit("/profile?tab=mcp");
+
+    renderLayout();
+
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
+      "/profile?tab=mcp",
+    );
+    expect(replace).toHaveBeenCalledWith("/login");
+  });
+
+  it("once authenticated, goes back to /profile?tab=mcp", () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
+    auth = { isAuthenticated: true, isLoading: false };
+    visit("/dashboard");
+
+    renderLayout();
+
+    expect(replace).toHaveBeenCalledWith("/profile?tab=mcp");
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
+  });
+
   it("a signed-out visit to another protected page stores nothing", () => {
     auth = { isAuthenticated: false, isLoading: false };
     visit("/dashboard");

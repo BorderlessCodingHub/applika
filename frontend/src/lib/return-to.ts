@@ -1,15 +1,15 @@
 /**
  * Return-to after sign-in. A signed-out visit to a page that must
- * come back after login — today only `/device`, so a CLI device code
- * survives the sign-in round trip — stores its path + query in
- * `sessionStorage` before the protected layout sends the browser to
- * `/login`. The sign-in page consumes it once on success, else the first
+ * come back after login — `/device`, so a CLI device code survives the
+ * sign-in round trip, and `/profile`, so `/mcp`'s "Create a token" lands on
+ * `/profile?tab=mcp` — stores its path + query in `sessionStorage` before
+ * the protected layout sends the browser to `/login`. The sign-in page consumes it once on success, else the first
  * authenticated protected render does; a new account keeps it until it
  * answers the `/welcome` choice.
  */
 export const RETURN_TO_KEY = "applika:return-to";
 
-const RETURN_TO_PATHS = new Set(["/device"]);
+const RETURN_TO_PATHS = new Set(["/device", "/profile"]);
 
 /** The static export may serve a trailing slash. */
 function normalizePath(pathname: string): string {

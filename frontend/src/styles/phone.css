@@ -3323,7 +3323,7 @@
     overflow-wrap: anywhere;
   }
 
-  /* v2/Profile + v2/Devices (one screen, the seg nav of two links), v2/Cycles, v2/Reports, v2/ReportDay, v2/Admin; bodies as drawn. */
+  /* v2/Profile + v2/Devices (one screen, the seg nav of three links with 0023's MCP), v2/Cycles, v2/Reports, v2/ReportDay, v2/Admin; bodies as drawn. */
 
   .ph-pf {
     padding: 4px 20px calc(40px + env(safe-area-inset-bottom, 0px));
@@ -3341,7 +3341,7 @@
   }
 
   .ph-seg.ph-pf-seg {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .ph-pf-head {
@@ -6673,9 +6673,9 @@
     overflow-wrap: anywhere;
   }
 
-  /* v3/Cli (its header is PhoneLandingHeader's .ph-landing-header; its hero, eyebrow, lead and footer are v2/Landing's .ph-landing-hero, -eyebrow, -lead, -footer); bodies as drawn. */
+  /* 0023/McpPage (its header is PhoneLandingHeader's .ph-landing-header; its hero, eyebrow and lead are v2/Landing's .ph-landing-hero, -eyebrow, -lead; its cards .ph-card; its scope pills .ph-pill, .ph-pri and 0023/Main's .ph-mt-full); bodies as drawn. */
 
-  .ph-clp-tile {
+  .ph-mcp-tile {
     width: 56px;
     height: 56px;
     border-radius: 18px;
@@ -6686,58 +6686,69 @@
     justify-content: center;
   }
 
-  .ph-landing-eyebrow.ph-clp-eyebrow {
+  .ph-landing-eyebrow.ph-mcp-eyebrow {
     margin-top: 20px;
   }
 
-  .ph-clp-h1 {
+  .ph-mcp-h1 {
     margin: 8px 0 0;
-    font-size: 38px;
-    line-height: 1.05;
+    font-size: 36px;
+    line-height: 1.08;
     font-weight: 700;
     letter-spacing: -0.03em;
   }
 
   /* A filled link: later than .ph-app's link colours, so its own colour holds on hover too. */
-  .ph-clp-pypi {
+  .ph-mcp-cta {
     margin-top: 24px;
     height: 52px;
     border-radius: 16px;
     background: var(--primary);
     color: var(--primary-foreground);
+    box-shadow: var(--ph-glow);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
     font-size: 15px;
     font-weight: 600;
   }
 
-  .ph-clp-sec {
+  .ph-mcp-cta-note {
+    margin: 10px 0 0;
+    font-size: 13px;
+    text-align: center;
+    color: var(--muted-foreground);
+  }
+
+  .ph-mcp-sec {
     padding: 48px 20px 0;
   }
 
-  .ph-clp-h {
+  .ph-mcp-h {
     margin: 0;
     font-size: 20px;
     font-weight: 700;
     letter-spacing: -0.02em;
   }
 
-  .ph-clp-body {
+  .ph-mcp-body {
     margin: 8px 0 0;
     font-size: 15px;
     line-height: 1.55;
     color: var(--muted-foreground);
   }
 
-  .ph-clp-body strong,
-  .ph-clp-li strong {
+  .ph-mcp-body strong,
+  .ph-mcp-li strong {
     color: var(--foreground);
     font-weight: 600;
   }
 
-  .ph-clp-code {
+  .ph-mcp-body.ph-mcp-small {
+    font-size: 13px;
+  }
+
+  .ph-mcp-code {
     padding: 1px 6px;
     border-radius: 6px;
     background: var(--muted);
@@ -6745,19 +6756,61 @@
     font-size: 13px;
   }
 
-  .ph-clp-term {
+  .ph-mcp-steps {
+    list-style: none;
+    margin: 20px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .ph-mcp-step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .ph-mcp-n {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-mcp-step h3 {
+    margin: 4px 0 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-mcp-step p {
+    margin: 4px 0 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  .ph-mcp-term {
     margin-top: 16px;
     border-radius: 16px;
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-card);
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 4px;
     padding: 6px 6px 6px 0;
   }
 
-  .ph-clp-term > pre {
+  .ph-mcp-term > pre {
     flex: 1;
     min-width: 0;
     margin: 0;
@@ -6767,13 +6820,7 @@
     white-space: pre;
   }
 
-  .ph-clp-p {
-    color: var(--muted-foreground);
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
-  .ph-clp-copy {
+  .ph-mcp-copy {
     flex: none;
     width: 44px;
     height: 44px;
@@ -6787,11 +6834,32 @@
     cursor: pointer;
   }
 
-  .ph-clp-copy[data-done="true"] {
+  .ph-mcp-copy[data-done="true"] {
     color: var(--primary);
   }
 
-  .ph-clp-list {
+  .ph-mcp-apps {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ph-mcp-app {
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ph-mcp-list {
     list-style: none;
     margin: 16px 0 0;
     padding: 0;
@@ -6800,7 +6868,7 @@
     gap: 12px;
   }
 
-  .ph-clp-li {
+  .ph-mcp-li {
     display: flex;
     gap: 12px;
     align-items: flex-start;
@@ -6809,7 +6877,7 @@
     color: var(--muted-foreground);
   }
 
-  .ph-clp-b {
+  .ph-mcp-b {
     flex: none;
     margin-top: 9px;
     width: 6px;
@@ -6818,49 +6886,417 @@
     background: var(--primary);
   }
 
-  .ph-clp-more {
-    margin: 48px 20px 0;
-    padding: 24px;
-    border-radius: 24px;
-    background: var(--surface);
-    box-shadow: var(--shadow-card);
+  .ph-mcp-reach {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
-  .ph-clp-more-h {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 600;
-  }
-
-  .ph-clp-more-p {
-    margin: 6px 0 0;
-    font-size: 15px;
-    line-height: 1.55;
-    color: var(--muted-foreground);
-  }
-
-  .ph-clp-more-a {
-    margin-top: 8px;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
+  .ph-mcp-reach-card {
+    display: flex;
+    flex-direction: column;
     gap: 6px;
-    font-size: 15px;
-    font-weight: 600;
   }
 
-  .ph-clp-back {
-    margin: 32px 20px 0;
-    font-size: 15px;
+  .ph-mcp-reach-card > .ph-pill {
+    align-self: flex-start;
+  }
+
+  .ph-mcp-reach-b {
+    font-size: 14px;
+    line-height: 1.5;
     color: var(--muted-foreground);
   }
 
-  /* The board's inline link, in a 44px box. */
-  .ph-clp-back-a {
-    display: inline-flex;
+  .ph-mcp-foot {
+    margin-top: auto;
+    padding: 56px 20px calc(32px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-mcp-foot-links {
+    display: flex;
+    gap: 16px;
+  }
+
+  /* The board's 13px links in 44px boxes; the row keeps its drawn height. */
+  .ph-mcp-foot-links > a {
+    min-width: 44px;
     min-height: 44px;
+    margin-block: -14px;
+    display: inline-flex;
     align-items: center;
+  }
+
+  /* 0023/Main, McpEmpty, McpCreate, McpToken: Profile › MCP below md (its main is v2/Profile's .ph-pf; its nav .ph-seg.ph-pf-seg; its cards v2/Devices' .ph-dv-card, -head, -ic, -who, -dl, -list, -section, -lead; its sheets .ph-sheet + .ph-grab; its choices .ph-opt + .ph-radio; its chips .ph-chip; its error .ph-notice); bodies as drawn. */
+
+  .ph-mt-sec {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-mt-addr {
+    padding: 6px 6px 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-mt-addr-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-mt-addr-lbl {
+    font-size: 12px;
     font-weight: 600;
+    color: var(--muted-foreground);
+  }
+
+  .ph-mt-addr-url {
+    font-size: 13px;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  .ph-mt-copy {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-mt-copy[data-done="true"] {
+    color: var(--primary);
+  }
+
+  .ph-h2.ph-mt-h2 {
+    font-size: 16px;
+  }
+
+  .ph-dv-ic.ph-mt-ic {
+    background: var(--primary-muted);
+    color: var(--primary);
+  }
+
+  .ph-mt-name {
+    font-size: 15px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-mt-pills {
+    margin-top: 4px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* Full access: Main's .pill.warn is 22%, .ph-pill.ph-warn 18%. */
+  .ph-pill.ph-mt-full {
+    background: color-mix(in oklab, var(--warning) 22%, transparent);
+  }
+
+  /* The hint's link in a 44px box; its line keeps the drawn height. */
+  .ph-mt-inline-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-block: -12.5px;
+  }
+
+  .ph-mt-empty {
+    padding: 28px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .ph-mt-empty-ic {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-h2.ph-mt-empty-h {
+    margin-top: 4px;
+  }
+
+  .ph-hint.ph-mt-empty-b {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .ph-mt-steps {
+    list-style: none;
+    margin: 8px 0 4px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-self: stretch;
+  }
+
+  .ph-mt-step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    text-align: left;
+  }
+
+  .ph-mt-n {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-mt-step strong {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .ph-btn.ph-mt-empty-cta {
+    align-self: stretch;
+    margin-top: 8px;
+  }
+
+  .ph-mt-empty-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-hint.ph-mt-empty-addr {
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  /* McpCreate's sheet tops out at 90%, McpToken's is 94% tall; their feet draw the bottom padding. */
+  .ph-sheet.ph-mt-sheet {
+    max-height: 90%;
+    padding-bottom: 0;
+  }
+
+  .ph-sheet.ph-mt-sheet-tall {
+    height: 94%;
+    max-height: 94%;
+  }
+
+  .ph-mt-form,
+  .ph-mt-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ph-mt-sheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 20px;
+  }
+
+  .ph-mt-sheet-body.ph-mt-tight {
+    gap: 18px;
+  }
+
+  .ph-h2.ph-mt-sheet-h {
+    font-size: 20px;
+  }
+
+  .ph-input.ph-mt-input {
+    background: var(--background);
+  }
+
+  .ph-hint.ph-mt-count {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ph-lbl.ph-mt-legend {
+    margin-bottom: 8px;
+  }
+
+  .ph-opt.ph-mt-opt {
+    position: relative;
+  }
+
+  .ph-mt-opt-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-mt-opt-t {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-mt-opt-b {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+
+  .ph-mt-rec {
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    white-space: nowrap;
+  }
+
+  .ph-hint.ph-mt-note {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .ph-mt-note > svg {
+    flex: none;
+    margin-top: 1px;
+  }
+
+  .ph-mt-foot {
+    flex: none;
+    margin: 0 -20px;
+    padding: 12px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+  }
+
+  /* The board's Done is a link; a button does not fill its row by itself. */
+  .ph-mt-foot > .ph-btn {
+    width: 100%;
+  }
+
+  .ph-mt-foot.ph-mt-foot-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  /* The board's --warning-text is no globals.css token: the words are foreground, the icon --warning. */
+  .ph-mt-warn {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: color-mix(in oklab, var(--warning) 16%, transparent);
+    color: var(--foreground);
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 500;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .ph-mt-warn > svg {
+    flex: none;
+    color: var(--warning);
+  }
+
+  .ph-mt-tok {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ph-mt-term {
+    border-radius: 16px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 6px 6px 6px 0;
+  }
+
+  .ph-mt-term > pre {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 0 10px 14px;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre;
+  }
+
+  .ph-mt-add {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Drawn margin 0 -20px, padding 2px 20px: 2px more each way holds the chips' 44px boxes inside the scroller. */
+  .ph-mt-chips {
+    display: flex;
+    gap: 8px;
+    margin: -2px -20px;
+    padding: 4px 20px;
+  }
+
+  .ph-chip.ph-mt-chip::before {
+    background: var(--background);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  .ph-chip.ph-mt-chip[aria-pressed="true"] {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .ph-chip.ph-mt-chip[aria-pressed="true"]::before {
+    background: var(--primary-muted);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--primary) 45%, transparent);
   }
 
   /* v3/CVNew (its main is v2/CVEditor's .ph-ce, its rows PhoneCvSections' .ph-acc in .ph-group.ph-ce-list, its bar .ph-bar with .ph-dr-lead-btn / .ph-dr-go-btn); bodies as drawn. */

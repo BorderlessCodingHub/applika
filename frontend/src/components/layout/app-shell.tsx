@@ -5,7 +5,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppLogo } from "@/components/app-logo";
-import { CliPromoBanner } from "@/components/cli-promo-banner";
+import { McpPromoBanner } from "@/components/mcp-promo-banner";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 import { CycleSelector } from "@/components/layout/cycle-selector";
 import { Header } from "@/components/layout/header";
@@ -187,7 +187,7 @@ export function AppShell({
                 isFullWidth ? "w-full" : "mx-auto max-w-7xl",
               )}
             >
-              <CliPromoBanner />
+              <McpPromoBanner />
               {children}
             </div>
           </main>

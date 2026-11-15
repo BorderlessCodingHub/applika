@@ -18,18 +18,27 @@ import {
   type ProfileSection,
 } from "@/components/phone/screens/profile-screen";
 import { DevicesScreen } from "@/components/phone/screens/devices-screen";
+import { McpScreen } from "@/components/phone/screens/mcp-screen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DevicesTab } from "@/components/profile/devices-tab";
+import { McpTab } from "@/components/profile/mcp-tab";
+import { APP_CONFIG } from "@/config";
+import { useMinuteClock } from "@/hooks/use-minute-clock";
 import {
+  mcpCreateErrorMessage,
+  useCreateMcpToken,
   useRevokeOtherSessions,
   useRevokeSession,
   useSessions,
 } from "@/hooks/use-sessions";
 
-export type ProfileTab = "profile" | "devices";
+/** The tabs in order: Profile | MCP | Devices (the owner: MCP "just between profile and devices"). */
+export const PROFILE_TABS = ["profile", "mcp", "devices"] as const;
+
+export type ProfileTab = (typeof PROFILE_TABS)[number];
 
 function isProfileTab(value: string | null): value is ProfileTab {
-  return value === "profile" || value === "devices";
+  return PROFILE_TABS.some((tab) => tab === value);
 }
 
 /**
@@ -70,9 +79,46 @@ export function ProfileDevices() {
 }
 
 /**
- * `/profile`: below md the Profile and Devices boards, one screen with a
- * Profile / Devices switch (PRD 0021); at md and up today's two tabs,
- * unchanged.
+ * The MCP tab's data half (ADR-0028). Mounted only while its tab is open, like
+ * Devices. The token of a new connection lives in the create mutation's
+ * state while the dialog shows it, and closing the dialog resets it: it is
+ * never cached, stored, logged or fetched again.
+ */
+export function ProfileMcp() {
+  const sessions = useSessions();
+  const create = useCreateMcpToken();
+  const revoke = useRevokeSession();
+  const now = useMinuteClock();
+  // As Devices: keep "Try again" on screen, aria-busy, until the refetch settles.
+  const [retrying, setRetrying] = useState(false);
+
+  return (
+    <McpTab
+      sessions={sessions.data}
+      isLoading={sessions.isPending}
+      isError={sessions.isError || retrying}
+      onRetry={() => {
+        setRetrying(true);
+        void sessions.refetch().finally(() => setRetrying(false));
+      }}
+      isRetrying={retrying}
+      endpoint={APP_CONFIG.mcp.endpoint}
+      now={now}
+      onCreate={(name, scope) => create.mutate({ name, scope })}
+      isCreating={create.isPending}
+      createError={create.error ? mcpCreateErrorMessage(create.error) : null}
+      created={create.data ?? null}
+      onCloseResult={create.reset}
+      onRevoke={(session) => revoke.mutate(session)}
+      revokingId={revoke.isPending ? (revoke.variables?.id ?? null) : null}
+    />
+  );
+}
+
+/**
+ * `/profile`: below md the Profile, MCP and Devices boards, one screen with a
+ * Profile / MCP / Devices switch (PRD 0021, PRD 0023); at md and up three
+ * tabs in the same order.
  */
 export function ProfilePage() {
   const isPhone = useIsPhone();
@@ -80,15 +126,18 @@ export function ProfilePage() {
 }
 
 /**
- * Below md `?tab=` is read on every render (the Account hub's "Devices & CLI"
- * and `/device`'s "See your devices" open Devices): a plain tap on the
- * switch `pushState`s it, so Back returns to the other section. Never
- * `router.push` on the same path (a no-op in this static export).
+ * Below md `?tab=` is read on every render (the Account hub's "MCP" and
+ * "Devices & CLI", `/mcp`'s "Create a token" and `/device`'s "See your
+ * devices" open their section): a plain tap on the switch `pushState`s it,
+ * so Back returns to the other section. Never `router.push` on the same path
+ * (a no-op in this static export).
  */
 function ProfilePhonePage() {
   const searchParams = useSearchParams();
-  const section: ProfileSection =
-    searchParams.get("tab") === "devices" ? "devices" : "profile";
+  const requested = searchParams.get("tab");
+  const section: ProfileSection = isProfileTab(requested)
+    ? requested
+    : "profile";
   const [notice, setNotice] = useGithubRestoreReturn();
   const [editing, setEditing] = useState(false);
   // After a tap on the switch, the other section's nav takes the focus.
@@ -97,6 +146,10 @@ function ProfilePhonePage() {
     setSwitched(true);
     window.history.pushState(null, "", PROFILE_SECTION_HREF[next]);
   };
+
+  if (section === "mcp") {
+    return <McpScreen onSelectSection={select} focusSections={switched} />;
+  }
 
   return section === "devices" ? (
     <DevicesScreen onSelectSection={select} focusSections={switched} />
@@ -125,8 +178,9 @@ function ProfileDesktopPage() {
   const searchParams = useSearchParams();
 
   const [notice, setNotice] = useGithubRestoreReturn();
-  // `?tab=devices` (the `/device` page's "See your devices" link) opens the
-  // Devices tab once; switching tabs afterwards is local state only.
+  // `?tab=mcp` (`/mcp`'s "Create a token") and `?tab=devices` (the `/device`
+  // page's "See your devices") open their tab once; switching tabs afterwards
+  // is local state only.
   const [tab, setTab] = useState<ProfileTab>(() => {
     const requested = searchParams.get("tab");
     return isProfileTab(requested) ? requested : "profile";
@@ -143,8 +197,11 @@ function ProfileDesktopPage() {
       className="mx-auto w-full max-w-4xl gap-6"
     >
       <TabsList variant="line">
-        <TabsTrigger value="profile">{t("profile")}</TabsTrigger>
-        <TabsTrigger value="devices">{t("devices")}</TabsTrigger>
+        {PROFILE_TABS.map((value) => (
+          <TabsTrigger key={value} value={value}>
+            {t(value)}
+          </TabsTrigger>
+        ))}
       </TabsList>
       <TabsContent value="profile">
         {editing ? (
@@ -169,6 +226,9 @@ function ProfileDesktopPage() {
             />
           </>
         )}
+      </TabsContent>
+      <TabsContent value="mcp">
+        <ProfileMcp />
       </TabsContent>
       <TabsContent value="devices">
         <ProfileDevices />

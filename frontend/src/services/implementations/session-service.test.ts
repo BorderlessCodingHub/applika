@@ -47,6 +47,29 @@ describe("SessionService", () => {
     });
     expect(post).toHaveBeenCalledWith("/users/me/sessions/revoke-others");
   });
+
+  it("creates an MCP token with POST /users/me/mcp-tokens {name, scope} and hands back the 201", async () => {
+    const created = {
+      id: "7300000000000000009",
+      name: "Claude Code",
+      scope: ["read", "write"],
+      token: "applika_mcp_fake_00000000000000000000000000000000000000",
+      created_at: "2026-11-14T09:00:00Z",
+      expires_at: "2027-02-12T09:00:00Z",
+    };
+    post.mockResolvedValueOnce({ data: created });
+
+    await expect(
+      new SessionService().createMcpToken({
+        name: "Claude Code",
+        scope: ["read", "write"],
+      }),
+    ).resolves.toEqual(created);
+    expect(post).toHaveBeenCalledWith("/users/me/mcp-tokens", {
+      name: "Claude Code",
+      scope: ["read", "write"],
+    });
+  });
 });
 
 describe("AuthService device code calls", () => {

@@ -5,6 +5,8 @@ import { useLocale } from "next-intl";
 import { Globe, LoaderCircle, LogOut, SquareTerminal } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { McpIcon } from "@/components/mcp/mcp-icon";
+import { McpScopeChip } from "@/components/mcp/mcp-scope-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,8 +17,10 @@ import {
   DEVICES_COPY,
   SESSION_STATUS_LABEL,
   SIGN_IN_METHOD_LABEL,
+  formatSessionDate,
   formatSessionTime,
   revokeTitle,
+  sessionClientLabel,
   sessionEndedAt,
   signInIpLine,
 } from "./devices-copy";
@@ -99,7 +103,12 @@ export function DeviceRow({
   const nameId = useId();
   const active = session.status === "active";
   const current = active && session.current;
-  const Icon = session.client_type === "cli" ? SquareTerminal : Globe;
+  const mcp = session.client_type === "mcp";
+  const Icon = mcp
+    ? McpIcon
+    : session.client_type === "cli"
+      ? SquareTerminal
+      : Globe;
   const terms = DEVICE_TERMS;
 
   return (
@@ -146,6 +155,7 @@ export function DeviceRow({
               </Badge>
             ) : null}
             <DeviceStatusBadge status={session.status} />
+            {mcp ? <McpScopeChip scope={session.scope} /> : null}
           </div>
         </div>
 
@@ -183,7 +193,11 @@ export function DeviceRow({
                 : revokeTitle(session.device_name)
             }
             description={
-              current ? DEVICES_COPY.signOutBody : DEVICES_COPY.revokeBody
+              current
+                ? DEVICES_COPY.signOutBody
+                : mcp
+                  ? DEVICES_COPY.revokeMcpBody
+                  : DEVICES_COPY.revokeBody
             }
             confirmLabel={
               current ? DEVICES_COPY.signOut : DEVICES_COPY.revokeConfirm
@@ -196,7 +210,7 @@ export function DeviceRow({
       </div>
 
       <dl className="grid grid-cols-1 gap-y-2 text-sm @xl/device-row:grid-cols-3 @xl/device-row:gap-x-6 @xl/device-row:gap-y-3 @xl/device-row:pl-12">
-        <Detail term={terms.client}>{session.client_label}</Detail>
+        <Detail term={terms.client}>{sessionClientLabel(session)}</Detail>
         <Detail term={terms.method}>
           {SIGN_IN_METHOD_LABEL[session.sign_in_method]}
         </Detail>
@@ -230,9 +244,17 @@ export function DeviceRow({
             <span className="text-muted-foreground">{DEVICES_COPY.never}</span>
           )}
         </Detail>
-        <Detail term={active ? terms.expires : terms.ended}>
-          <Time iso={active ? session.expires_at : sessionEndedAt(session)} />
-        </Detail>
+        {active && mcp ? (
+          <Detail term={terms.endsIfUnused}>
+            <time dateTime={session.expires_at} className="tabular-nums">
+              {formatSessionDate(session.expires_at)}
+            </time>
+          </Detail>
+        ) : (
+          <Detail term={active ? terms.expires : terms.ended}>
+            <Time iso={active ? session.expires_at : sessionEndedAt(session)} />
+          </Detail>
+        )}
       </dl>
     </li>
   );

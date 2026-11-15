@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { Terminal, X } from "lucide-react";
+import Link from "next/link";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { McpIcon } from "@/components/mcp/mcp-icon";
 import { Button } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config";
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = "applika.cli-banner-dismissed";
-const STORAGE_EVENT = "applika:cli-banner-dismissed";
+export const MCP_BANNER_STORAGE_KEY = "applika.mcp-banner-dismissed";
+const STORAGE_EVENT = "applika:mcp-banner-dismissed";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
@@ -21,7 +23,7 @@ function subscribe(onChange: () => void) {
 
 function getSnapshot(): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) !== null;
+    return window.localStorage.getItem(MCP_BANNER_STORAGE_KEY) !== null;
   } catch {
     return false;
   }
@@ -29,8 +31,9 @@ function getSnapshot(): boolean {
 
 const getServerSnapshot = (): boolean => true;
 
-export function CliPromoBanner() {
-  const t = useTranslations("cliBanner");
+/** The Applika MCP announcement atop signed-in pages, until dismissed on this browser. */
+export function McpPromoBanner() {
+  const t = useTranslations("mcpBanner");
   const dismissed = useSyncExternalStore(
     subscribe,
     getSnapshot,
@@ -42,7 +45,7 @@ export function CliPromoBanner() {
 
   const dismiss = () => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, "1");
+      window.localStorage.setItem(MCP_BANNER_STORAGE_KEY, "1");
       window.dispatchEvent(new Event(STORAGE_EVENT));
     } catch {
       setClosedThisSession(true);
@@ -53,6 +56,7 @@ export function CliPromoBanner() {
     <div
       role="region"
       aria-label={t("region")}
+      data-slot="mcp-promo-banner"
       // Below sm the CTA drops under the copy: beside it the copy column was ~60px wide.
       className={cn(
         "mb-4 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm",
@@ -60,15 +64,11 @@ export function CliPromoBanner() {
       )}
     >
       <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Terminal className="size-4" aria-hidden />
+        <McpIcon className="size-4" aria-hidden />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="leading-tight font-medium">
-          {t.rich("title", {
-            mono: (chunks) => <span className="font-mono">{chunks}</span>,
-          })}
-        </p>
+        <p className="leading-tight font-medium">{t("title")}</p>
         <p className="text-xs text-muted-foreground sm:text-sm">{t("body")}</p>
       </div>
 
@@ -79,9 +79,7 @@ export function CliPromoBanner() {
         // Below md every control is at least 44px both ways (PRD 0021).
         className="col-start-2 row-start-2 shrink-0 justify-self-start max-md:h-11"
       >
-        <a href={APP_CONFIG.cli.url} target="_blank" rel="noopener noreferrer">
-          {t("cta")}
-        </a>
+        <Link href={APP_CONFIG.mcp.page}>{t("cta")}</Link>
       </Button>
 
       <button

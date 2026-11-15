@@ -523,7 +523,7 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     expect(hint).toMatch(/background:\s*var\(--muted\)/);
   });
 
-  it("ends the landing and /cli footer clear of the home indicator, in one shared rule", () => {
+  it("ends the landing footer clear of the home indicator, in one rule", () => {
     expect(ruleBodies(".ph-landing-footer")).toHaveLength(1);
     expect(declarations(ruleBody(".ph-landing-footer"))).toEqual({
       "margin-top": "40px",
@@ -532,8 +532,8 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
       gap: "20px",
       "font-size": "13px",
     });
-    // One footer for both pages: no page variant of it, no scroll padding
-    // (only the signed-in phone shell sets one, on the document).
+    // One footer, no page variant of it (/mcp draws its own, .ph-mcp-foot), no
+    // scroll padding (only the signed-in phone shell sets one, on the document).
     expect(css).not.toMatch(/\.ph-landing-footer\.[a-z]/);
     expect(ruleBody(".ph-landing-footer")).not.toMatch(/scroll-padding/);
     for (const [, selector] of css.matchAll(/([^{};]+)\{[^}]*scroll-padding/g))
@@ -2146,29 +2146,85 @@ describe("phone.css: v3 state cards, check option, AdminFeatures, AdminFeatureVi
   });
 });
 
-// v3/Cli (`ph-clp-`; `ph-cli-` is /cli/code's) and v3/CVNew (`ph-cn-`, the
-// `.ph-cn` scope): each board's own <style> classes and inline blocks.
-const V3_CLI = [
-  "ph-clp-tile",
-  "ph-clp-eyebrow",
-  "ph-clp-h1",
-  "ph-clp-pypi",
-  "ph-clp-sec",
-  "ph-clp-h",
-  "ph-clp-body",
-  "ph-clp-code",
-  "ph-clp-term",
-  "ph-clp-p",
-  "ph-clp-copy",
-  "ph-clp-list",
-  "ph-clp-li",
-  "ph-clp-b",
-  "ph-clp-more",
-  "ph-clp-more-h",
-  "ph-clp-more-p",
-  "ph-clp-more-a",
-  "ph-clp-back",
-  "ph-clp-back-a",
+// 0023/McpPage (`ph-mcp-`, the public /mcp; `ph-cli-` is /cli/code's), 0023's
+// Profile › MCP boards (`ph-mt-`: Main, McpEmpty, McpCreate, McpToken) and
+// v3/CVNew (`ph-cn-`, the `.ph-cn` scope): each board's own <style> classes
+// and inline blocks.
+const MCP_PAGE = [
+  "ph-mcp-tile",
+  "ph-mcp-eyebrow",
+  "ph-mcp-h1",
+  "ph-mcp-cta",
+  "ph-mcp-cta-note",
+  "ph-mcp-sec",
+  "ph-mcp-h",
+  "ph-mcp-body",
+  "ph-mcp-small",
+  "ph-mcp-code",
+  "ph-mcp-steps",
+  "ph-mcp-step",
+  "ph-mcp-n",
+  "ph-mcp-term",
+  "ph-mcp-copy",
+  "ph-mcp-apps",
+  "ph-mcp-app",
+  "ph-mcp-list",
+  "ph-mcp-li",
+  "ph-mcp-b",
+  "ph-mcp-reach",
+  "ph-mcp-reach-card",
+  "ph-mcp-reach-b",
+  "ph-mcp-foot",
+  "ph-mcp-foot-links",
+] as const;
+
+const MCP_TAB = [
+  "ph-mt-sec",
+  "ph-mt-addr",
+  "ph-mt-addr-text",
+  "ph-mt-addr-lbl",
+  "ph-mt-addr-url",
+  "ph-mt-copy",
+  "ph-mt-h2",
+  "ph-mt-ic",
+  "ph-mt-name",
+  "ph-mt-pills",
+  "ph-mt-full",
+  "ph-mt-inline-link",
+  "ph-mt-empty",
+  "ph-mt-empty-ic",
+  "ph-mt-empty-h",
+  "ph-mt-empty-b",
+  "ph-mt-steps",
+  "ph-mt-step",
+  "ph-mt-n",
+  "ph-mt-empty-cta",
+  "ph-mt-empty-link",
+  "ph-mt-empty-addr",
+  "ph-mt-sheet",
+  "ph-mt-sheet-tall",
+  "ph-mt-form",
+  "ph-mt-pane",
+  "ph-mt-sheet-body",
+  "ph-mt-tight",
+  "ph-mt-sheet-h",
+  "ph-mt-input",
+  "ph-mt-count",
+  "ph-mt-legend",
+  "ph-mt-opt",
+  "ph-mt-opt-text",
+  "ph-mt-opt-t",
+  "ph-mt-opt-b",
+  "ph-mt-rec",
+  "ph-mt-note",
+  "ph-mt-foot",
+  "ph-mt-foot-2",
+  "ph-mt-warn",
+  "ph-mt-tok",
+  "ph-mt-term",
+  "ph-mt-add",
+  "ph-mt-chips",
+  "ph-mt-chip",
 ] as const;
 
 const V3_CV_NEW = [
@@ -2193,146 +2249,262 @@ function flatRuleBody(selector: string): string {
   return match![1];
 }
 
-describe("phone.css: v3 Cli and CVNew", () => {
-  it.each([...V3_CLI, ...V3_CV_NEW])("declares .%s", (name) => {
+describe("phone.css: 0023 MCP page, Profile › MCP and v3 CVNew", () => {
+  it.each([...MCP_PAGE, ...MCP_TAB, ...V3_CV_NEW])("declares .%s", (name) => {
     expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
   });
 
-  it("keeps v3/Cli on its own prefix, clear of /cli/code's .ph-cli-", () => {
-    const cliPage = [...DECLARED].filter((name) => name.startsWith("ph-clp-"));
-    expect(cliPage.sort()).toEqual([...V3_CLI].sort());
+  it("keeps each board on its own prefix; /cli/code's .ph-cli- stays until the CLI is retired", () => {
+    const own = (prefix: string) =>
+      [...DECLARED].filter((name) => name.startsWith(prefix)).sort();
+    expect(own("ph-mcp-")).toEqual([...MCP_PAGE].sort());
+    expect(own("ph-mt-")).toEqual([...MCP_TAB].sort());
+    expect(own("ph-cli-").length).toBeGreaterThan(0);
   });
 
-  it("draws v3/Cli's hero at the board's sizes", () => {
-    const tile = ruleBody(".ph-clp-tile");
+  it("splits Profile's segmented nav in three: Profile | MCP | Devices", () => {
+    expect(ruleBody(".ph-seg.ph-pf-seg")).toMatch(
+      /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/,
+    );
+  });
+
+  it("draws McpPage's hero at the board's sizes", () => {
+    const tile = ruleBody(".ph-mcp-tile");
     expect(tile).toMatch(/width:\s*56px/);
     expect(tile).toMatch(/height:\s*56px/);
     expect(tile).toMatch(/border-radius:\s*18px/);
     expect(tile).toMatch(/background:\s*var\(--primary-muted\)/);
     expect(tile).toMatch(/color:\s*var\(--primary\)/);
-    expect(tile).toMatch(/justify-content:\s*center/);
-    expect(ruleBody(".ph-landing-eyebrow.ph-clp-eyebrow")).toMatch(
+    expect(ruleBody(".ph-landing-eyebrow.ph-mcp-eyebrow")).toMatch(
       /margin-top:\s*20px/,
     );
-    const h1 = ruleBody(".ph-clp-h1");
+    const h1 = ruleBody(".ph-mcp-h1");
     expect(h1).toMatch(/margin:\s*8px 0 0/);
-    expect(h1).toMatch(/font-size:\s*38px/);
-    expect(h1).toMatch(/line-height:\s*1\.05/);
+    expect(h1).toMatch(/font-size:\s*36px/);
+    expect(h1).toMatch(/line-height:\s*1\.08/);
     expect(h1).toMatch(/font-weight:\s*700/);
     expect(h1).toMatch(/letter-spacing:\s*-0\.03em/);
-    const pypi = ruleBody(".ph-clp-pypi");
-    expect(pypi).toMatch(/margin-top:\s*24px/);
-    expect(pypi).toMatch(/height:\s*52px/);
-    expect(pypi).toMatch(/border-radius:\s*16px/);
-    expect(pypi).toMatch(/background:\s*var\(--primary\)/);
-    expect(pypi).toMatch(/color:\s*var\(--primary-foreground\)/);
-    expect(pypi).toMatch(/gap:\s*8px/);
-    expect(pypi).toMatch(/font-size:\s*15px/);
-    expect(pypi).toMatch(/font-weight:\s*600/);
+    const cta = ruleBody(".ph-mcp-cta");
+    expect(cta).toMatch(/margin-top:\s*24px/);
+    expect(cta).toMatch(/height:\s*52px/);
+    expect(cta).toMatch(/border-radius:\s*16px/);
+    expect(cta).toMatch(/background:\s*var\(--primary\)/);
+    expect(cta).toMatch(/color:\s*var\(--primary-foreground\)/);
+    expect(cta).toMatch(/box-shadow:\s*var\(--ph-glow\)/);
+    expect(cta).toMatch(/font-size:\s*15px/);
+    expect(cta).toMatch(/font-weight:\s*600/);
+    const note = ruleBody(".ph-mcp-cta-note");
+    expect(note).toMatch(/margin:\s*10px 0 0/);
+    expect(note).toMatch(/font-size:\s*13px/);
+    expect(note).toMatch(/text-align:\s*center/);
   });
 
-  it("draws v3/Cli's sections, bodies, codes and the sign-in list at the board's sizes", () => {
-    expect(ruleBody(".ph-clp-sec")).toMatch(/padding:\s*48px 20px 0/);
-    const h = ruleBody(".ph-clp-h");
+  it("draws McpPage's sections, steps, address and lists at the board's sizes", () => {
+    expect(ruleBody(".ph-mcp-sec")).toMatch(/padding:\s*48px 20px 0/);
+    const h = ruleBody(".ph-mcp-h");
     expect(h).toMatch(/font-size:\s*20px/);
     expect(h).toMatch(/font-weight:\s*700/);
     expect(h).toMatch(/letter-spacing:\s*-0\.02em/);
-    const body = ruleBody(".ph-clp-body");
+    const body = ruleBody(".ph-mcp-body");
     expect(body).toMatch(/margin:\s*8px 0 0/);
     expect(body).toMatch(/font-size:\s*15px/);
     expect(body).toMatch(/line-height:\s*1\.55/);
     expect(body).toMatch(/color:\s*var\(--muted-foreground\)/);
     expect(css).toMatch(
-      /\.ph-clp-body strong,\s*\.ph-clp-li strong\s*\{[^}]*color:\s*var\(--foreground\)[^}]*font-weight:\s*600/,
+      /\.ph-mcp-body strong,\s*\.ph-mcp-li strong\s*\{[^}]*color:\s*var\(--foreground\)[^}]*font-weight:\s*600/,
     );
-    const code = ruleBody(".ph-clp-code");
+    expect(ruleBody(".ph-mcp-body.ph-mcp-small")).toMatch(/font-size:\s*13px/);
+    const code = ruleBody(".ph-mcp-code");
     expect(code).toMatch(/padding:\s*1px 6px/);
     expect(code).toMatch(/border-radius:\s*6px/);
     expect(code).toMatch(/background:\s*var\(--muted\)/);
-    expect(code).toMatch(/font-size:\s*13px/);
-    const list = ruleBody(".ph-clp-list");
-    expect(list).toMatch(/list-style:\s*none/);
-    expect(list).toMatch(/margin:\s*16px 0 0/);
-    expect(list).toMatch(/flex-direction:\s*column/);
-    expect(list).toMatch(/gap:\s*12px/);
-    const li = ruleBody(".ph-clp-li");
-    expect(li).toMatch(/display:\s*flex/);
-    expect(li).toMatch(/gap:\s*12px/);
-    expect(li).toMatch(/align-items:\s*flex-start/);
-    expect(li).toMatch(/font-size:\s*15px/);
-    expect(li).toMatch(/line-height:\s*1\.55/);
-    expect(li).toMatch(/color:\s*var\(--muted-foreground\)/);
-    const bullet = ruleBody(".ph-clp-b");
-    expect(bullet).toMatch(/width:\s*6px/);
-    expect(bullet).toMatch(/height:\s*6px/);
-    expect(bullet).toMatch(/border-radius:\s*999px/);
-    expect(bullet).toMatch(/margin-top:\s*9px/);
-    expect(bullet).toMatch(/background:\s*var\(--primary\)/);
-  });
-
-  it("draws v3/Cli's terminal: the pre scrolls inside itself, the prompt is never selected, Copy is 44px", () => {
-    const term = ruleBody(".ph-clp-term");
+    const steps = ruleBody(".ph-mcp-steps");
+    expect(steps).toMatch(/margin:\s*20px 0 0/);
+    expect(steps).toMatch(/flex-direction:\s*column/);
+    expect(steps).toMatch(/gap:\s*20px/);
+    expect(ruleBody(".ph-mcp-step")).toMatch(/gap:\s*14px/);
+    const n = ruleBody(".ph-mcp-n");
+    expect(n).toMatch(/width:\s*32px/);
+    expect(n).toMatch(/height:\s*32px/);
+    expect(n).toMatch(/border-radius:\s*999px/);
+    expect(n).toMatch(/color:\s*var\(--accent-foreground\)/);
+    expect(n).toMatch(/font-weight:\s*700/);
+    expect(ruleBody(".ph-mcp-step h3")).toMatch(/font-size:\s*16px/);
+    const p = ruleBody(".ph-mcp-step p");
+    expect(p).toMatch(/font-size:\s*14px/);
+    expect(p).toMatch(/line-height:\s*1\.5/);
+    const term = ruleBody(".ph-mcp-term");
     expect(term).toMatch(/margin-top:\s*16px/);
     expect(term).toMatch(/border-radius:\s*16px/);
     expect(term).toMatch(/background:\s*var\(--surface\)/);
     expect(term).toMatch(/border:\s*1px solid var\(--border\)/);
     expect(term).toMatch(/box-shadow:\s*var\(--shadow-card\)/);
-    expect(term).toMatch(/display:\s*flex/);
-    expect(term).toMatch(/align-items:\s*flex-start/);
-    expect(term).toMatch(/gap:\s*4px/);
     expect(term).toMatch(/padding:\s*6px 6px 6px 0/);
-    const pre = ruleBody(".ph-clp-term > pre");
-    expect(pre).toMatch(/flex:\s*1/);
-    expect(pre).toMatch(/min-width:\s*0/);
+    const pre = ruleBody(".ph-mcp-term > pre");
     expect(pre).toMatch(/padding:\s*10px 0 10px 16px/);
     expect(pre).toMatch(/font-size:\s*13px/);
     expect(pre).toMatch(/line-height:\s*1\.75/);
     expect(pre).toMatch(/white-space:\s*pre/);
-    const prompt = ruleBody(".ph-clp-p");
-    expect(prompt).toMatch(/color:\s*var\(--muted-foreground\)/);
-    expect(prompt).toMatch(/-webkit-user-select:\s*none/);
-    expect(prompt).toMatch(/(?:^|[^-])user-select:\s*none/);
-    const copy = ruleBody(".ph-clp-copy");
+    const copy = ruleBody(".ph-mcp-copy");
     expect(copy).toMatch(/width:\s*44px/);
     expect(copy).toMatch(/height:\s*44px/);
     expect(copy).toMatch(/border-radius:\s*12px/);
-    expect(copy).toMatch(/background:\s*transparent/);
-    expect(copy).toMatch(/color:\s*var\(--muted-foreground\)/);
-    expect(ruleBody('.ph-clp-copy[data-done="true"]')).toMatch(
+    expect(ruleBody('.ph-mcp-copy[data-done="true"]')).toMatch(
       /color:\s*var\(--primary\)/,
+    );
+    const apps = ruleBody(".ph-mcp-apps");
+    expect(apps).toMatch(
+      /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    expect(apps).toMatch(/gap:\s*8px/);
+    const app = ruleBody(".ph-mcp-app");
+    expect(app).toMatch(/min-height:\s*48px/);
+    expect(app).toMatch(/padding:\s*0 14px/);
+    expect(app).toMatch(/border-radius:\s*14px/);
+    expect(app).toMatch(/font-weight:\s*600/);
+    expect(ruleBody(".ph-mcp-list")).toMatch(/gap:\s*12px/);
+    const li = ruleBody(".ph-mcp-li");
+    expect(li).toMatch(/gap:\s*12px/);
+    expect(li).toMatch(/font-size:\s*15px/);
+    const b = ruleBody(".ph-mcp-b");
+    expect(b).toMatch(/margin-top:\s*9px/);
+    expect(b).toMatch(/width:\s*6px/);
+    expect(b).toMatch(/background:\s*var\(--primary\)/);
+    expect(ruleBody(".ph-mcp-reach")).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-mcp-reach-card")).toMatch(/gap:\s*6px/);
+    expect(ruleBody(".ph-mcp-reach-card > .ph-pill")).toMatch(
+      /align-self:\s*flex-start/,
+    );
+    const foot = ruleBody(".ph-mcp-foot");
+    expect(foot).toMatch(/margin-top:\s*auto/);
+    expect(foot).toMatch(
+      /padding:\s*56px 20px calc\(32px \+ env\(safe-area-inset-bottom, 0px\)\)/,
+    );
+    const footA = ruleBody(".ph-mcp-foot-links > a");
+    expect(footA).toMatch(/min-width:\s*44px/);
+    expect(footA).toMatch(/min-height:\s*44px/);
+  });
+
+  it("draws Main's address card, rows and pills at the board's sizes", () => {
+    expect(ruleBody(".ph-mt-sec")).toMatch(/gap:\s*12px/);
+    const addr = ruleBody(".ph-mt-addr");
+    expect(addr).toMatch(/padding:\s*6px 6px 6px 16px/);
+    expect(addr).toMatch(/gap:\s*8px/);
+    const lbl = ruleBody(".ph-mt-addr-lbl");
+    expect(lbl).toMatch(/font-size:\s*12px/);
+    expect(lbl).toMatch(/font-weight:\s*600/);
+    const url = ruleBody(".ph-mt-addr-url");
+    expect(url).toMatch(/font-size:\s*13px/);
+    expect(url).toMatch(/white-space:\s*nowrap/);
+    const copy = ruleBody(".ph-mt-copy");
+    expect(copy).toMatch(/width:\s*44px/);
+    expect(copy).toMatch(/height:\s*44px/);
+    expect(ruleBody('.ph-mt-copy[data-done="true"]')).toMatch(
+      /color:\s*var\(--primary\)/,
+    );
+    expect(ruleBody(".ph-h2.ph-mt-h2")).toMatch(/font-size:\s*16px/);
+    const ic = ruleBody(".ph-dv-ic.ph-mt-ic");
+    expect(ic).toMatch(/background:\s*var\(--primary-muted\)/);
+    expect(ic).toMatch(/color:\s*var\(--primary\)/);
+    const name = ruleBody(".ph-mt-name");
+    expect(name).toMatch(/font-size:\s*15px/);
+    expect(name).toMatch(/text-overflow:\s*ellipsis/);
+    expect(ruleBody(".ph-mt-pills")).toMatch(/gap:\s*6px/);
+    expect(ruleBody(".ph-pill.ph-mt-full")).toMatch(
+      /color-mix\(in oklab, var\(--warning\) 22%, transparent\)/,
+    );
+    expect(ruleBody(".ph-mt-inline-link")).toMatch(/min-height:\s*44px/);
+  });
+
+  it("draws McpEmpty at the board's sizes", () => {
+    const empty = ruleBody(".ph-mt-empty");
+    expect(empty).toMatch(/padding:\s*28px 20px 24px/);
+    expect(empty).toMatch(/text-align:\s*center/);
+    expect(empty).toMatch(/gap:\s*12px/);
+    const ic = ruleBody(".ph-mt-empty-ic");
+    expect(ic).toMatch(/width:\s*56px/);
+    expect(ic).toMatch(/border-radius:\s*18px/);
+    expect(ruleBody(".ph-hint.ph-mt-empty-b")).toMatch(/font-size:\s*15px/);
+    const steps = ruleBody(".ph-mt-steps");
+    expect(steps).toMatch(/margin:\s*8px 0 4px/);
+    expect(steps).toMatch(/align-self:\s*stretch/);
+    const step = ruleBody(".ph-mt-step");
+    expect(step).toMatch(/font-size:\s*14px/);
+    expect(step).toMatch(/text-align:\s*left/);
+    const n = ruleBody(".ph-mt-n");
+    expect(n).toMatch(/width:\s*24px/);
+    expect(n).toMatch(/font-size:\s*12px/);
+    expect(ruleBody(".ph-btn.ph-mt-empty-cta")).toMatch(
+      /align-self:\s*stretch/,
+    );
+    const link = ruleBody(".ph-mt-empty-link");
+    expect(link).toMatch(/min-height:\s*44px/);
+    expect(link).toMatch(/font-size:\s*15px/);
+    expect(ruleBody(".ph-hint.ph-mt-empty-addr")).toMatch(
+      /overflow-wrap:\s*anywhere/,
     );
   });
 
-  it("draws v3/Cli's Everything else card, the line back home and the footer at the board's sizes", () => {
-    const more = ruleBody(".ph-clp-more");
-    expect(more).toMatch(/margin:\s*48px 20px 0/);
-    expect(more).toMatch(/padding:\s*24px/);
-    expect(more).toMatch(/border-radius:\s*24px/);
-    expect(more).toMatch(/background:\s*var\(--surface\)/);
-    expect(more).toMatch(/box-shadow:\s*var\(--shadow-card\)/);
-    const moreH = ruleBody(".ph-clp-more-h");
-    expect(moreH).toMatch(/font-size:\s*17px/);
-    expect(moreH).toMatch(/font-weight:\s*600/);
-    const moreP = ruleBody(".ph-clp-more-p");
-    expect(moreP).toMatch(/margin:\s*6px 0 0/);
-    expect(moreP).toMatch(/font-size:\s*15px/);
-    expect(moreP).toMatch(/line-height:\s*1\.55/);
-    expect(moreP).toMatch(/color:\s*var\(--muted-foreground\)/);
-    const moreA = ruleBody(".ph-clp-more-a");
-    expect(moreA).toMatch(/margin-top:\s*8px/);
-    expect(moreA).toMatch(/min-height:\s*44px/);
-    expect(moreA).toMatch(/display:\s*inline-flex/);
-    expect(moreA).toMatch(/gap:\s*6px/);
-    expect(moreA).toMatch(/font-size:\s*15px/);
-    expect(moreA).toMatch(/font-weight:\s*600/);
-    const back = ruleBody(".ph-clp-back");
-    expect(back).toMatch(/margin:\s*32px 20px 0/);
-    expect(back).toMatch(/font-size:\s*15px/);
-    expect(back).toMatch(/color:\s*var\(--muted-foreground\)/);
-    const backA = ruleBody(".ph-clp-back-a");
-    expect(backA).toMatch(/display:\s*inline-flex/);
-    expect(backA).toMatch(/min-height:\s*44px/);
-    expect(backA).toMatch(/font-weight:\s*600/);
+  it("draws McpCreate's and McpToken's sheets at the board's sizes", () => {
+    const sheet = ruleBody(".ph-sheet.ph-mt-sheet");
+    expect(sheet).toMatch(/max-height:\s*90%/);
+    expect(sheet).toMatch(/padding-bottom:\s*0/);
+    const tall = ruleBody(".ph-sheet.ph-mt-sheet-tall");
+    expect(tall).toMatch(/height:\s*94%/);
+    expect(tall).toMatch(/max-height:\s*94%/);
+    const body = ruleBody(".ph-mt-sheet-body");
+    expect(body).toMatch(/overflow-y:\s*auto/);
+    expect(body).toMatch(/gap:\s*20px/);
+    expect(ruleBody(".ph-mt-sheet-body.ph-mt-tight")).toMatch(/gap:\s*18px/);
+    expect(ruleBody(".ph-h2.ph-mt-sheet-h")).toMatch(/font-size:\s*20px/);
+    expect(ruleBody(".ph-input.ph-mt-input")).toMatch(
+      /background:\s*var\(--background\)/,
+    );
+    expect(ruleBody(".ph-hint.ph-mt-count")).toMatch(
+      /justify-content:\s*space-between/,
+    );
+    const t = ruleBody(".ph-mt-opt-t");
+    expect(t).toMatch(/font-size:\s*15px/);
+    expect(t).toMatch(/font-weight:\s*600/);
+    const b = ruleBody(".ph-mt-opt-b");
+    expect(b).toMatch(/font-size:\s*13px/);
+    expect(b).toMatch(/line-height:\s*1\.45/);
+    const rec = ruleBody(".ph-mt-rec");
+    expect(rec).toMatch(/height:\s*22px/);
+    expect(rec).toMatch(/font-size:\s*11px/);
+    expect(rec).toMatch(/background:\s*var\(--primary-muted\)/);
+    const foot = ruleBody(".ph-mt-foot");
+    expect(foot).toMatch(/margin:\s*0 -20px/);
+    expect(foot).toMatch(
+      /padding:\s*12px 20px calc\(28px \+ env\(safe-area-inset-bottom, 0px\)\)/,
+    );
+    expect(foot).toMatch(/border-top:\s*1px solid var\(--border\)/);
+    expect(ruleBody(".ph-mt-foot.ph-mt-foot-2")).toMatch(
+      /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    const warn = ruleBody(".ph-mt-warn");
+    expect(warn).toMatch(/padding:\s*12px 14px/);
+    expect(warn).toMatch(/border-radius:\s*14px/);
+    expect(warn).toMatch(
+      /color-mix\(in oklab, var\(--warning\) 16%, transparent\)/,
+    );
+    expect(warn).toMatch(/color:\s*var\(--foreground\)/);
+    expect(ruleBody(".ph-mt-warn > svg")).toMatch(/color:\s*var\(--warning\)/);
+    const term = ruleBody(".ph-mt-term");
+    expect(term).toMatch(/border-radius:\s*16px/);
+    expect(term).toMatch(/background:\s*var\(--background\)/);
+    expect(term).toMatch(/align-items:\s*flex-start/);
+    const pre = ruleBody(".ph-mt-term > pre");
+    expect(pre).toMatch(/padding:\s*10px 0 10px 14px/);
+    expect(pre).toMatch(/font-size:\s*12px/);
+    expect(pre).toMatch(/line-height:\s*1\.7/);
+    expect(ruleBody(".ph-mt-chips")).toMatch(/gap:\s*8px/);
+    expect(ruleBody('.ph-chip.ph-mt-chip[aria-pressed="true"]')).toMatch(
+      /color:\s*var\(--primary\)/,
+    );
+    expect(
+      flatRuleBody('.ph-chip.ph-mt-chip[aria-pressed="true"]::before'),
+    ).toMatch(/color-mix\(in oklab, var\(--primary\) 45%, transparent\)/);
   });
 
   it("draws v3/CVNew's limit card at the board's sizes", () => {

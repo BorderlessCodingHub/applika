@@ -91,6 +91,7 @@ function session(status: UserSession["status"], id: string): UserSession {
     ended_at: null,
     status,
     current: false,
+    scope: null,
   };
 }
 
@@ -267,12 +268,17 @@ describe("AccountScreen", () => {
     const links = within(accountGroup()).getAllByRole("link");
     expect(links.map((link) => link.textContent?.trim() ?? "")).toEqual([
       "Profile",
+      "MCP",
       expect.stringContaining("Devices & CLI"),
       expect.stringContaining("Sign in a device"),
     ]);
     expect(
       within(accountGroup()).getByRole("link", { name: "Profile" }),
     ).toHaveAttribute("href", "/profile");
+    // Profile › MCP, between Profile and Devices, for every user (no beta).
+    const mcp = within(accountGroup()).getByRole("link", { name: "MCP" });
+    expect(mcp).toHaveAttribute("href", "/profile?tab=mcp");
+    expect(mcp).not.toHaveAccessibleDescription();
     const devices = within(accountGroup()).getByRole("link", {
       name: "Devices & CLI",
     });
