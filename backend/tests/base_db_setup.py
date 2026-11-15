@@ -3,7 +3,6 @@ from typing import TypedDict
 from app.core.enums import EventType, InterviewType
 from app.domain.models import (
     CompanyModel,
-    FeedbackDefinitionModel,
     PlatformModel,
     StepDefinitionModel,
     UserModel,
@@ -14,17 +13,13 @@ class BaseDataType(TypedDict):
     user: UserModel
     admin_user: UserModel
     plat_linkedin: PlatformModel
-    fb_denied: FeedbackDefinitionModel
-    fb_accepted: FeedbackDefinitionModel
     step_applied: StepDefinitionModel
     company_acme: CompanyModel
 
 
 def base_data() -> BaseDataType:
     return {
-        'user': UserModel(
-            id=1, username='testuser', email='test@user.com'
-        ),
+        'user': UserModel(id=1, username='testuser', email='test@user.com'),
         'admin_user': UserModel(
             id=2,
             username='adminuser',
@@ -33,12 +28,6 @@ def base_data() -> BaseDataType:
         ),
         'plat_linkedin': PlatformModel(
             id=1, name='Linkedin', url='https://www.linkedin.com/'
-        ),
-        'fb_denied': FeedbackDefinitionModel(
-            id=1, name='Denied', color='#a80000'
-        ),
-        'fb_accepted': FeedbackDefinitionModel(
-            id=200, name='Accepted', color='#00a800'
         ),
         # Not in revision afd4074c70c2's STEP_MAPPING, so it carries the
         # revision's STEP_FALLBACK, as an admin-created definition does.
