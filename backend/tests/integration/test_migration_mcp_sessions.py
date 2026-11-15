@@ -683,19 +683,26 @@ def test_deleting_the_user_removes_their_mcp_tokens(migration_db: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# Release A: no code maps the new objects (prod-release-runbook.md 4,
+# Release B maps the new objects (prod-release-runbook.md 4,
 # non-destructive-migrations.md 7)
 # --------------------------------------------------------------------------
 
 
-def test_the_orm_maps_neither_scope_nor_mcp_yet() -> None:
-    """Release A ships the schema only. ``UserSessionModel`` maps no
-    ``scope`` and no ``scope_old``, and its CHECKs still list the parent's
-    values; release B maps ``scope`` and widens them."""
+def test_the_orm_maps_scope_and_the_mcp_checks_as_the_migration_names_them() -> (
+    None
+):
+    """Release A shipped the schema only; release B maps it.
+    ``UserSessionModel`` maps ``scope`` (never ``scope_old``) and carries
+    the three CHECKs with the exact names and text this revision creates,
+    so ``create_all`` builds the migrated schema
+    (``test_migration_user_sessions.py`` compares the two at head)."""
     from app.domain.models import Base
 
+    module = _load_migration_module()
     table = Base.metadata.tables[TABLE]
-    assert SCOPE not in table.columns
+    assert SCOPE in table.columns
+    assert table.columns[SCOPE].nullable is True
+    assert table.columns[SCOPE].type.length == 255
     assert SCOPE_OLD not in table.columns
     assert not any(
         column.name.endswith('_old')
@@ -707,6 +714,6 @@ def test_the_orm_maps_neither_scope_nor_mcp_yet() -> None:
         for constraint in table.constraints
         if isinstance(constraint, sa.CheckConstraint)
     }
-    assert MCP_SCOPE_CHECK not in checks
-    assert "'mcp'" not in checks[CLIENT_TYPE_CHECK]
-    assert "'mcp_token'" not in checks[SIGN_IN_CHECK]
+    assert checks[CLIENT_TYPE_CHECK] == module.CLIENT_TYPES
+    assert checks[SIGN_IN_CHECK] == module.SIGN_IN_METHODS
+    assert checks[MCP_SCOPE_CHECK] == module.MCP_SCOPE

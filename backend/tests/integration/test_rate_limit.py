@@ -510,3 +510,70 @@ async def test_forwarded_for_only_counted_from_a_trusted_proxy(
         text=True,
     )
     assert grep.stdout == ''
+
+
+# ---------------------------------------------------------------------------
+# The mcp bucket (ADR-0028)
+# ---------------------------------------------------------------------------
+
+
+async def test_mcp_counts_per_token_in_its_own_bucket_with_or_without_prefix(
+    async_client, no_prefix_client, redis_client, monkeypatch
+):
+    """``/mcp`` maps to the ``mcp`` bucket whether the proxy kept the
+    ``/api`` prefix or not, counted per MCP token hash with no lookup (a
+    token of the wrong shape is refused by the guard, still counted)."""
+    _enable_limiter(monkeypatch, default=100)
+    monkeypatch.setattr(envs, 'RATE_LIMIT_MCP', 1)
+    body = {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'}
+
+    def headers(token: str) -> dict[str, str]:
+        return {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json, text/event-stream',
+        }
+
+    first = await async_client.post(
+        '/mcp', json=body, headers=headers('applika_mcp_short_one')
+    )
+    assert first.status_code == 401
+    assert first.headers['X-RateLimit-Limit'] == '1'
+    refused = await no_prefix_client.post(
+        '/mcp', json=body, headers=headers('applika_mcp_short_one')
+    )
+    assert refused.status_code == 429
+    assert refused.json()['code'] == 'GEN-1004'
+    other = await async_client.post(
+        '/mcp', json=body, headers=headers('applika_mcp_short_two')
+    )
+    assert other.status_code == 401
+
+    keys = sorted(await redis_client.keys('applika:ratelimit:mcp:*'))
+    assert len(keys) == 2
+    assert all(key.split(':')[3] == 'mcp' for key in keys)
+    assert all(len(key.split(':')[4]) == 32 for key in keys)
+    # The REST bucket was never touched by /mcp.
+    assert await redis_client.keys('applika:ratelimit:default:*') == []
+
+
+async def test_a_fresh_mcp_bearer_per_request_does_not_escape_the_ip_cap(
+    async_client, redis_client, monkeypatch
+):
+    """Off ``/mcp`` an ``applika_mcp_…`` Bearer is no valid JWT: an
+    anonymous caller changing it on every ``/auth/*`` request still counts
+    against its IP and is refused at the auth limit."""
+    _enable_limiter(monkeypatch, auth=2)
+    statuses = []
+    for n in range(3):
+        response = await async_client.get(
+            '/auth/refresh',
+            headers={
+                'Authorization': f'Bearer applika_mcp_fake_{n}' + '0' * 37
+            },
+        )
+        statuses.append(response.status_code)
+    assert statuses[-1] == 429
+    assert 429 not in statuses[:2]
+    keys = await redis_client.keys('applika:ratelimit:auth:*')
+    assert len(keys) == 1
+    assert ':ip:' in keys[0]

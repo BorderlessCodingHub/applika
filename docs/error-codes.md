@@ -16,7 +16,7 @@ is written `<name>`, and `<name>` is a key of `params`.
 | area | covers | codes |
 |---|---|---|
 | GEN | Framework: unknown route, method, request validation, rate limit, server errors | 8 |
-| AUTH | Sign-in, sessions, tokens, CLI sign-in, device codes, GitHub restore | 50 |
+| AUTH | Sign-in, sessions, tokens, CLI sign-in, device codes, GitHub restore, MCP tokens | 52 |
 | USR | The signed-in user (`/users/me*`) and user lookups | 1 |
 | APP | Applications, drafts, finalize, reopen, the compatibility step routes | 14 |
 | EVT | Application timeline events | 10 |
@@ -53,7 +53,7 @@ is written `<name>`, and `<name>` is a key of `params`.
 | AUTH-1011 | 401 | `Token expired` | — | The access token is past its expiry. | `GetCurrentUserUseCase` |
 | AUTH-1012 | 401 | `Invalid token` | — | The access token is not a valid JWT for this API. | `GetCurrentUserUseCase` |
 | AUTH-1013 | 401 | `Invalid token payload` | — | The access token carries no subject. | `GetCurrentUserUseCase` |
-| AUTH-1014 | 401 | `User not found` | — | The session is live but its user no longer exists. | `GetCurrentUserUseCase`; `GET /auth/refresh` |
+| AUTH-1014 | 401 | `User not found` | — | The session is live but its user no longer exists. | `GetCurrentUserUseCase`; `GET /auth/refresh`; `POST /mcp` (`AuthenticateMcpTokenUseCase`) |
 | AUTH-1015 | 401 | `Invalid or expired refresh token` | — | The refresh value names no live session. | `GET /auth/refresh` |
 | AUTH-1016 | 401 | `Sign in again with Borderless` | — | The session predates the Borderless sign-in or the user has no Borderless link; it cannot slide on. | `GET /auth/refresh` |
 | AUTH-1017 | 503 | `Borderless is unavailable, try again later` | — | Borderless did not answer or answered unexpectedly (its discovery document, the code exchange). Since ADR-0026 sent as `?error=AUTH-1017` (plus `&cli=1` on a CLI sign-in). | `GET /auth/borderless/login`, `GET /auth/cli/authorize`, `GET /auth/cli/login/{login_id}`, `GET /auth/borderless/callback` (all `?error=`) |
@@ -90,6 +90,8 @@ is written `<name>`, and `<name>` is a key of `params`.
 | AUTH-1048 | 307 | `Borderless's answer could not be verified. Try signing in again` | — | The return had no `iss` or another issuer, or no code; Borderless refused the code exchange; the id_token did not verify (signature, issuer, audience, expiry, nonce); or no refresh token came back. Sent only as `?error=AUTH-1048` (plus `&cli=1` on a CLI sign-in). | `GET /auth/borderless/callback` (`?error=`) |
 | AUTH-1049 | 401 | `Your Borderless sign-in has ended. Sign in again with Borderless` | — | Borderless refused applika's grant (30 days after the sign-in, or access revoked) or the stored grant can no longer be read: every web session of the user ends `borderless_revoked` and this refresh clears both cookies. Command-line sessions keep refreshing. | `GET /auth/refresh` (web sessions) |
 | AUTH-1050 | 403 | `Your Borderless sign-in has ended. Sign in again on the applika website to use member features` | — | The caller holds a recorded BASE or PSP badge, but Borderless refused applika's grant: member features wait for a new sign-in on the applika website. Any client, the command-line tool included. | every membership-gated route (`require_reports_badge`) |
+| AUTH-1051 | 401 | `MCP token invalid, revoked or expired. Create a new one in Applika: Profile > MCP.` | — | The MCP server got no MCP token, a JWT, a token of the wrong shape, or a token whose session is gone (revoked, expired 90 days after its last use, or its account deleted). Sent with `WWW-Authenticate: Bearer` (ADR-0028). | `POST /mcp` (`McpAuthGuard`, `AuthenticateMcpTokenUseCase`) |
+| AUTH-1052 | other | `This MCP token's scope does not allow this tool. Create a token with more access in Applika: Profile > MCP.` | — | An MCP tool call outside the token's scope. A tool error, not an HTTP status: the JSON-RPC answer is 200 with `isError: true` and `structuredContent` `{detail, code}` (ADR-0028). | `POST /mcp` `tools/call` (MCP tool registry) |
 | USR-1001 | 404 | `User not found` | — | The user does not exist. | `UpdateUserUseCase`; admin user detail, update and feature beta list |
 | APP-1001 | 404 | `Application not found or not owned by user` | — | The application does not exist or belongs to someone else. | application, timeline, CV copy and compatibility step routes |
 | APP-1002 | 422 | `Cannot modify an application from an archived cycle` | — | The application belongs to an archived cycle and is read-only. | application update, delete and timeline writes |

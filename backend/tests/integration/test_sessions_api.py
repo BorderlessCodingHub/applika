@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.domain.models import UserSessionModel
 from tests.base_db_setup import base_data
-from tests.sessions_seed import open_session
+from tests.sessions_seed import open_mcp_token, open_session
 
 USER = base_data()['user']
 ADMIN = base_data()['admin_user']
@@ -37,6 +37,7 @@ ITEM_KEYS = {
     'ended_at',
     'status',
     'current',
+    'scope',
 }
 
 
@@ -126,6 +127,9 @@ async def test_list_shape_web_and_cli_and_this_device(
     assert cli_item['client_label'] == 'applika-cli 1.1.0'
     assert cli_item['created_ip'] == '198.51.100.9'
     assert cli_item['last_used_at'] is None
+    # Only an MCP token has a scope (ADR-0028).
+    assert web_item['scope'] is None
+    assert cli_item['scope'] is None
     # The refresh value is never listed.
     response = await real_client.get(
         '/users/me/sessions', headers=_bearer(web.access_token)
@@ -551,3 +555,37 @@ async def test_no_feature_row_is_needed(
     assert (
         await real_client.post('/auth/device/code', json={})
     ).status_code == 200
+
+
+async def test_an_mcp_token_is_a_device_with_its_scope(
+    real_client: AsyncClient, async_engine, redis_client
+):
+    """ADR-0028: an MCP token is one connection, listed with its name,
+    scope, creation, last use and IP; never the token."""
+    web = await open_session(async_engine, redis_client, USER.id)
+    row, token = await open_mcp_token(
+        async_engine,
+        redis_client,
+        USER.id,
+        ('read', 'write'),
+        name='Cursor',
+        ip='192.0.2.10',
+    )
+
+    items = await _list(real_client, web.access_token)
+
+    by_id = {item['id']: item for item in items}
+    item = by_id[str(row.id)]
+    assert set(item) == ITEM_KEYS
+    assert item['client_type'] == 'mcp'
+    assert item['sign_in_method'] == 'mcp_token'
+    assert item['device_name'] == 'Cursor'
+    assert item['scope'] == ['read', 'write']
+    assert item['created_ip'] == '192.0.2.10'
+    assert item['status'] == 'active'
+    assert item['current'] is False
+    assert by_id[str(web.session_id)]['scope'] is None
+    response = await real_client.get(
+        '/users/me/sessions', headers=_bearer(web.access_token)
+    )
+    assert token not in response.text

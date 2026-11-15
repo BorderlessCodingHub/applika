@@ -1,6 +1,7 @@
 """Unit tests for the pure rate-limit core (T028)."""
 
 import asyncio
+import hashlib
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
@@ -67,6 +68,82 @@ def test_bucket_for_auth_prefix():
 def test_bucket_for_default_bucket():
     assert bucket_for('/authors') == 'default'
     assert bucket_for('/applications') == 'default'
+
+
+def test_bucket_for_mcp():
+    """ADR-0028: /mcp counts in its own bucket; the token route does not."""
+    assert bucket_for('/mcp') == 'mcp'
+    assert bucket_for('/mcp/') == 'mcp'
+    assert bucket_for('/users/me/mcp-tokens') == 'default'
+    assert bucket_for('/mcpx') == 'default'
+
+
+def test_settings_rate_limit_mcp_default(monkeypatch):
+    monkeypatch.delenv('RATE_LIMIT_MCP', raising=False)
+    settings = Settings(_env_file=None)  # ty: ignore[missing-argument, unknown-argument]
+    assert settings.RATE_LIMIT_MCP == 120
+    monkeypatch.setenv('RATE_LIMIT_MCP', '30')
+    settings = Settings(_env_file=None)  # ty: ignore[missing-argument, unknown-argument]
+    assert settings.RATE_LIMIT_MCP == 30
+
+
+def test_subject_for_an_mcp_token_is_its_hash_prefix():
+    """ADR-0028: a Bearer starting ``applika_mcp_`` counts against
+    ``mcp:<first 32 hex of its sha256>``, with no lookup, ahead of any
+    cookie; the token itself never appears in the subject."""
+    token = 'applika_mcp_fake_' + '0' * 38
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    cookie, _, _ = create_access_token('99', '8')
+    subject = subject_for(
+        {'authorization': f'Bearer {token}'},
+        {ACCESS_COOKIE_NAME: cookie},
+        '10.0.0.1',
+        'mcp',
+    )
+    assert subject == f'mcp:{digest[:32]}'
+    assert token not in subject
+
+
+def test_subject_for_two_mcp_tokens_are_two_subjects():
+    first = subject_for(
+        {'authorization': 'Bearer applika_mcp_fake_' + '1' * 38},
+        {},
+        None,
+        'mcp',
+    )
+    second = subject_for(
+        {'authorization': 'Bearer applika_mcp_fake_' + '2' * 38},
+        {},
+        None,
+        'mcp',
+    )
+    assert first != second
+    assert first.startswith('mcp:')
+
+
+@pytest.mark.parametrize('bucket', ['auth', 'default'])
+def test_subject_for_an_mcp_bearer_off_mcp_counts_against_the_ip(bucket):
+    """Anyone can send a fresh ``applika_mcp_…`` string per request: off
+    ``/mcp`` it is no valid JWT, so it counts against the IP (or a valid
+    cookie's user), never against a subject the caller chose."""
+    subjects = {
+        subject_for(
+            {'authorization': f'Bearer applika_mcp_fake_{n}' + '0' * 37},
+            {},
+            '203.0.113.7',
+            bucket,
+        )
+        for n in range(3)
+    }
+    assert subjects == {'ip:203.0.113.7'}
+    cookie, _, _ = create_access_token('99', '8')
+    subject = subject_for(
+        {'authorization': 'Bearer applika_mcp_fake_' + '0' * 38},
+        {ACCESS_COOKIE_NAME: cookie},
+        '203.0.113.7',
+        bucket,
+    )
+    assert subject == 'user:99'
 
 
 def test_subject_for_valid_access_token():

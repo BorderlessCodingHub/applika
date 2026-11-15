@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     DEVICE_VERIFICATION_URI: str = 'http://127.0.0.1:8080/device'
     CLI_MANUAL_REDIRECT_URI: str = 'http://127.0.0.1:8080/cli/code'
     SESSION_HISTORY_DAYS: int = 30
+    # MCP tokens (ADR-0028): a token ends MCP_TOKEN_IDLE_DAYS after its last
+    # use; every call on /mcp pushes the end back.
+    MCP_TOKEN_IDLE_DAYS: int = 90
 
     REDIS_URL: str = 'redis://localhost:6379/0'
 
@@ -132,6 +135,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_DEFAULT: int = 120
     RATE_LIMIT_AUTH: int = 10
+    # The ``mcp`` bucket: /mcp, counted per MCP token hash (ADR-0028).
+    RATE_LIMIT_MCP: int = 120
     RATE_LIMIT_WINDOW_SECONDS: int = 60
 
     # Background jobs (ADR-0016): the taskiq broker and the hourly

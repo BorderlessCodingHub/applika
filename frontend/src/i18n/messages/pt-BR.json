@@ -148,6 +148,8 @@
     "AUTH-1048": "Não foi possível verificar a resposta da Borderless. Tente entrar novamente",
     "AUTH-1049": "Seu acesso pela Borderless terminou. Entre novamente com a Borderless",
     "AUTH-1050": "Seu acesso pela Borderless terminou. Entre novamente no site do Applika para usar os recursos de membro",
+    "AUTH-1051": "Token MCP inválido, revogado ou expirado. Crie um novo no Applika: Perfil > MCP.",
+    "AUTH-1052": "O escopo deste token MCP não permite esta ferramenta. Crie um token com mais acesso no Applika: Perfil > MCP.",
     "USR-1001": "Usuário não encontrado",
     "APP-1001": "Candidatura não encontrada ou não pertence ao usuário",
     "APP-1002": "Não é possível alterar uma candidatura de um ciclo arquivado",

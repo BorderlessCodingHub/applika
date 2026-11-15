@@ -60,12 +60,13 @@ class RateLimitMiddleware:
         client_host = client[0] if client else None
 
         bucket = bucket_for(path)
-        subject = subject_for(request.headers, request.cookies, client_host)
-        limit = (
-            envs.RATE_LIMIT_AUTH
-            if bucket == 'auth'
-            else envs.RATE_LIMIT_DEFAULT
+        subject = subject_for(
+            request.headers, request.cookies, client_host, bucket
         )
+        limit = {
+            'auth': envs.RATE_LIMIT_AUTH,
+            'mcp': envs.RATE_LIMIT_MCP,
+        }.get(bucket, envs.RATE_LIMIT_DEFAULT)
 
         decision = await hit(
             redis_client,

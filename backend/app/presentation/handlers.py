@@ -1,3 +1,7 @@
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
+
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -36,6 +40,85 @@ _FRAMEWORK_CODES = {
 }
 
 
+@dataclass(frozen=True)
+class ErrorAnswer:
+    """An error as the API answers it: status, ``{detail, code}`` body (+
+    ``params``) and headers."""
+
+    status_code: int
+    body: dict[str, Any]
+    headers: dict[str, str] | None = None
+
+
+# A domain exception's status, most specific first: Starlette picks a
+# handler by the exception's MRO, and this table keeps that order.
+_DOMAIN_STATUS: tuple[tuple[type[exceptions.UnicornException], int], ...] = (
+    (exceptions.ResourceNotFound, 404),
+    (exceptions.ResourceConflict, 409),
+    (exceptions.ApplicationFinalized, 409),
+    (exceptions.BusinessRuleViolation, 422),
+    (exceptions.InvalidDate, 422),
+    (exceptions.ForbiddenAccess, 403),
+    (exceptions.PdfRenderFailed, 500),
+    (exceptions.CVExportFailed, 500),
+    (exceptions.ServiceUnavailable, 503),
+    (exceptions.InvalidSession, 401),
+    (exceptions.InvalidRequest, 400),
+)
+
+
+def validation_error_body(errors: Sequence[Any]) -> dict[str, Any]:
+    """Every validation 422: the field list, unchanged, plus one code."""
+    return {
+        'detail': jsonable_encoder(errors),
+        'code': ErrorCode.GEN_VALIDATION_FAILED.value,
+    }
+
+
+def internal_error_body() -> dict[str, Any]:
+    return {
+        'detail': INTERNAL_SERVER_ERROR,
+        'code': ErrorCode.GEN_INTERNAL_ERROR.value,
+    }
+
+
+def error_answer(exc: Exception) -> ErrorAnswer | None:
+    """The answer the REST handlers give a domain exception, or ``None``
+    when it is none of theirs (the caller answers 500). One helper for the
+    REST handlers below and the MCP tool errors (ADR-0028): both carry the
+    same ``detail`` and ``code``."""
+    if isinstance(exc, exceptions.CodedRefusal):
+        # The sign-in refusals (AUTH-1005 to AUTH-1008, sent as ``?error=``
+        # by the Borderless callback), ``BadgeRequired`` (RPT-1001) and
+        # ``MembershipLocked`` (AUTH-1050, 403).
+        return ErrorAnswer(exc.status_code, exc.body(), exc.headers or None)
+    if isinstance(exc, exceptions.OAuthError):
+        return ErrorAnswer(400, {'error': exc.error, **exc.body()})
+    if isinstance(exc, exceptions.SessionServiceUnavailable):
+        # Fail closed (ADR-0019): 503 + Retry-After, never 401 - a 401 would
+        # send the web and every CLI to refresh, and a failed refresh signs
+        # them out.
+        return ErrorAnswer(
+            503,
+            exc.body(),
+            {'Retry-After': str(SESSION_RETRY_AFTER_SECONDS)},
+        )
+    for exc_type, status_code in _DOMAIN_STATUS:
+        if isinstance(exc, exc_type):
+            return ErrorAnswer(status_code, exc.body())
+    return None
+
+
+def _answer(exc: Exception) -> JSONResponse:
+    answer = error_answer(exc)
+    assert answer is not None
+    return JSONResponse(
+        status_code=answer.status_code,
+        content=answer.body,
+        headers=answer.headers,
+    )
+
+
 async def _not_implemented_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=501,
@@ -66,11 +149,7 @@ async def _request_validation_handler(request: Request, exc: Exception):
     code for all of them."""
     assert isinstance(exc, RequestValidationError)
     return JSONResponse(
-        status_code=422,
-        content={
-            'detail': jsonable_encoder(exc.errors()),
-            'code': ErrorCode.GEN_VALIDATION_FAILED.value,
-        },
+        status_code=422, content=validation_error_body(exc.errors())
     )
 
 
@@ -78,58 +157,52 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     """An unhandled error: was Starlette's plain-text 500, now JSON with the
     same words. Starlette's ``ServerErrorMiddleware`` runs this and then
     re-raises, so the error is still logged."""
-    return JSONResponse(
-        status_code=500,
-        content={
-            'detail': INTERNAL_SERVER_ERROR,
-            'code': ErrorCode.GEN_INTERNAL_ERROR.value,
-        },
-    )
+    return JSONResponse(status_code=500, content=internal_error_body())
 
 
 async def _resource_not_found_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.ResourceNotFound)
-    return JSONResponse(status_code=404, content=exc.body())
+    return _answer(exc)
 
 
 async def _resource_conflict_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.ResourceConflict)
-    return JSONResponse(status_code=409, content=exc.body())
+    return _answer(exc)
 
 
 async def _application_finalized_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.ApplicationFinalized)
-    return JSONResponse(status_code=409, content=exc.body())
+    return _answer(exc)
 
 
 async def _business_rule_violation_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.BusinessRuleViolation)
-    return JSONResponse(status_code=422, content=exc.body())
+    return _answer(exc)
 
 
 async def _invalid_date_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.InvalidDate)
-    return JSONResponse(status_code=422, content=exc.body())
+    return _answer(exc)
 
 
 async def _forbidden_access_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.ForbiddenAccess)
-    return JSONResponse(status_code=403, content=exc.body())
+    return _answer(exc)
 
 
 async def _pdf_render_failed_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.PdfRenderFailed)
-    return JSONResponse(status_code=500, content=exc.body())
+    return _answer(exc)
 
 
 async def _cv_export_failed_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.CVExportFailed)
-    return JSONResponse(status_code=500, content=exc.body())
+    return _answer(exc)
 
 
 async def _service_unavailable_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.ServiceUnavailable)
-    return JSONResponse(status_code=503, content=exc.body())
+    return _answer(exc)
 
 
 async def _session_service_unavailable_handler(
@@ -139,29 +212,22 @@ async def _session_service_unavailable_handler(
     # send the web and every CLI to refresh, and a failed refresh signs
     # them out.
     assert isinstance(exc, exceptions.SessionServiceUnavailable)
-    return JSONResponse(
-        status_code=503,
-        content=exc.body(),
-        headers={'Retry-After': str(SESSION_RETRY_AFTER_SECONDS)},
-    )
+    return _answer(exc)
 
 
 async def _invalid_session_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.InvalidSession)
-    return JSONResponse(status_code=401, content=exc.body())
+    return _answer(exc)
 
 
 async def _invalid_request_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.InvalidRequest)
-    return JSONResponse(status_code=400, content=exc.body())
+    return _answer(exc)
 
 
 async def _oauth_error_handler(request: Request, exc: Exception):
     assert isinstance(exc, exceptions.OAuthError)
-    return JSONResponse(
-        status_code=400,
-        content={'error': exc.error, **exc.body()},
-    )
+    return _answer(exc)
 
 
 async def _coded_refusal_handler(request: Request, exc: Exception):
@@ -169,11 +235,7 @@ async def _coded_refusal_handler(request: Request, exc: Exception):
     sent as ``?error=`` by the Borderless callback), ``BadgeRequired``
     (RPT-1001) and ``MembershipLocked`` (AUTH-1050, 403)."""
     assert isinstance(exc, exceptions.CodedRefusal)
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.body(),
-        headers=exc.headers or None,
-    )
+    return _answer(exc)
 
 
 def register_handlers(app: FastAPI):

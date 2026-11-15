@@ -193,11 +193,12 @@ See `app/application/use_cases/applications/create_application.py` for reference
 - **Refresh value**: a random `uuid.uuid7()`, in the HTTP-only `__refresh` cookie (web and CLIs 0.1.4–1.0.1) or the CLI's own store (1.1.0). Never rotated
 - **The check on every signed-in request** (`GetCurrentUserUseCase`): JWT decode first (bad/expired → 401 as before); no `sid`, a session whose key is gone, or a `sub` that is not the session's `user_id` (every pre-ADR-0024 token carried a GitHub id) → 401 `Session expired`; otherwise one Lua script (EXISTS → HSET `last_used_at`, `last_ip`) under `asyncio.timeout(0.5)`. Sets `request.state.session_id` (`CurrentSessionIdDp`). **Fail closed**: a `RedisError`, `OSError` or timeout raises `SessionServiceUnavailable` → 503 `{"detail": "Session service unavailable", "code": "AUTH-1003"}` + `Retry-After: 5`; the request never passes unchecked and nobody is signed out (a 401 would send every client to refresh). The GitHub restore callback runs the same check on its cookie
 - **Sliding lifetime**: a session ends `REFRESH_TOKEN_EXPIRE_DAYS` (7) after its **last refresh**. `GET /auth/refresh` and the `refresh_token` grant resolve the uuid7; a user with no Borderless binding ends the session `expired`, 401 AUTH-1016 `Sign in again with Borderless`; otherwise `RefreshBadgesUseCase` (`BORDERLESS_REFRESH_TIMEOUT_SECONDS`): a WEB row whose grant `ended` or is `disconnected` ends `borderless_revoked` → 401 `{"detail": "Your Borderless sign-in has ended. Sign in again with Borderless", "code": "AUTH-1049"}`; a CLI row slides whatever the outcome; a failing Borderless never fails a refresh. Then `EXPIREAT` both keys and `expires_at` a full window ahead and copy the live last use onto the row. `/auth/refresh` re-sets `__access` (new JWT, same `sid`) **and** `__refresh` (same value, full Max-Age); a refused refresh is 401 and clears both cookies, a 503 clears nothing. The user's other web sessions then read 401 AUTH-1002 (their keys went) and their refresh 401 AUTH-1015
-- **Ending a session** (`EndSessionUseCase`): DEL both keys, then set `ended_at` + `end_reason` (`logout` = `GET /auth/logout` / `POST /auth/revoke`, `revoked` = Devices tab, `replaced` = a new web sign-in in the same browser, `borderless_revoked` = a web session Borderless's refusal of the grant ended (Devices shows it `revoked`); `github_revoked` stays only on rows ended before ADR-0024) and copy the live last use. Only a live session ends; an ended row, a row past `expires_at` or one whose key is gone is a no-op (it already reads as ended/expired). `DELETE /users/me` DELs every open session's keys before the user goes (rows by CASCADE)
+- **Ending a session** (`EndSessionUseCase`): DEL both keys, then set `ended_at` + `end_reason` (`logout` = `GET /auth/logout` / `POST /auth/revoke`, `revoked` = Devices tab, `replaced` = a new web sign-in in the same browser, `borderless_revoked` = a web session Borderless's refusal of the grant ended (Devices shows it `revoked`); `github_revoked` stays only on rows ended before ADR-0024) and copy the live last use. Only a live session ends; an ended row, a row past `expires_at` or one whose key is gone is a no-op (it already reads as ended/expired). An MCP token's row (`client_type='mcp'`) is judged by its Redis keys alone, here and in the Devices status (`derive_status(..., redis_only=True)`): its `expires_at` follows the 90-day slide at most once a day, so it can trail a token that still works by up to a day (ADR-0028). `DELETE /users/me` DELs every open session's keys before the user goes (rows by CASCADE)
 - **Cutover** (the release that ships device sessions): nothing reads `applika:refresh_token:*` any more and a JWT without `sid` is 401, so every web and CLI user signs in again; the old keys die on their TTL
 - **CLI login handoff (legacy, deprecated)**: `/auth/cli/start`, `/auth/cli/login/{id}`, `/auth/cli/exchange` keep their shapes for CLIs 0.1.4–1.0.1 (ADR-0009) and open a `cli_legacy` session at the exchange. `/auth/cli/login/{id}` and `/auth/cli/authorize` 307 straight to Borderless's authorize endpoint with `prompt=login` (a CLI sign-in always asks, even when the browser is signed in there) and the `__applika_login` cookie (400/404 unchanged; Borderless unavailable or not configured → `WEB_SIGNIN_URI?error=<code>&cli=1`); Borderless's callback hands the code back. The browser's own applika session is never opened, ended or replaced. A PKCE code is refused by `/auth/cli/exchange` (it is redeemed only with its verifier on `POST /auth/token`)
 - **CLI sign-in (1.1.0+)**: authorization code + PKCE S256 (`GET /auth/cli/authorize`, loopback `redirect_uri` or `oob` → the code is shown at `CLI_MANUAL_REDIRECT_URI`), or the RFC 8628 device code (`/auth/device/*`, approved by a signed-in web user at `DEVICE_VERIFICATION_URI`). Login state and codes live in `AuthHandoffStateUseCase` (`flow='pkce'`, `code_challenge`, `redirect_uri`; codes `GETDEL`, 60 s); device codes in `DeviceCodeUseCase` (`applika:device:code:<device_code>` hash + `applika:device:user_code:<CODE>`, `EX DEVICE_CODE_TTL_SECONDS`, decided and consumed by Lua). Each CLI sign-in is a session of its own (`client_type='cli'`); a CLI sign-in never ends the browser's own session
 - **Not gated**: the Devices API and every CLI sign-in route are open to every user (owner: "Gate nothing", the ADR-0019 exception to ADR-0018)
+- **MCP token, the third credential** (ADR-0028): besides the web's cookies and the CLI's Bearer JWT, a signed-in web user creates an MCP token (`applika_mcp_` + 43 base64url characters) for the hosted MCP server. It is a session too (`client_type='mcp'`, `sign_in_method='mcp_token'`, `scope` set) but works only on `/mcp`: every REST route refuses it (`get_current_user` decodes a JWT, so it is 401 AUTH-1012 `Invalid token`), and `/mcp` refuses a JWT (401 AUTH-1051). See **MCP tokens** and **MCP server**
 - Token and cookie utilities in `app/core/tokens.py`, PKCE in `app/core/pkce.py`, user codes in `app/core/user_codes.py`, device labels (`describe_user_agent`: "Chrome on macOS", "applika-cli 1.1.0", httpx → "applika-cli (older version)") in `app/core/user_agent.py`, encryption in `app/core/crypto.py`
 - Cookie settings: HTTPOnly, Secure in PROD, SameSite=Lax
 - **Tests**: `async_client`/`admin_client` override `get_current_user` (no session needed). Every test talks to the fake Borderless (`tests/fixtures/borderless/fake_oidc.py`, `FakeBorderless`: discovery, a sign-in page, the code exchange with PKCE and HTTP Basic, refresh with rotation and reuse refusal, `revoke_grants(sub)`, a controllable clock, JWKS/EdDSA, revocation, `/__fake/*` controls; synthetic client and accounts in `accounts.json`): `tests/conftest.py` overrides `BorderlessOidcClientDp` with a client on `fake_borderless.transport()` and `BorderlessAccessStoreDp` with an in-memory `MemoryAccessStore` (`access_store`; `redis_client` removes that override, so real-Redis tests use the real store), clears the decrypt cache in every test, and `FakeGitHubOAuthService` replaces `GitHubOAuthServiceDp`. `bind_borderless(session, user_id, …, fake=fake_borderless)` binds a user with an encrypted refresh token the fake knows; `reports_badge` = a PSP member with a live access key (the gate calls nobody); `bound_user` (`tests/integration/conftest.py`) binds the base user to the fake account `bl-user`. `tests/borderless_flow.py` drives login → the fake's sign-in page → the callback on `real_client`. A test that sends a real token uses `real_client` (`tests/integration/conftest.py`, the real dependency on `redis_client`) and opens a session through `tests/sessions_seed.py` (`open_session` = row + keys, `live_access_token` = keys only)
@@ -606,16 +607,26 @@ it: a 429 still carries `Access-Control-Allow-Origin`, and a browser
 preflight (`OPTIONS`) is answered by `CORSMiddleware` before this
 middleware ever counts it.
 
-- **Subject**: a request whose `Authorization: Bearer` header, else whose
-  `__access` cookie (ADR-0019: Bearer first), holds a valid,
+- **Subject**: on `/mcp` (bucket `mcp`) only, a Bearer that starts
+  `applika_mcp_` (an MCP token, ADR-0028) counts against `mcp:<first 32 hex
+  of its sha256>`, with no lookup, so the token never appears in a key
+  (`subject_for(..., bucket)`). On every other bucket such a Bearer is no
+  valid JWT and falls through to the cookie, then the IP: anyone can send a
+  fresh `applika_mcp_…` string per request, so it must never pick its own
+  counter on `/auth/*` or REST. Otherwise a request whose `Authorization:
+  Bearer` header, else whose `__access` cookie (ADR-0019: Bearer first),
+  holds a valid,
   unexpired access token is counted against that token's subject
   (`user:<sub>`); any other request is counted against the client IP
   (`ip:<addr>`) — the same `client.host` uvicorn resolved, above. The
   limiter reads the JWT only: the session check is `get_current_user`'s,
   and the limiter stays fail open.
 - **Buckets**: `/auth/*` counts against `RATE_LIMIT_AUTH` (default 10);
-  every other route against `RATE_LIMIT_DEFAULT` (default 120). The two are
-  counted separately, `RATE_LIMIT_WINDOW_SECONDS` (default 60) wide.
+  `/mcp` against `RATE_LIMIT_MCP` (default 120, bucket `mcp`, ADR-0028);
+  every other route against `RATE_LIMIT_DEFAULT` (default 120). Each is
+  counted separately, `RATE_LIMIT_WINDOW_SECONDS` (default 60) wide. The
+  bucket is read on the path minus `root_path`, so `/api/mcp` and a
+  proxy-stripped `/mcp` both count as `mcp`.
 - **Fixed window + `EXPIREAT`**: the key is
   `applika:ratelimit:{bucket}:{subject}:{window_index}`
   (`window_index = floor(now / window)`); one Redis pipeline runs `INCR`
@@ -650,6 +661,51 @@ middleware ever counts it.
   so the limiter stays wired up (still on) without either ever seeing a
   429.
 
+### MCP tokens (ADR-0028)
+
+- `POST /users/me/mcp-tokens` (`presentation/api/mcp_tokens.py`, tag `Devices`, on `CurrentUserDp`: a web session only) → 201 `{id, name, scope, token, created_at, expires_at}` + `Cache-Control: no-store`. The token is shown in this answer only. Body `{name?, scope}` (`McpTokenCreate`): `name` trimmed, blank or absent → `MCP connection`, more than 100 → 422; `scope` non-empty, known names only, must hold `read` (`app/core/mcp_scopes.py`, 422 GEN-1003 otherwise)
+- `CreateMcpTokenUseCase` (`use_cases/mcp_tokens/create_token.py`): one `user_sessions` row (`client_type='mcp'`, `sign_in_method='mcp_token'`, `device_name` = the name, `scope` space-separated, `user_agent` NULL, `expires_at` = now + `MCP_TOKEN_IDLE_DAYS`), then `SessionStore.open_mcp` in one MULTI: `applika:mcp:<sha256 hex>` → sid and the hash `applika:session:id:<sid>` `{rk: '', mk: <sha256 hex>, scope, user_id, last_used_at, last_ip}`, both `EXAT`. Redis down → the row is deleted, 503. **The token is never stored in Postgres (not even hashed) and never logged**
+- **Scopes** (`McpScope`, `app/core/mcp_scopes.py`): `read` (every token), `write` (create, edit, close, reopen), `delete` (timeline events, master CVs, application CVs). The set is open: a later scope is a new member, no migration, no stored token changes; a stored name the code does not know grants nothing (`held_scopes`). A scope never changes after creation: more access = a new token
+- **Lifetime**: `AuthenticateMcpTokenUseCase` (`use_cases/mcp_tokens/authenticate.py`) runs on every `/mcp` call: shape check (`applika_mcp_` + 43) → `SessionStore.resolve_mcp` (one Lua script, 0.5 s: GET the sid, the hash must point back at the same `mk`, HSET `last_used_at`/`last_ip`, `EXPIREAT` both keys to now + 90 days) → the user (gone → 401 AUTH-1014, keys ended) → `UserSessionRepository.bump_expires_at` (one UPDATE only when the row is more than a day behind: Redis is the truth, Postgres follows at most once a day). Unknown, revoked or expired → 401 AUTH-1051
+- **Devices**: an MCP token is one connection in `GET /users/me/sessions` (`client_type: mcp`, `sign_in_method: mcp_token`, `scope: [..]`; `scope` is null on web and CLI rows), revoked by `DELETE /users/me/sessions/{id}` and by `revoke-others`, ended by `DELETE /users/me`. `_END_LUA` DELs the refresh key only when `rk` is not empty and `applika:mcp:<mk>` when `mk` is set; `live_fields` reads `rk: ''` as alive; no refresh value resolves an MCP session. Its status and its end are decided by Redis alone (a lagging `expires_at` never reads as expired or blocks a revoke). A Borderless grant end (ADR-0026) ends web sessions only, so MCP tokens stay
+- **No beta gate** (owner: "mcp will be released to everyone, no beta gated", the ADR-0028 exception to ADR-0018): no `FeatureKey`, no seed row, no `require_feature`, no `add_slash_twins` on the token route or `/mcp`. An MCP token cannot create, list or revoke tokens (REST refuses it)
+- **Tests**: `mcp_token_read`, `mcp_token_read_write`, `mcp_token_full` (`tests/conftest.py`, the base user, on the integration `redis_client`) and `open_mcp_token` (`tests/sessions_seed.py`) mint tokens at run time; they are never written to a file. Examples and docs use only `applika_mcp_fake_…` (the gitleaks rule `applika-mcp-token` allowlists that prefix alone)
+
+### MCP server (`/mcp`, ADR-0028)
+
+- **Hosted, stateless, JSON**: the official SDK (`mcp==1.30.0`), its low-level `Server` (`ApplikaMcpServer`, `presentation/mcp/server.py`) behind `StreamableHTTPSessionManager(stateless=True, json_response=True)`. Not `FastMCP` (the tool list depends on each request's scope and `cvs`), not the standalone `fastmcp` package, no OAuth `AuthSettings`
+- **Route**: a plain Starlette `Route('/mcp', mcp_endpoint, methods=['POST'])` appended to the app's router (`app/main.py`), not a mount (a mount 307s `POST /mcp` to `/mcp/`). GET and DELETE → the framework's 405 `{"detail": "Method Not Allowed", "code": "GEN-1002"}` + `Allow: POST`. Behind the same CORS, rate limiter and request log as REST
+- **Lifespan**: `McpRuntime.run()` (entered by `app/main.py`'s `lifespan`) builds a new session manager per app start (a manager runs once) and enters `manager.run()`; a request before it is running is a 500
+- **Auth** (`McpAuthGuard`, `presentation/mcp/auth.py`, an ASGI wrapper around the manager): `Authorization: Bearer applika_mcp_…` → `AuthenticateMcpTokenUseCase` on `deps.session_factory()` + `deps.redis_factory()` → `FeatureRepository.has_feature('cvs', …)` once per request → `McpCaller(principal, has_cvs)` in `scope['state']['mcp_principal']` (tool handlers read `server.request_context.request.state`) and in the `current_caller` context variable (only `create_initialization_options`, which has no request, reads it; anyio copies the request's context into the task the manager starts). Refusals: 401 `{"detail": "MCP token invalid, revoked or expired. Create a new one in Applika: Profile > MCP.", "code": "AUTH-1051"}` + `WWW-Authenticate: Bearer` (no token, a JWT, a wrong shape, gone); 503 AUTH-1003 + `Retry-After: 5` (Redis down, fail closed); 429 GEN-1004 from the limiter
+- **Registry** (`presentation/mcp/registry.py`, `tools/__init__.py` `ALL_TOOLS`): each tool is `McpTool(name, scope, needs_cvs, input_model, handler, output_schema)`. `tools/list` = the tools whose scope the token holds and, for `needs_cvs`, only when the user has `cvs`. `tools/call`: unknown tool or a CV tool without `cvs` → `{"detail": "Not Found", "code": "GEN-1001"}`; outside the scope → `{"detail": "This MCP token's scope does not allow this tool. Create a token with more access in Applika: Profile > MCP.", "code": "AUTH-1052"}`; then the arguments are validated by the tool's model (the REST request schema, `extra='forbid'`; 422 body GEN-1003) and the handler runs on its own `AsyncSession`. `read` tools carry `readOnlyHint`, `delete` tools `destructiveHint`, `write` tools `destructiveHint: false`; all `openWorldHint: false`
+- **Results**: the REST JSON body as a text block and as `structuredContent` (a list is `{"result": [...]}`; `outputSchema` is the REST response schema, wrapped likewise). A REST 204 answers `{"deleted": true}`. Markdown downloads are a text block; PDFs an `EmbeddedResource` (`application/pdf`, base64). Errors (`presentation/mcp/errors.py`): `isError: true`, text `"<detail> (<code>)"`, `structuredContent` = the REST body, built by `error_answer` in `presentation/handlers.py` (the one helper the REST handlers use too)
+- **Tools** (input = the REST request schema, output = the REST response schema; another user's row is not found, admins too; no admin capability):
+
+| Tool | Scope | cvs | REST it mirrors |
+|---|---|---|---|
+| `whoami` | read | | `GET /users/me` → `{id, username, name, email}` |
+| `list_platforms {name?}` | read | | `GET /platforms` |
+| `search_companies {name?}` | read | | `GET /companies` |
+| `list_applications {cycle_id?, search?, mode?, status?, platform?, from_date?, to_date?}` | read | | `GET /applications` + `presentation/mcp/filters.py` (the CLI's filter) |
+| `get_application {application_id}` | read | | the read model, 404 APP-1001 |
+| `list_timeline {application_id}` | read | | `GET /applications/{id}/timeline` |
+| `create_application` | write | | `POST /applications` |
+| `edit_application {application_id, …, clear?}` | write | | `PUT /applications/{id}`, merged onto the stored row (the CLI's edit) |
+| `finalize_application {application_id, outcome?, …}` | write | | `POST /applications/{id}/finalize` (no body or outcome body) |
+| `reopen_application` | write | | `POST /applications/{id}/reopen` |
+| `add_timeline_event {application_id, …, keep_open?}` | write | | `POST …/timeline`; offer/denied without `keep_open` → finalize with that outcome |
+| `edit_timeline_event {application_id, event_id, …}` | write | | `PUT …/timeline/{id}`, merged (the CLI's edit) |
+| `delete_timeline_event` | delete | | `DELETE …/timeline/{id}` |
+| `list_cvs`, `get_cv`, `download_cv {cv_id, format}` | read | yes | `/base-cvs*` |
+| `create_cv`, `edit_cv` | write | yes | `POST`, `PATCH /base-cvs*` (+ fit recompute) |
+| `delete_cv` | delete | yes | `DELETE /base-cvs/{id}` |
+| `get_application_cv`, `download_application_cv`, `diff_application_cv {application_id, format}` | read | yes | `/applications/{id}/cv*` |
+| `create_application_cv`, `edit_application_cv` | write | yes | `POST`, `PUT /applications/{id}/cv` (edit merged) |
+| `delete_application_cv` | delete | yes | `DELETE /applications/{id}/cv` |
+
+- **Instructions** (`presentation/mcp/instructions.md`): the CLI's bundled skill rewritten for tools. The part between `<!-- cvs:start -->` and `<!-- cvs:end -->` reaches only a `cvs` user; a closing "This connection" note names the token's scope and what it lacks. No personal data
+- **deps** (`presentation/mcp/deps.py`): `session_factory`, `redis_factory`, `job_queue_factory`; there is no FastAPI DI on `/mcp`, so tests swap these (`tests/integration/mcp_client.py` `mcp_app`, which also runs `mcp_runtime.run()` in a task of its own) instead of `dependency_overrides`
+
 ## API Endpoints
 
 ### OAuth (`/auth`)
@@ -681,9 +737,11 @@ Discord linking is removed (ADR-0024): `/auth/link/discord*` answer 404. The Dis
 | PATCH | `/users/me` | Yes | Update profile |
 | POST | `/users/me/github-restore/dismiss` | Yes | ADR-0024: the one-time restore screen is answered; 204, idempotent |
 | GET | `/users/me/features` | Yes | ADR-0018: `{features: [{key, stage: 'beta' \| 'general'}]}`, the caller's own, by key (web only; `/users/me` is unchanged for the CLI) |
-| GET | `/users/me/sessions` | Yes | ADR-0019: the caller's devices `[{id, client_type, sign_in_method, device_name, client_label, created_ip, last_ip, created_at, last_used_at, expires_at, ended_at, status: active\|signed_out\|revoked\|expired, current}]`: active by `last_used_at` DESC NULLS LAST (live from Redis), then ended by `coalesce(ended_at, expires_at)` DESC within `SESSION_HISTORY_DAYS`. Status derived; the GET writes nothing |
+| GET | `/users/me/sessions` | Yes | ADR-0019: the caller's devices `[{id, client_type: web\|cli\|mcp, sign_in_method, device_name, client_label, created_ip, last_ip, created_at, last_used_at, expires_at, ended_at, status: active\|signed_out\|revoked\|expired, current, scope}]` (`scope`: an MCP token's names, null on web and CLI, never the token): active by `last_used_at` DESC NULLS LAST (live from Redis), then ended by `coalesce(ended_at, expires_at)` DESC within `SESSION_HISTORY_DAYS`. Status derived; the GET writes nothing |
 | DELETE | `/users/me/sessions/{id}` | Yes | ADR-0019: revoke → 204 (ended/expired: no-op 204; the current one also clears both cookies); 404 `Session not found` for any other user's id, admins too |
 | POST | `/users/me/sessions/revoke-others` | Yes | ADR-0019: every other live session ends as `revoked` → `{revoked: n}` |
+| POST | `/users/me/mcp-tokens` | Yes (web session; an MCP token is 401) | ADR-0028: `{name?, scope}` → 201 `{id, name, scope, token, created_at, expires_at}` + `Cache-Control: no-store`, the token shown once; 422 GEN-1003; 503 AUTH-1003. See **MCP tokens** |
+| POST | `/mcp` | MCP token (Bearer) | ADR-0028: the MCP server, JSON-RPC 2.0, stateless, JSON answers; GET/DELETE 405. See **MCP server** |
 
 `GET`/`PATCH /users/me` build the response with `UserProfile.from_user(user, badges, binding, github)`: `badges` = live rows `[{badge, granted_at}]` held or not; `borderless` = `{status: active|needs_reconnect, email, checked_at}` or null (`checked_at` = the last successful membership read, `profile_read_at`; never a token); `github_restore` = `{available: no GitHub row, prompt: available and not seen}`; `github_id` = the caller's `github_connections.github_id` or null. `username`, `first_name`, `last_name`, `email` are unchanged for the CLI.
 
@@ -1303,6 +1361,7 @@ Optional (with defaults):
 - `DEVICE_VERIFICATION_URI`: the web approval page (default `http://127.0.0.1:8080/device`; prod `https://applika.dev/device`)
 - `CLI_MANUAL_REDIRECT_URI`: the web page that shows a PKCE code to paste (`redirect_uri=oob`, default `http://127.0.0.1:8080/cli/code`; prod `https://applika.dev/cli/code`)
 - `SESSION_HISTORY_DAYS`: ended devices stay listed this long (default 30); older rows are kept, not shown
+- `MCP_TOKEN_IDLE_DAYS`: an MCP token ends this long after its last use on `/mcp` (default 90, ADR-0028)
 - `REDIS_URL`: Redis connection URL (default: redis://localhost:6379/0)
 - `CV_PDF_RENDER_TIMEOUT_SECONDS`: wall-clock ceiling for one CV PDF render (default: 30); past it the request is a 500
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: the GitHub OAuth app of the restore (default unset → 503)
@@ -1319,6 +1378,7 @@ Optional (with defaults):
 - `RATE_LIMIT_DEFAULT`: requests per window on every route outside
   `/auth/*` (default `120`)
 - `RATE_LIMIT_AUTH`: requests per window on `/auth/*` (default `10`)
+- `RATE_LIMIT_MCP`: requests per window on `/mcp`, per MCP token (default `120`, ADR-0028)
 - `RATE_LIMIT_WINDOW_SECONDS`: the fixed window width, seconds (default `60`)
 - `FORWARDED_ALLOW_IPS`: uvicorn's own setting (not a Pydantic `Settings`
   field), default `127.0.0.1`. The trusted proxy hop(s) `X-Forwarded-For`

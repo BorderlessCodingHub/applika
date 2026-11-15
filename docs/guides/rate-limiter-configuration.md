@@ -16,10 +16,11 @@ compose locally), then restart the API. Values are read on every request.
 | `RATE_LIMIT_ENABLED` | `true` | Turns the limiter on or off. Off means no counting, no `X-RateLimit-*` headers and no 429. |
 | `RATE_LIMIT_DEFAULT` | `120` | Requests allowed per window, per user or IP, on every route outside `/auth/*`. |
 | `RATE_LIMIT_AUTH` | `10` | Requests allowed per window, per user or IP, on `/auth/*` (sign-in, session refresh, logout, CLI login). |
-| `RATE_LIMIT_WINDOW_SECONDS` | `60` | Width of the counting window, in seconds. Both limits share it. |
+| `RATE_LIMIT_MCP` | `120` | Requests allowed per window, per MCP token, on `/mcp` (the hosted MCP server, ADR-0028). |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | Width of the counting window, in seconds. Every limit shares it. |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1` (uvicorn's default) | Proxies whose `X-Forwarded-For` header uvicorn trusts to find the real client IP. Read by uvicorn, not by Applika code. |
 
-The first four live in `backend/app/config/settings.py`. The limiter itself is
+The first five live in `backend/app/config/settings.py`. The limiter itself is
 `app/config/rate_limit.py` (middleware) and `app/core/rate_limit.py` (counting). The design is
 recorded in `docs/adr/0015-redis-api-rate-limiter.md`.
 
@@ -27,13 +28,20 @@ recorded in `docs/adr/0015-redis-api-rate-limiter.md`.
 
 Each request adds one to a counter chosen by bucket, subject and window.
 
-- **Bucket.** A path starting with `/auth/` counts against `RATE_LIMIT_AUTH`; every other path
-  against `RATE_LIMIT_DEFAULT`. The two are separate: using up one does not touch the other. A
-  `root_path` prefix such as `/api` is stripped first, so `/api/auth/refresh` lands in the auth
+- **Bucket.** A path starting with `/auth/` counts against `RATE_LIMIT_AUTH`; `/mcp` against
+  `RATE_LIMIT_MCP` (bucket `mcp`); every other path against `RATE_LIMIT_DEFAULT`. They are
+  separate: using up one does not touch the others. A `root_path` prefix such as `/api` is
+  stripped first, so `/api/auth/refresh` lands in the auth bucket and `/api/mcp` in the mcp
   bucket.
-- **Subject.** A request with a valid, unexpired `__access` session cookie counts against that
-  user. Anything else (no cookie, expired, forged) counts against the client IP. Two signed-in
-  users on one IP keep separate counts.
+- **Subject.** On `/mcp` (bucket `mcp`) only, a request whose `Authorization: Bearer` is an MCP
+  token (it starts `applika_mcp_`) counts against that token: `mcp:<first 32 hex characters of
+  its sha256>`. The limiter only hashes it, never looks it up, and the token never appears in a
+  Redis key; two AI apps sharing one token share its count. On every other route an
+  `applika_mcp_` Bearer is no valid session token, so it counts like any invalid Bearer: against
+  the IP (or a valid cookie's user). Otherwise a request with a valid, unexpired session
+  token (`Authorization: Bearer`, else the `__access` cookie) counts against that user. Anything
+  else (no token, expired, forged) counts against the client IP. Two signed-in users on one IP
+  keep separate counts.
 - **Window.** Fixed windows of `RATE_LIMIT_WINDOW_SECONDS`, aligned to the clock. The count resets
   when the window ends, so a client can send up to twice the limit across a window boundary.
 - **Not counted.** Browser preflight requests (`OPTIONS`), and every request while

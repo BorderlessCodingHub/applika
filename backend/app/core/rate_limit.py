@@ -5,8 +5,11 @@ Pure module: no ASGI here. ``app/config/rate_limit.py`` wires this into the
 request pipeline.
 
 - ``bucket_for``: an ``/auth/*`` route counts against ``RATE_LIMIT_AUTH``,
-  every other route against ``RATE_LIMIT_DEFAULT`` (R-017).
-- ``subject_for``: a request whose ``Authorization: Bearer`` header, else
+  ``/mcp`` against ``RATE_LIMIT_MCP`` (ADR-0028), every other route against
+  ``RATE_LIMIT_DEFAULT`` (R-017).
+- ``subject_for``: on ``/mcp`` (bucket ``mcp``), a Bearer that is an MCP
+  token (``applika_mcp_…``) is counted against ``mcp:<first 32 hex of its
+  sha256>``, with no lookup (ADR-0028). Else a request whose ``Authorization: Bearer`` header, else
   whose ``__access`` cookie, holds a valid, unexpired access token is
   counted against that token's subject (the user); any other request is
   counted against the client IP (R-016; Bearer first since device sessions,
@@ -18,6 +21,7 @@ request pipeline.
 """
 
 import asyncio
+import hashlib
 import logging
 import math
 from collections.abc import Mapping
@@ -42,11 +46,19 @@ _HIT_TIMEOUT_SECONDS = 0.5
 # as a constant purely for readability, not because the rewrite is wrong.
 _TRANSIENT_REDIS_ERRORS = (RedisError, OSError, TimeoutError)
 
+# An MCP token's prefix (``SessionStore.open_mcp``); the limiter never
+# resolves the token, it only hashes it.
+MCP_TOKEN_PREFIX = 'applika_mcp_'
+MCP_SUBJECT_HEX = 32
+
 
 def bucket_for(route_path: str) -> str:
-    """``/auth/*`` -> ``auth``, everything else -> ``default``."""
+    """``/auth/*`` -> ``auth``, ``/mcp`` -> ``mcp``, everything else ->
+    ``default``."""
     if route_path.startswith('/auth/'):
         return 'auth'
+    if route_path == '/mcp' or route_path.startswith('/mcp/'):
+        return 'mcp'
     return 'default'
 
 
@@ -74,12 +86,24 @@ def subject_for(
     headers: Mapping[str, str],
     cookies: Mapping[str, str],
     client_host: str | None,
+    bucket: str = 'default',
 ) -> str:
-    """``user:<sub>`` from a valid Bearer token, else from a valid
-    ``__access`` cookie, else ``ip:<host>``. Only the JWT is read: the
-    session check is ``get_current_user``'s, the limiter stays a single
-    Redis call and fails open."""
-    subject = _token_subject(_bearer_token(headers)) or _token_subject(
+    """In the ``mcp`` bucket, ``mcp:<sha256 prefix>`` for an MCP token.
+    Else ``user:<sub>`` from a valid Bearer token, else from a valid
+    ``__access`` cookie, else ``ip:<host>``. Only the JWT is read and the
+    MCP token only hashed: the session check is ``get_current_user``'s and
+    ``McpAuthGuard``'s, the limiter stays a single Redis call and fails
+    open.
+
+    The MCP subject is the ``mcp`` bucket's only: anyone can send a fresh
+    ``applika_mcp_…`` string per request, so on ``/auth/*`` and every REST
+    route such a Bearer is no valid JWT and counts against the IP, as any
+    other invalid Bearer does."""
+    bearer = _bearer_token(headers)
+    if bucket == 'mcp' and bearer and bearer.startswith(MCP_TOKEN_PREFIX):
+        digest = hashlib.sha256(bearer.encode()).hexdigest()
+        return f'mcp:{digest[:MCP_SUBJECT_HEX]}'
+    subject = _token_subject(bearer) or _token_subject(
         cookies.get(ACCESS_COOKIE_NAME)
     )
     if subject:
