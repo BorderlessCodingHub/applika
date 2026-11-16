@@ -189,27 +189,33 @@ export function McpTab({
         )}
       </section>
 
+      {/* The label sits beside the address in a wide card and above it in a
+          narrow one; the switch reads the card's width, never the label's, so
+          a longer label never breaks the address mid-word. */}
       <div
         data-slot="mcp-address"
-        className={cn(CARD, "flex flex-wrap items-center gap-4 py-2 pr-2 pl-5")}
+        className={cn(CARD, "@container/mcp-address py-2 pr-2 pl-5")}
       >
-        <span className="text-[13px] font-semibold text-muted-foreground">
-          {t("serverAddress")}
-        </span>
-        <span
-          ref={address}
-          className="min-w-0 flex-1 font-numeric text-[13px] wrap-anywhere text-foreground"
-        >
-          {endpoint}
-        </span>
-        <McpCopyButton
-          variant="desk-icon"
-          text={endpoint}
-          label={t("copyAddress")}
-          doneLabel={t("addressCopied")}
-          selectOnFail={address}
-          data-action="copy-address"
-        />
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 @lg/mcp-address:grid-cols-[auto_minmax(0,1fr)_auto]">
+          <span className="text-[13px] font-semibold text-muted-foreground">
+            {t("serverAddress")}
+          </span>
+          <span
+            ref={address}
+            className="col-start-1 row-start-2 min-w-0 font-numeric text-[13px] wrap-anywhere text-foreground @lg/mcp-address:col-start-2 @lg/mcp-address:row-start-1"
+          >
+            {endpoint}
+          </span>
+          <McpCopyButton
+            variant="desk-icon"
+            text={endpoint}
+            label={t("copyAddress")}
+            doneLabel={t("addressCopied")}
+            selectOnFail={address}
+            data-action="copy-address"
+            className="col-start-2 row-span-2 row-start-1 @lg/mcp-address:col-start-3 @lg/mcp-address:row-span-1"
+          />
+        </div>
       </div>
 
       <section aria-labelledby={activeId} className="flex flex-col gap-2.5">
@@ -229,24 +235,24 @@ export function McpTab({
               <div
                 key={row}
                 aria-hidden
-                className="flex flex-wrap items-center gap-x-6 gap-y-3 border-border px-5 py-4 not-first:border-t"
+                className="@container/mcp-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-3 border-border px-5 py-4 not-first:border-t"
               >
-                <div className="flex min-w-0 flex-[1_1_220px] items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <Skeleton className="size-9 shrink-0 rounded-[10px]" />
                   <div className="flex flex-col gap-1.5">
                     <Skeleton className="h-4 w-40" />
                     <Skeleton className="h-[22px] w-24 rounded-full" />
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                <div className="col-span-2 row-start-2 grid grid-cols-2 gap-x-6 gap-y-2 @xl/mcp-row:grid-cols-4">
                   {[0, 1, 2, 3].map((cell) => (
-                    <div key={cell} className="flex min-w-24 flex-col gap-1">
+                    <div key={cell} className="flex min-w-0 flex-col gap-1">
                       <Skeleton className="h-3 w-16" />
                       <Skeleton className="h-4 w-20" />
                     </div>
                   ))}
                 </div>
-                <Skeleton className="h-9 w-20 rounded-[10px]" />
+                <Skeleton className="col-start-2 row-start-1 h-9 w-20 rounded-[10px]" />
               </div>
             ))}
           </div>
@@ -408,12 +414,16 @@ function McpRow({
   const { date, lastUsed } = useMcpDates(now);
 
   return (
+    // Two fixed lines, whatever the language: the name and Revoke, then the
+    // four details in equal columns (two by two in a narrow row; the switch
+    // reads the row's width, never its text). A longer label wraps inside its
+    // own column instead of pushing Revoke to another line.
     <li
       data-slot="mcp-row"
       data-session-id={session.id}
-      className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4"
+      className="@container/mcp-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-3 px-5 py-4"
     >
-      <div className="flex min-w-0 flex-[1_1_220px] items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden
           className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary-muted text-primary"
@@ -428,7 +438,7 @@ function McpRow({
         </div>
       </div>
 
-      <dl className="m-0 flex flex-wrap gap-x-6 gap-y-2">
+      <dl className="col-span-2 row-start-2 m-0 grid grid-cols-2 gap-x-6 gap-y-2 @xl/mcp-row:grid-cols-4">
         <Cell term={t("terms.created")}>
           <time dateTime={session.created_at}>{date(session.created_at)}</time>
         </Cell>
@@ -469,7 +479,7 @@ function McpRow({
             }}
             className={cn(
               MCP_DESK_BTN,
-              "h-9 bg-destructive/16 text-[color:var(--destructive-text)] hover:bg-destructive/25 hover:text-[color:var(--destructive-text)] aria-disabled:opacity-60",
+              "col-start-2 row-start-1 h-9 bg-destructive/16 text-[color:var(--destructive-text)] hover:bg-destructive/25 hover:text-[color:var(--destructive-text)] aria-disabled:opacity-60",
             )}
           >
             {pending ? (
@@ -494,7 +504,7 @@ function McpRow({
 
 function Cell({ term, children }: { term: string; children: ReactNode }) {
   return (
-    <div className="flex min-w-24 flex-col gap-0.5 text-[13px]">
+    <div className="flex min-w-0 flex-col gap-0.5 text-[13px]">
       <dt className="text-xs text-muted-foreground">{term}</dt>
       <dd className="m-0 text-foreground">{children}</dd>
     </div>
