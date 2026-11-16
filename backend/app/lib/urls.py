@@ -73,3 +73,15 @@ def normalize_company_url(url: str) -> str:
             break
 
     return f'{parsed.scheme}://{parsed.netloc}'
+
+
+def site_host(url: str | None) -> str | None:
+    """The site a URL belongs to: its host, lower case, without a leading
+    ``www.`` or a trailing dot (``turing.com.`` is ``turing.com``) -
+    ``https://www.RemoteOK.com/jobs`` is ``remoteok.com``.
+    ``None`` for no URL or one with no host."""
+    if not url:
+        return None
+    host = (urlparse(url).hostname or '').lower().rstrip('.')
+    host = host.removeprefix('www.')
+    return host or None

@@ -3,7 +3,7 @@
 The finalize half and the ``ensure_not_archived`` guard: the archived lock
 is a ``BusinessRuleViolation`` (422) and finalize answers the
 ``Application`` read model. The reopen half is ``test_reopen_application.py``;
-the 0.1.4 body is ``test_legacy_finalize.py``.
+the retired 0.1.4 body (a 422 since ADR-0028) is ``test_cli_removed.py``.
 
 Pinned:
 1. finalize stamps ``finalized_at`` (open -> closed), server-side, UTC;
@@ -47,7 +47,6 @@ from tests.unit.conftest import (
     make_application,
     make_event,
     make_read_model,
-    make_step_definition,
 )
 
 
@@ -197,8 +196,9 @@ async def test_finalize_emits_finalized_audit_event(caplog):
     assert 'application.finalized' in _events(caplog)
 
 
-async def test_finalize_returns_the_legacy_fields_from_the_timeline():
-    """R-019 through the read model: last step, salary offer, no feedback."""
+async def test_finalize_returns_the_last_event_from_the_timeline():
+    """R-019 through the read model: the last event; ``salary_offer`` and
+    ``feedback`` are gone (ADR-0028)."""
     application = make_application(id=123)
     offer = make_event(
         application_id=123,
@@ -207,15 +207,7 @@ async def test_finalize_returns_the_legacy_fields_from_the_timeline():
         salary_currency=Currency.EUR,
         salary_period=SalaryPeriod.MONTHLY,
     )
-    read_model = make_read_model(
-        latest={123: offer},
-        offers={123: offer},
-        catalog=[
-            make_step_definition(
-                id=5, name='Offer', color='#00ff00', strict=True
-            )
-        ],
-    )
+    read_model = make_read_model(latest={123: offer})
     app_repo = AsyncMock()
     app_repo.get_by_id_and_user_id.return_value = application
     app_repo.update.return_value = make_application(
@@ -226,11 +218,12 @@ async def test_finalize_returns_the_legacy_fields_from_the_timeline():
         123, user_id=1
     )
 
-    assert result.last_step is not None
-    assert (result.last_step.id, result.last_step.name) == (5, 'Offer')
-    assert result.last_step.date == offer.event_date
-    assert result.salary_offer == 5000.0
-    assert result.feedback is None
+    assert result.last_event is not None
+    assert result.last_event.id == offer.id
+    assert result.last_event.event_type is EventType.OFFER
+    assert result.last_event.date == offer.event_date
+    assert 'salary_offer' not in result.model_dump()
+    assert 'feedback' not in result.model_dump()
 
 
 # --------------------------------------------------------------------------
@@ -462,8 +455,7 @@ async def test_outcome_missing_application_is_404():
 async def test_outcome_write_is_atomic_event_failure_leaves_app_unwritten():
     """If the event insert fails, ``finalized_at`` is never committed.
 
-    Mirrors ``LegacyFinalizeApplicationUseCase``: both repositories share
-    the request's session, so ``timeline_event_repo.create``'s commit is
+    Both repositories share the request's session, so ``timeline_event_repo.create``'s commit is
     what persists ``finalized_at`` too - a failed create means
     ``application_repo.update`` (called only after ``create`` returns) is
     never reached, and nothing the use case did was ever flushed.

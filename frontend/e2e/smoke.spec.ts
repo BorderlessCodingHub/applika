@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { loginAs, type SeededRole } from "./support/auth";
+import { expectAnswersLikeAnUnknownPage } from "./support/unknown-page";
 
 /**
  * Page smoke suite (R-004, R-006).
@@ -69,10 +70,11 @@ const PAGES: PageCase[] = [
     assert: heading("Cookie Policy", 1),
   },
   {
-    path: "/cli",
+    path: "/mcp",
     visitors: ["anon", "user"],
     // Public, under the `(public)` layout; the rail links here when signed in.
-    assert: heading("applika-cli", 1),
+    // It replaced the applika-cli page (`/cli` forwards here, tested below).
+    assert: heading("Applika in your AI assistant", 1),
   },
 
   // ---- signed-in -------------------------------------------------------
@@ -218,19 +220,6 @@ const PAGES: PageCase[] = [
       ).toBeVisible();
     },
   },
-  {
-    // PRD 0014: the CLI device approval page.
-    path: "/device",
-    visitors: ["user"],
-    assert: heading("Sign in a device", 1),
-  },
-  {
-    // PRD 0014: outside the groups like `/login`, no session; with no
-    // `?code=&state=` it says the link is missing its code, same h1.
-    path: "/cli/code",
-    visitors: ["anon"],
-    assert: heading("Sign in to applika-cli", 1),
-  },
 ];
 
 test.describe("every page renders against the real stack", () => {
@@ -278,10 +267,50 @@ test("/admin/discord-webhooks redirects to /admin/report-webhooks", async ({
   ).toBeVisible();
 });
 
+test("/cli forwards to /mcp, the page that replaced it", async ({ page }) => {
+  await page.goto("/cli");
+  await page.waitForURL("**/mcp");
+  await expect(
+    page.getByRole("heading", {
+      name: "Applika in your AI assistant",
+      level: 1,
+    }),
+  ).toBeVisible();
+  // `replace`: Back does not land on `/cli` again.
+  expect(new URL(page.url()).pathname).toBe("/mcp");
+});
+
+/**
+ * ADR-0028: the CLI's own pages are deleted, with no message, forward or
+ * placeholder. Their old links answer like any address no page owns, signed
+ * out and signed in, and none of their words is left.
+ */
+for (const visitor of ["anon", "user"] as const) {
+  test(`/device and /cli/code answer like any unknown page for ${visitor}`, async ({
+    page,
+  }) => {
+    if (visitor !== "anon") await loginAs(page, visitor);
+    for (const path of [
+      "/device",
+      "/device?code=BCDF-GHJK",
+      "/cli/code",
+      "/cli/code?code=e2e-code&state=e2e-state",
+    ]) {
+      await expectAnswersLikeAnUnknownPage(page, path);
+      await expect(
+        page.getByText(
+          /Sign in a device|applika-cli|applika login|Paste this code/,
+        ),
+        path,
+      ).toHaveCount(0);
+    }
+  });
+}
+
 test("the suite covers every page named in the acceptance criteria", () => {
   // Guards the table itself, because the suite is only as good as this list: a
   // route silently dropped from PAGES would leave the suite green while
-  // covering less. The invariant is 22 routes, ALL of them exercised — the
+  // covering less. The invariant is 24 routes, ALL of them exercised — the
   // `pending`/`pendingReason` parking mechanism is gone, so there is no longer
   // any way to keep a row in the table while skipping it at runtime.
   // 14 until PRD 0007 added `/cvs`; 17 since PRD 0009 added
@@ -289,9 +318,12 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // `/admin/jobs` (Plan corrections 23); 20 since PRD 0013 added
   // `/admin/features`; 22 since PRD 0014 added `/device` and `/cli/code`;
   // 23 since Borderless sign-in added `/welcome` (`/admin/report-webhooks`
-  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page;
-  // 26 since the phone shell added `/insights` and `/account`.
-  expect(PAGES).toHaveLength(26);
+  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page
+  // (`/mcp` since PRD 0023, which replaced it; `/cli` forwards there, tested
+  // apart like the admin redirects); 26 since the phone shell added
+  // `/insights` and `/account`; 24 since ADR-0028 deleted `/device` and
+  // `/cli/code` (they answer like any unknown page, tested apart).
+  expect(PAGES).toHaveLength(24);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.

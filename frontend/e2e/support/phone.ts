@@ -49,10 +49,18 @@ export async function undersizedControls(
         count: measured.length,
         small: measured
           .filter(({ rect }) => rect.width + 0.5 < 44 || rect.height + 0.5 < 44)
-          .map(
-            ({ control, rect }) =>
-              `${control.getAttribute("aria-label") ?? control.textContent?.trim()} ${Math.round(rect.width)}x${Math.round(rect.height)}`,
-          ),
+          .map(({ control, rect }) => {
+            // A control with no name says what it is instead, so a failure
+            // names the element it found (and the missing name is a finding).
+            const name =
+              control.getAttribute("aria-label") ||
+              control.textContent?.trim() ||
+              `<${control.tagName.toLowerCase()} ${control.outerHTML
+                .slice(control.tagName.length + 1, 160)
+                .split(">")[0]
+                .trim()}>`;
+            return `${name} ${Math.round(rect.width)}x${Math.round(rect.height)}`;
+          }),
       };
     },
     { selector: CONTROLS, skip: [...exclude] },

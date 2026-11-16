@@ -27,29 +27,20 @@ export const STALE_DAYS = 14;
 /** What the stage and the dates are read from. */
 export type PipelineApplication = Pick<
   Application,
-  "application_date" | "finalized_at" | "last_step"
+  "application_date" | "finalized_at" | "last_event"
 >;
-
-/** `last_step.name` as the API's reverse step map writes it (`step_translation.py`). */
-const STEP_SCREENING = "Initial Screen";
-const STEP_OFFER = "Offer";
-const STEP_DENIED = "Denied";
 
 /**
  * The application's stage, from the summary the API already sends (PRD 0021
- * Q8): closed once `finalized_at` is set; no event yet → Applied; "Initial
- * Screen" → Screening; "Offer" → Offer; "Denied" → Closed (an open
- * application whose latest event is a denial); any other interview ("Phase
- * 2") → Technical.
+ * Q8): closed once `finalized_at` is set; no event yet → Applied; the initial
+ * screening → Screening; any other interview → Technical; an offer → Offer;
+ * a denial → Closed (an open application whose latest event is a denial).
  */
 export function pipelineStage(app: PipelineApplication): PipelineStage {
   if (app.finalized_at) return "closed";
-  const step = app.last_step;
-  if (!step) return "applied";
-  if (step.name === STEP_SCREENING) return "screening";
-  if (step.name === STEP_OFFER) return "offer";
-  if (step.name === STEP_DENIED) return "closed";
-  return "technical";
+  const event = app.last_event;
+  if (!event) return "applied";
+  return eventStage(event) ?? "closed";
 }
 
 /**
@@ -60,16 +51,16 @@ export function pipelineStage(app: PipelineApplication): PipelineStage {
 export function pipelineOutcome(
   app: PipelineApplication,
 ): "denied" | "offer" | null {
-  const name = app.last_step?.name;
-  if (name === STEP_DENIED) return "denied";
-  if (name === STEP_OFFER && app.finalized_at) return "offer";
+  const type = app.last_event?.event_type;
+  if (type === "denied") return "denied";
+  if (type === "offer" && app.finalized_at) return "offer";
   return null;
 }
 
 /** The later of the application date and the latest event's date, "YYYY-MM-DD". */
 export function lastUpdate(app: PipelineApplication): string {
   const applied = app.application_date.slice(0, 10);
-  const event = app.last_step?.date?.slice(0, 10);
+  const event = app.last_event?.date?.slice(0, 10);
   return event && event > applied ? event : applied;
 }
 
@@ -173,7 +164,7 @@ function eventStage(event: {
 /**
  * The furthest stage an application reached: from its timeline when it is
  * loaded (an offer, any interview other than the screening, the screening),
- * else from `last_step` (a closed or denied application then reads Applied
+ * else from `last_event` (a closed or denied application then reads Applied
  * until its events arrive).
  */
 export function reachedStage(

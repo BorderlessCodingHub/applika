@@ -8,10 +8,16 @@ from app.application.use_cases.timeline_events.rules import (
     OFFER_PERIOD_INVALID,
     OFFER_PERIODS,
 )
+from app.application.validators.salary import (
+    SALARY_NEEDS_CURRENCY_AND_PERIOD,
+    salary_is_incomplete,
+)
 from app.core.enums import (
     Currency,
     DeniedReason,
+    EventType,
     ExperienceLevel,
+    InterviewType,
     SalaryPeriod,
     WorkMode,
 )
@@ -26,6 +32,20 @@ MAX_JOB_DESCRIPTION = 50_000
 class ApplicationCompany(BaseSchema):
     name: str
     url: HttpUrl | None
+
+
+def _ensure_salary_complete(
+    body: 'CreateApplication | UpdateApplication',
+) -> None:
+    """A salary amount needs its currency and period (``validators.salary``),
+    on create and on the full-replace update alike."""
+    amounts = (
+        body.expected_salary,
+        body.salary_range_min,
+        body.salary_range_max,
+    )
+    if salary_is_incomplete(amounts, body.currency, body.salary_period):
+        raise ValueError(SALARY_NEEDS_CURRENCY_AND_PERIOD)
 
 
 class CreateApplication(BaseSchema):
@@ -47,6 +67,11 @@ class CreateApplication(BaseSchema):
     job_description: str | None = Field(
         default=None, max_length=MAX_JOB_DESCRIPTION
     )
+
+    @model_validator(mode='after')
+    def _validate_salary(self) -> 'CreateApplication':
+        _ensure_salary_complete(self)
+        return self
 
 
 class UpdateApplication(BaseModel):
@@ -79,18 +104,21 @@ class UpdateApplication(BaseModel):
         default=None, max_length=MAX_JOB_DESCRIPTION
     )
 
+    @model_validator(mode='after')
+    def _validate_salary(self) -> 'UpdateApplication':
+        _ensure_salary_complete(self)
+        return self
 
-class ApplicationLastStep(BaseSchema):
+
+class ApplicationLastEvent(BaseSchema):
+    """The latest timeline event, in timeline order (latest
+    ``event_date``, then ``start_time``, then creation), so an upcoming
+    interview counts."""
+
     id: SnowflakeID
-    name: str
-    color: str
-    date: date
-
-
-class ApplicationFeedback(BaseSchema):
-    id: SnowflakeID
-    name: str
-    color: str
+    event_type: EventType
+    interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     date: date
 
 
@@ -107,7 +135,6 @@ class Application(BaseSchema, TimeSchema):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
-    salary_offer: float | None = None
     currency: Currency | None = None
     salary_period: SalaryPeriod | None = None
     experience_level: ExperienceLevel | None = None
@@ -117,23 +144,10 @@ class Application(BaseSchema, TimeSchema):
 
     # Closed since, or null when open (R-007, R-008).
     finalized_at: datetime | None = None
-    # The fields installed applika-cli 0.1.4 reads (R-019), derived from the
-    # timeline: finalized = finalized_at is set; last_step = the latest event
-    # as its legacy step; feedback = always null; salary_offer = the latest
-    # offer event's amount.
+    # Derived from the timeline: finalized = finalized_at is set; last_event
+    # = the latest event (``use_cases/applications/read_model.py``).
     finalized: bool
-    last_step: ApplicationLastStep | None = None
-    feedback: ApplicationFeedback | None = None
-
-
-class FinalizeApplication(BaseModel):
-    """The 0.1.4 finalize body. Deprecated: send no body instead."""
-
-    step_id: SnowflakeID  # only strict steps
-    feedback_id: SnowflakeID
-    finalize_date: date
-    salary_offer: float | None = None
-    observation: str | None = None
+    last_event: ApplicationLastEvent | None = None
 
 
 OFFER_OUTCOME_NEEDS_SALARY = (
@@ -157,12 +171,12 @@ class FinalizeWithOutcome(BaseSchema):
     is the web's finalize form).
 
     ``outcome`` is ``offer``, ``denied`` or absent. A body that reaches this
-    schema always has at least one key and neither ``step_id`` nor
-    ``feedback_id`` (the router routes those bodies elsewhere first); every
-    field here is otherwise optional, and a body whose fields are all
-    absent or null is handled the same as no body at all - the existing
-    idempotent close, no outcome recorded (the router checks
-    ``outcome is None`` after this validates).
+    schema always has at least one key; every field is optional, any other
+    key is refused (``extra='forbid'``: the retired 0.1.4 body, with its
+    ``step_id`` and ``feedback_id``, is a 422 since ADR-0028), and a body
+    whose fields are all absent or null is handled the same as no body at
+    all - the existing idempotent close, no outcome recorded (the router
+    checks ``outcome is None`` after this validates).
 
     Every rule below is enforced before any I/O, same as the timeline
     write schema (``presentation/schemas/timeline_event.py``):
@@ -182,9 +196,7 @@ class FinalizeWithOutcome(BaseSchema):
       (R-032): the outcome body used to reach the database through
       ``rules.normalize_event`` alone, which does not restrict the period,
       so the same offer event was valid through ``/timeline`` and refused
-      through ``/finalize``, or the reverse. The legacy 0.1.4 finalize body
-      is untouched: it still fills the period from the application, which
-      can itself be hourly.
+      through ``/finalize``, or the reverse.
     * ``denied_reason`` (R-033..R-036) is only allowed when
       ``outcome`` is ``denied``; refused on ``offer`` and refused with no
       outcome, same as the salary triad's own restriction. It defaults to

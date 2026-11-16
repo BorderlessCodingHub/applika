@@ -1,10 +1,6 @@
 from datetime import date
 
 from app.application.dto.agenda import AgendaStepDTO
-from app.application.use_cases.compat.step_translation import StepTranslator
-from app.domain.repositories.step_definition_repository import (
-    StepDefinitionRepository,
-)
 from app.domain.repositories.timeline_event_repository import (
     TimelineEventRepository,
 )
@@ -18,13 +14,8 @@ class GetUserAgendaUseCase:
     and interview type it is.
     """
 
-    def __init__(
-        self,
-        timeline_event_repo: TimelineEventRepository,
-        step_repo: StepDefinitionRepository,
-    ):
+    def __init__(self, timeline_event_repo: TimelineEventRepository):
         self.timeline_event_repo = timeline_event_repo
-        self.step_repo = step_repo
 
     async def execute(
         self,
@@ -37,28 +28,19 @@ class GetUserAgendaUseCase:
             from_date=from_date,
             to_date=to_date,
         )
-        if not events:
-            return []
-        translator = StepTranslator(await self.step_repo.get_all())
-        items = []
-        for event in events:
-            step = translator.reverse(event.event_type, event.interview_type)
-            items.append(
-                AgendaStepDTO(
-                    id=event.id,
-                    step_id=step.id if step else None,
-                    step_date=event.event_date,
-                    step_name=step.name if step else None,
-                    step_color=step.color if step else None,
-                    event_type=event.event_type,
-                    interview_type=event.interview_type,
-                    start_time=event.start_time,
-                    end_time=event.end_time,
-                    timezone=event.timezone,
-                    observation=event.observation,
-                    application_id=event.application_id,
-                    company_name=event.application.company_name,
-                    role=event.application.role,
-                )
+        return [
+            AgendaStepDTO(
+                id=event.id,
+                step_date=event.event_date,
+                event_type=event.event_type,
+                interview_type=event.interview_type,
+                start_time=event.start_time,
+                end_time=event.end_time,
+                timezone=event.timezone,
+                observation=event.observation,
+                application_id=event.application_id,
+                company_name=event.application.company_name,
+                role=event.application.role,
             )
-        return items
+            for event in events
+        ]

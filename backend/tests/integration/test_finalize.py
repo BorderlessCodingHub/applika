@@ -1,15 +1,14 @@
-"""POST /applications/{id}/finalize with both bodies, and /reopen
-(R-007..R-012, R-017, R-019, R-020).
+"""POST /applications/{id}/finalize and /reopen (R-007..R-012, R-019,
+R-032).
 
-* No body (or ``{}``/``null``): the new reversible close. 200, idempotent,
-  only ``finalized_at`` changes, no Deprecation header.
-* The 0.1.4 body ``{step_id, feedback_id, finalize_date, salary_offer?,
-  observation?}``: deprecated but working for installed CLIs. 201, the
-  outcome written as the mapped step's timeline event with the feedback
-  name in its observation, ``Deprecation`` on every answer, 409 on a closed
-  application, no Offer <-> Accepted coupling.
+* No body (or ``{}``/``null``): the reversible close. 200, idempotent, only
+  ``finalized_at`` changes, no Deprecation header.
+* The optional outcome body: an offer or denied event and ``finalized_at``
+  written atomically.
+* The retired 0.1.4 body ``{step_id, feedback_id, ...}`` is a 422 since
+  ADR-0028 (``test_cli_removed.py``).
 
-The new-body half pins the archived code (422, not 409).
+The outcome half pins the archived code (422, not 409).
 """
 
 import logging
@@ -24,24 +23,12 @@ from app.core.enums import (
     Currency,
     DeniedReason,
     EventType,
-    InterviewType,
     SalaryPeriod,
 )
 from app.domain.models import ApplicationModel, CycleModel, TimelineEventModel
 from app.main import app as main_app
-from app.presentation.deprecation import DEPRECATION_VALUE
 from tests import msg
 from tests.integration import timeline_seed as ts
-
-
-def _legacy_body(**overrides) -> dict:
-    body: dict = {
-        'step_id': str(ts.STEP_OFFER),
-        'feedback_id': str(ts.FB_ACCEPTED),
-        'finalize_date': '2025-12-15',
-    }
-    body.update(overrides)
-    return body
 
 
 async def _events(db_session: AsyncSession, app_id: int = ts.APP_ID):
@@ -59,11 +46,6 @@ async def _application(db_session: AsyncSession, app_id: int = ts.APP_ID):
     row = await db_session.get(ApplicationModel, app_id)
     assert row is not None
     return row
-
-
-def _deprecated(response) -> None:
-    assert response.headers.get('Deprecation') == DEPRECATION_VALUE
-    assert 'Sunset' not in response.headers
 
 
 # ===========================================================================
@@ -201,9 +183,9 @@ async def test_finalize_does_not_set_any_outcome(
     response = await async_client.post('/applications/1/finalize')
 
     body = response.json()
-    assert body['salary_offer'] is None
-    assert body['feedback'] is None
-    assert body['last_step'] is None
+    assert 'salary_offer' not in body
+    assert 'feedback' not in body
+    assert body['last_event'] is None
     assert await _events(db_session) == []
 
 
@@ -218,16 +200,11 @@ async def test_cross_user_finalize_and_reopen_return_404(
 
     finalize = await async_client.post('/applications/77/finalize')
     reopen = await async_client.post('/applications/77/reopen')
-    legacy = await async_client.post(
-        '/applications/77/finalize', json=_legacy_body()
-    )
     outcome = await async_client.post(
         '/applications/77/finalize', json={'outcome': 'denied'}
     )
 
     assert (finalize.status_code, reopen.status_code) == (404, 404)
-    assert legacy.status_code == 404
-    _deprecated(legacy)
     assert outcome.status_code == 404, msg(404, outcome.status_code)
     assert 'Deprecation' not in outcome.headers
     assert await _events(db_session, app_id=77) == []
@@ -265,27 +242,24 @@ def test_openapi_documents_reopen_and_the_optional_finalize_body():
     assert '/applications/{application_id}/reopen' in paths
 
 
-def test_openapi_finalize_body_lists_both_shapes():
-    """The finalize requestBody documents both the deprecated 0.1.4 shape
-    and the new optional outcome shape (R-032, the web reads this) as an
-    OpenAPI ``oneOf``, `required: false` on the whole body still."""
+def test_openapi_finalize_body_is_the_outcome_shape_only():
+    """The finalize requestBody documents the optional outcome shape (R-032)
+    alone, `required: false`: the 0.1.4 shape left with ADR-0028, and so did
+    its 201 answer."""
     finalize = main_app.openapi()['paths'][
         '/applications/{application_id}/finalize'
     ]['post']
     request_body = finalize['requestBody']
     assert request_body['required'] is False
+    assert '201' not in finalize['responses']
+    assert '0.1.4' not in request_body['description']
 
-    body_schema = request_body['content']['application/json']['schema']
-    branches = body_schema['oneOf']
-    assert len(branches) == 2
-    titles = {branch['title'] for branch in branches}
-    assert titles == {'FinalizeApplication', 'FinalizeWithOutcome'}
-
-    legacy = next(b for b in branches if b['title'] == 'FinalizeApplication')
-    assert 'step_id' in legacy['properties']
-    assert 'feedback_id' in legacy['properties']
-
-    outcome = next(b for b in branches if b['title'] == 'FinalizeWithOutcome')
+    outcome = request_body['content']['application/json']['schema']
+    assert outcome['title'] == 'FinalizeWithOutcome'
+    assert 'oneOf' not in outcome
+    assert 'step_id' not in outcome['properties']
+    assert 'feedback_id' not in outcome['properties']
+    assert outcome['additionalProperties'] is False
     assert 'outcome' in outcome['properties']
     assert 'salary_period' in outcome['properties']
     assert 'denied_reason' in outcome['properties']
@@ -345,8 +319,9 @@ async def test_finalize_offer_outcome_writes_event_and_closes_no_deprecation(
     data = response.json()
     assert data['finalized'] is True
     assert data['finalized_at'] is not None
-    assert data['salary_offer'] == 9500.0
-    assert data['last_step']['date'] == '2025-12-20'
+    assert 'salary_offer' not in data
+    assert data['last_event']['date'] == '2025-12-20'
+    assert data['last_event']['event_type'] == 'offer'
 
     [event] = await _events(db_session)
     assert event.event_type is EventType.OFFER
@@ -374,7 +349,6 @@ async def test_finalize_denied_outcome_writes_event_without_salary(
     assert 'Deprecation' not in response.headers
     data = response.json()
     assert data['finalized'] is True
-    assert data['salary_offer'] is None
 
     [event] = await _events(db_session)
     assert event.event_type is EventType.DENIED
@@ -642,344 +616,3 @@ async def test_finalize_outcome_nonexistent_app_returns_404(
 
     assert response.status_code == 404, msg(404, response.status_code)
     assert 'Deprecation' not in response.headers
-
-
-# ===========================================================================
-# Legacy 0.1.4 body (deprecated)
-# ===========================================================================
-
-
-async def test_legacy_finalize_offer_records_the_outcome_event(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(
-        db_session, currency=Currency.EUR, salary_period=SalaryPeriod.ANNUALLY
-    )
-
-    response = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(salary_offer=95000.0, observation='Great offer!'),
-    )
-
-    assert response.status_code == 201, msg(201, response.status_code)
-    _deprecated(response)
-    data = response.json()
-    assert data['finalized'] is True
-    assert data['finalized_at'].startswith('2025-12-15T00:00:00')
-    assert data['salary_offer'] == 95000.0
-    assert data['feedback'] is None
-    assert data['last_step']['id'] == str(ts.STEP_OFFER)
-    assert data['last_step']['name'] == 'Offer'
-    assert data['last_step']['date'] == '2025-12-15'
-
-    [event] = await _events(db_session)
-    assert event.event_type is EventType.OFFER
-    assert event.event_date == date(2025, 12, 15)
-    assert event.observation == 'Great offer!\n\nFeedback: Accepted'
-    assert event.salary_amount == Decimal('95000.00')
-    assert event.salary_currency is Currency.EUR
-    assert event.salary_period is SalaryPeriod.ANNUALLY
-
-
-async def test_legacy_finalize_offer_without_salary_is_decision_b(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize', json=_legacy_body()
-    )
-
-    assert response.status_code == 201
-    [event] = await _events(db_session)
-    assert (
-        event.salary_amount,
-        event.salary_currency,
-        event.salary_period,
-    ) == (
-        Decimal('0.00'),
-        Currency.USD,
-        SalaryPeriod.MONTHLY,
-    )
-    assert event.observation == 'Feedback: Accepted'
-    assert response.json()['salary_offer'] == 0.0
-
-
-async def test_legacy_finalize_offer_on_hourly_application_stays_hourly(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    """Remediation round 1: the R-032 fix refuses ``hourly`` on
-    the *new* outcome body, but the 0.1.4 legacy body is pinned unchanged -
-    it still fills an offer's period from the application, which can
-    itself be hourly (owner decision (b)'s convention).
-
-    Report-only finding from that same round: the resulting offer event
-    cannot be re-submitted unchanged through ``PUT /timeline`` - the
-    timeline write schema refuses ``hourly`` on an offer regardless of
-    how the event was created. That gap is not fixed here; this test only
-    pins that the legacy write itself still succeeds, so nobody
-    accidentally closes it by folding this restriction into
-    ``normalize_event`` (which the legacy path also uses)."""
-    await ts.seed_open_application(
-        db_session, currency=Currency.EUR, salary_period=SalaryPeriod.HOURLY
-    )
-
-    response = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(salary_offer=45.0),
-    )
-
-    assert response.status_code == 201, msg(201, response.status_code)
-    [event] = await _events(db_session)
-    assert event.event_type is EventType.OFFER
-    assert event.salary_amount == Decimal('45.00')
-    assert event.salary_currency is Currency.EUR
-    assert event.salary_period is SalaryPeriod.HOURLY
-
-    # And that event, unchanged, is refused by the timeline write schema -
-    # the gap this test pins as still open.
-    replay = await async_client.put(
-        f'/applications/1/timeline/{event.id}',
-        json={
-            'event_type': 'offer',
-            'event_date': event.event_date.isoformat(),
-            'salary_amount': '45.00',
-            'salary_currency': 'EUR',
-            'salary_period': 'hourly',
-        },
-    )
-    assert replay.status_code == 422, msg(422, replay.status_code)
-    assert 'monthly or annually' in replay.text
-
-
-async def test_legacy_finalize_already_closed_returns_409(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(
-        db_session, finalized_at=ts.closed_at(date(2025, 12, 10))
-    )
-
-    response = await async_client.post(
-        '/applications/1/finalize', json=_legacy_body()
-    )
-
-    assert response.status_code == 409, msg(409, response.status_code)
-    assert response.json()['detail'] == (
-        'This application has already been finalized'
-    )
-    _deprecated(response)
-
-
-async def test_legacy_finalize_archived_returns_422(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed(
-        db_session,
-        *ts.catalog(),
-        CycleModel(id=901, user_id=ts.USER_ID, name='Past'),
-        ts.application(cycle_id=901),
-    )
-
-    response = await async_client.post(
-        '/applications/1/finalize', json=_legacy_body()
-    )
-
-    assert response.status_code == 422
-    _deprecated(response)
-
-
-async def test_legacy_finalize_nonexistent_app_returns_404(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed(db_session, *ts.catalog())
-
-    response = await async_client.post(
-        '/applications/999/finalize', json=_legacy_body()
-    )
-
-    assert response.status_code == 404, msg(404, response.status_code)
-    _deprecated(response)
-
-
-async def test_legacy_finalize_with_non_strict_step_returns_404(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(step_id=str(ts.STEP_PHASE_2)),
-    )
-
-    assert response.status_code == 404, msg(404, response.status_code)
-    assert await _events(db_session) == []
-
-
-async def test_legacy_finalize_with_invalid_feedback_returns_404(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize', json=_legacy_body(feedback_id='999')
-    )
-
-    assert response.status_code == 404, msg(404, response.status_code)
-    assert (await _application(db_session)).finalized_at is None
-
-
-async def test_legacy_finalize_future_date_returns_422(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-    future = (date.today() + timedelta(days=10)).isoformat()
-
-    response = await async_client.post(
-        '/applications/1/finalize', json=_legacy_body(finalize_date=future)
-    )
-
-    assert response.status_code == 422
-    _deprecated(response)
-
-
-async def test_legacy_finalize_salary_on_denied_returns_422(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    """Edge case: a salary offer on a finalize whose step is not an offer
-    is refused (the steps version stored it)."""
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(step_id=str(ts.STEP_DENIED), salary_offer=95000.0),
-    )
-
-    assert response.status_code == 422
-    assert 'salary_offer' in response.json()['detail']
-    _deprecated(response)
-    assert await _events(db_session) == []
-    assert (await _application(db_session)).finalized_at is None
-
-
-async def test_legacy_finalize_invalid_body_is_422_with_deprecation(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize', json={'step_id': str(ts.STEP_OFFER)}
-    )
-    malformed = await async_client.post(
-        '/applications/1/finalize',
-        content=b'{not json',
-        headers={'Content-Type': 'application/json'},
-    )
-
-    assert response.status_code == 422
-    assert {e['loc'][-1] for e in response.json()['detail']} >= {
-        'feedback_id',
-        'finalize_date',
-    }
-    _deprecated(response)
-    assert malformed.status_code == 422
-
-
-async def test_legacy_finalize_offer_with_non_accepted_feedback_succeeds(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    """R-012: Offer is no longer coupled to Accepted."""
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(feedback_id=str(ts.FB_GHOST)),
-    )
-
-    assert response.status_code == 201, msg(201, response.status_code)
-    [event] = await _events(db_session)
-    assert event.observation == 'Feedback: Ghost'
-
-
-async def test_legacy_finalize_denied_with_accepted_feedback_succeeds(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(step_id=str(ts.STEP_DENIED)),
-    )
-
-    assert response.status_code == 201, msg(201, response.status_code)
-    assert response.json()['finalized'] is True
-    assert response.json()['salary_offer'] is None
-    [event] = await _events(db_session)
-    assert event.event_type is EventType.DENIED
-    assert event.salary_amount is None
-    # 'Accepted' is not in the legacy feedback -> reason map, so
-    # it falls back to unknown, same as everywhere else this reason defaults.
-    assert event.denied_reason is DeniedReason.UNKNOWN
-
-
-async def test_legacy_finalize_denied_maps_the_feedback_to_a_reason(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    """R-036: the legacy finalize body maps the feedback name to
-    a ``denied_reason`` with the SAME map migration R3 uses for its own
-    backfill (pinned in ``tests/unit/test_denied_reason_mapping.py``)."""
-    await ts.seed_open_application(db_session)
-
-    response = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(
-            step_id=str(ts.STEP_DENIED), feedback_id=str(ts.FB_GHOST)
-        ),
-    )
-
-    assert response.status_code == 201, msg(201, response.status_code)
-    [event] = await _events(db_session)
-    assert event.event_type is EventType.DENIED
-    assert event.denied_reason is DeniedReason.GHOSTED
-    assert event.observation == 'Feedback: Ghost'
-
-
-async def test_legacy_finalized_application_can_be_reopened(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-    await async_client.post('/applications/1/finalize', json=_legacy_body())
-
-    reopened = await async_client.post('/applications/1/reopen')
-    again = await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(step_id=str(ts.STEP_DENIED)),
-    )
-
-    assert reopened.status_code == 200
-    assert again.status_code == 201
-    kinds = [event.event_type for event in await _events(db_session)]
-    assert kinds == [EventType.OFFER, EventType.DENIED]
-
-
-async def test_legacy_finalize_keeps_existing_interviews_untouched(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await ts.seed_open_application(db_session)
-    await ts.seed(
-        db_session,
-        ts.event(
-            5,
-            event_type=EventType.INTERVIEW,
-            interview_type=InterviewType.INITIAL_SCREENING,
-            observation='Screen',
-        ),
-    )
-
-    await async_client.post(
-        '/applications/1/finalize',
-        json=_legacy_body(step_id=str(ts.STEP_DENIED)),
-    )
-
-    screen, denied = await _events(db_session)
-    assert screen.observation == 'Screen'
-    assert denied.observation == 'Feedback: Accepted'

@@ -62,6 +62,7 @@ function session(
     ended_at: null,
     status: "active",
     current: false,
+    scope: null,
     ...overrides,
   };
 }
@@ -114,6 +115,17 @@ const card = (id: string) =>
     `li[data-slot="device-row"][data-session-id="${id}"]`,
   )!;
 
+const MCP = session("s4", {
+  client_type: "mcp",
+  sign_in_method: "mcp_token",
+  device_name: "Cursor",
+  client_label: "Unknown device",
+  last_ip: "94.63.110.12",
+  last_used_at: new Date(NOW.getTime() - 2 * 60 * 1000).toISOString(),
+  expires_at: "2027-02-09T08:58:00Z",
+  scope: ["read"],
+});
+
 describe("Devices below md", () => {
   it("renders the Devices board: each active device, then the ended ones", async () => {
     await renderDevices();
@@ -165,6 +177,57 @@ describe("Devices below md", () => {
     expect(row).toHaveAttribute("data-status", "revoked");
     expect(row).toHaveClass("ph-dv-ended");
     expect(within(row).getByText("Revoked")).toBeInTheDocument();
+  });
+
+  it("lists an MCP connection with its icon, scope, last use, IP and the date it ends if unused", async () => {
+    mocks.list.mockResolvedValue([HERE, MCP]);
+    await renderDevices();
+    await screen.findByText("Cursor");
+
+    const mcp = card("s4");
+    expect(within(mcp).getByText("MCP token")).toBeVisible();
+    const chip = mcp.querySelector('[data-slot="mcp-scope"]');
+    expect(chip).toHaveTextContent("Read only");
+    expect(chip).toHaveClass("ph-pill");
+    expect(
+      within(mcp)
+        .getAllByRole("term")
+        .map((term) => term.textContent),
+    ).toEqual(["Granted", "IP address", "Last used", "Ends if unused"]);
+    // Its creation date, as on desktop Devices and in the MCP tab.
+    expect(within(mcp).getByText("Nov 1")).toHaveAttribute(
+      "dateTime",
+      MCP.created_at,
+    );
+    expect(mcp.querySelector('[data-slot="device-last-ip"]')).toHaveTextContent(
+      "94.63.110.12",
+    );
+    expect(within(mcp).getByText("2 minutes ago")).toBeInTheDocument();
+    expect(within(mcp).getByText("Feb 9, 2027")).toBeInTheDocument();
+    // The web row wears no scope.
+    expect(card("s1").querySelector('[data-slot="mcp-scope"]')).toBeNull();
+  });
+
+  it("revokes an MCP connection after a sheet that says the app loses access", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    mocks.list.mockResolvedValue([HERE, MCP]);
+    await renderDevices();
+    await screen.findByText("Cursor");
+
+    await user.click(
+      screen.getByRole("button", { name: "Revoke access for Cursor" }),
+    );
+    const sheet = screen.getByRole("alertdialog", {
+      name: "Revoke access for Cursor?",
+    });
+    expect(sheet).toHaveTextContent(
+      "Apps that use this token lose access on their next call. To connect again, create a new token in Profile › MCP.",
+    );
+    await user.click(
+      within(sheet).getByRole("button", { name: "Revoke access" }),
+    );
+    await waitFor(() => expect(mocks.revoke).toHaveBeenCalledWith("s4"));
   });
 
   it("revokes another device after its sheet; Cancel first, focus back", async () => {

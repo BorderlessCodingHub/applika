@@ -9,7 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/contexts/auth-context";
 
 /**
- * The public phone header of v2/Landing and v3/Cli, on one row: the Applika
+ * The public phone header of v2/Landing and `/mcp`, on one row: the Applika
  * icon as the home link at the left; at the right the theme toggle, the
  * language toggle with flags only, then Sign in to `/login`, or Dashboard to
  * `/dashboard` once signed in (the desktop `LandingHeader`'s words).

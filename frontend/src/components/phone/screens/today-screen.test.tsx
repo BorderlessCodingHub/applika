@@ -66,7 +66,7 @@ function app(overrides: Partial<Application>): Application {
     application_date: "2026-11-05",
     finalized: false,
     finalized_at: null,
-    last_step: null,
+    last_event: null,
     ...overrides,
   };
 }
@@ -301,10 +301,11 @@ describe("TodayScreen", () => {
         id: "denied",
         company_name: "Denied Corp",
         application_date: "2026-09-01",
-        last_step: {
+        last_event: {
           id: "e1",
-          name: "Denied",
-          color: "#ef4444",
+          event_type: "denied",
+          interview_type: null,
+          denied_reason: "unknown",
           date: "2026-09-15",
         },
       }),
@@ -394,10 +395,11 @@ describe("TodayScreen", () => {
       app({
         id: "quiet40",
         application_date: "2026-09-30",
-        last_step: {
+        last_event: {
           id: "s",
-          name: "Initial Screen",
-          color: "#000",
+          event_type: "interview",
+          interview_type: "initial_screening",
+          denied_reason: null,
           date: "2026-11-09",
         },
       }),

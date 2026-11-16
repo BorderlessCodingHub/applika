@@ -40,3 +40,16 @@ def test_an_open_row_whose_key_is_gone_is_expired():
 def test_an_open_row_past_expires_at_is_expired_even_with_a_key():
     assert derive_status(None, EARLIER, True, NOW) == 'expired'
     assert derive_status(None, NOW, True, NOW) == 'expired'
+
+
+def test_an_mcp_token_is_judged_by_its_redis_key_only():
+    """ADR-0028: an MCP row's ``expires_at`` follows Redis at most once a
+    day, so a past value with a live key still reads active."""
+    assert derive_status(None, EARLIER, True, NOW, redis_only=True) == 'active'
+    assert (
+        derive_status(None, EARLIER, False, NOW, redis_only=True) == 'expired'
+    )
+    assert (
+        derive_status('revoked', LATER, True, NOW, redis_only=True)
+        == 'revoked'
+    )

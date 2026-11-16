@@ -81,34 +81,11 @@ def make_event(**kwargs):
     return SimpleNamespace(**defaults)
 
 
-def make_step_definition(**kwargs):
-    """SimpleNamespace mimicking StepDefinitionModel (with its mapping)."""
-    defaults = {
-        'id': 1,
-        'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
-        'updated_at': None,
-        'name': 'Phase 2',
-        'color': '#007bff',
-        'strict': False,
-        'event_type': None,
-        'interview_type': None,
-    }
-    defaults.update(kwargs)
-    return SimpleNamespace(**defaults)
-
-
-def make_read_model(
-    latest: dict | None = None,
-    offers: dict | None = None,
-    catalog: list | None = None,
-) -> ApplicationReadModel:
-    """A real ApplicationReadModel over mocked repositories."""
+def make_read_model(latest: dict | None = None) -> ApplicationReadModel:
+    """A real ApplicationReadModel over a mocked timeline repository."""
     timeline_repo = AsyncMock()
     timeline_repo.latest_for_applications.return_value = latest or {}
-    timeline_repo.latest_offer_for_applications.return_value = offers or {}
-    step_repo = AsyncMock()
-    step_repo.get_all.return_value = catalog or []
-    return ApplicationReadModel(timeline_repo, step_repo)
+    return ApplicationReadModel(timeline_repo)
 
 
 def make_user(**kwargs):

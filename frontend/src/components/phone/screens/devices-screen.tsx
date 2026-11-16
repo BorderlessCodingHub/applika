@@ -3,6 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Loader2, Smartphone, SquareTerminal } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
+import { McpIcon } from "@/components/mcp/mcp-icon";
+import { McpScopeChip } from "@/components/mcp/mcp-scope-chip";
 import { PhoneConfirmSheet } from "@/components/phone/phone-confirm-sheet";
 import {
   PhoneLoadable,
@@ -101,7 +103,10 @@ export function DevicesScreenView({
           }
         : {
             title: t("revokeTitle", { name: confirm.session.device_name }),
-            description: t("revokeBody"),
+            description:
+              confirm.session.client_type === "mcp"
+                ? t("revokeMcpBody")
+                : t("revokeBody"),
             confirmLabel: t("revokeConfirm"),
             tone: "danger" as const,
             action: "confirm-revoke",
@@ -274,8 +279,22 @@ function DeviceCard({
   const format = useFormatter();
   const nameId = useId();
   const current = session.current;
-  const Icon = session.client_type === "cli" ? SquareTerminal : Smartphone;
+  const mcp = session.client_type === "mcp";
+  const Icon = mcp
+    ? McpIcon
+    : session.client_type === "cli"
+      ? SquareTerminal
+      : Smartphone;
   const expires = new Date(session.expires_at);
+  // "Nov 15", with the year only when it is not this one.
+  const shortDate = (value: Date) =>
+    format.dateTime(value, {
+      month: "short",
+      day: "numeric",
+      ...(value.getFullYear() === now.getFullYear()
+        ? {}
+        : { year: "numeric" as const }),
+    });
 
   return (
     <li
@@ -299,6 +318,13 @@ function DeviceCard({
                 {t("thisDevice")}
               </PhonePill>
             ) : null}
+            {mcp ? (
+              <McpScopeChip
+                variant="phone"
+                scope={session.scope}
+                className="ph-dv-here"
+              />
+            ) : null}
           </div>
           <div className="ph-dv-method">
             {t(`method.${session.sign_in_method}`)}
@@ -306,6 +332,18 @@ function DeviceCard({
         </div>
       </div>
       <dl className="ph-dv-dl">
+        {mcp ? (
+          // An MCP connection lists its creation date too (PRD 0023), as
+          // desktop Devices does for every row; web and cli cards keep V2's.
+          <>
+            <dt>{t("terms.granted")}</dt>
+            <dd>
+              <time dateTime={session.created_at}>
+                {shortDate(new Date(session.created_at))}
+              </time>
+            </dd>
+          </>
+        ) : null}
         <dt>{t("terms.ip")}</dt>
         <dd
           data-slot="device-last-ip"
@@ -329,17 +367,9 @@ function DeviceCard({
             t("never")
           )}
         </dd>
-        <dt>{t("terms.expires")}</dt>
+        <dt>{mcp ? t("terms.endsIfUnused") : t("terms.expires")}</dt>
         <dd>
-          <time dateTime={session.expires_at}>
-            {format.dateTime(expires, {
-              month: "short",
-              day: "numeric",
-              ...(expires.getFullYear() === now.getFullYear()
-                ? {}
-                : { year: "numeric" as const }),
-            })}
-          </time>
+          <time dateTime={session.expires_at}>{shortDate(expires)}</time>
         </dd>
       </dl>
       <button

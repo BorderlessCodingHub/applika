@@ -23,6 +23,10 @@ export interface PhoneSheetFrameProps {
   scrimClassName?: string;
   /** Takes focus on close when the element that opened the sheet is gone (a row of a sheet before it). */
   fallbackFocus?: RefObject<HTMLElement | null>;
+  /** Takes focus on open instead of the first control (a title, so no keyboard pops up). */
+  initialFocus?: RefObject<HTMLElement | null>;
+  /** A tap on the scrim does not close it, though it stays a `dialog` (a token shown once). */
+  keepOnScrim?: boolean;
   className?: string;
   /** A `PhoneSheetTitle` first, then the board's body. */
   children?: ReactNode;
@@ -40,6 +44,8 @@ export function PhoneSheetFrame({
   described = false,
   scrimClassName,
   fallbackFocus,
+  initialFocus,
+  keepOnScrim = false,
   className,
   children,
 }: PhoneSheetFrameProps) {
@@ -72,11 +78,15 @@ export function PhoneSheetFrame({
           data-slot="phone-sheet"
           role={alert ? "alertdialog" : "dialog"}
           {...(described ? {} : { "aria-describedby": undefined })}
-          onOpenAutoFocus={() => {
+          onOpenAutoFocus={(event) => {
             returnFocusTo.current =
               document.activeElement instanceof HTMLElement
                 ? document.activeElement
                 : null;
+            const first = initialFocus?.current;
+            if (!first) return;
+            event.preventDefault();
+            first.focus({ preventScroll: true });
           }}
           onCloseAutoFocus={(event) => {
             // No Dialog.Trigger: Radix would hand focus to <body>.
@@ -92,7 +102,7 @@ export function PhoneSheetFrame({
             }
           }}
           onPointerDownOutside={
-            alert ? (event) => event.preventDefault() : undefined
+            alert || keepOnScrim ? (event) => event.preventDefault() : undefined
           }
           className={cn(
             "ph-app ph-sheet duration-300 outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom motion-reduce:animate-none",

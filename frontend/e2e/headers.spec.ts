@@ -17,7 +17,7 @@ import {
 /**
  * The headers on the real stack, in the owner's order.
  *
- * Below md, `/` and `/cli` share one public phone header: the Applika icon
+ * Below md, `/` and `/mcp` share one public phone header: the Applika icon
  * as the home link (no words), then the theme toggle, the language toggle
  * with its flags only (each radio still named English / Português), and the
  * sign-in button: "Sign in" to /login, "Dashboard" to /dashboard once signed
@@ -26,10 +26,10 @@ import {
  * in English and Portuguese, light and dark.
  *
  * Every pair reads theme, then language: `/login` (the phone top bar's right
- * side below md, top 20 / right 24 at md and up), `/cli/code` (top right at
- * both widths) and `/cookie-policy`'s phone bar.
+ * side below md, top 20 / right 24 at md and up) and `/cookie-policy`'s
+ * phone bar.
  *
- * At md and up the public header (`/`, `/cli`, `/cookie-policy`) reads the
+ * At md and up the public header (`/`, `/mcp`, `/cookie-policy`) reads the
  * logo, the theme toggle, the language switcher, then Sign in or Dashboard;
  * signed in, the app header holds the cycle selector at the left and the
  * agenda button, the theme toggle and the language switcher at the right.
@@ -48,9 +48,9 @@ const DESKTOP = { width: 1280, height: 800 } as const;
 const PHONE_PAGES = [
   // home, theme, English, Português, Sign in, View on GitHub, Cookie policy.
   { path: "/", tree: "landing-phone", targets: 7 },
-  // home, theme, English, Português, Sign in, two PyPI, four Copy, home
-  // page, Cookie policy.
-  { path: "/cli", tree: "cli-phone", targets: 13 },
+  // home, theme, English, Português, Sign in, Create a token, Copy the
+  // server address, Home, Cookie policy.
+  { path: "/mcp", tree: "mcp-phone", targets: 9 },
 ] as const;
 
 /** The header's words by language: the home link's name, the button's words. */
@@ -283,8 +283,8 @@ for (const { path, tree: slot, targets } of PHONE_PAGES) {
 
 /**
  * The public screens whose pair sits outside a header, and the box that
- * holds it at each width: `/login`'s bar, `/cli/code`'s top-right box, and
- * `/cookie-policy`'s phone bar (at md and up it is `LandingHeader`'s, below).
+ * holds it at each width: `/login`'s bar and `/cookie-policy`'s phone bar
+ * (at md and up it is `LandingHeader`'s, below).
  */
 const PAIR_SCREENS = [
   {
@@ -294,14 +294,6 @@ const PAIR_SCREENS = [
     back: "Back to home",
     // Back to home, theme, English, Português, Continue with Borderless.
     targets: 5,
-  },
-  {
-    path: "/cli/code?code=e2e-code&state=e2e-state",
-    pair: ".ph-pair",
-    widths: [PHONE, DESKTOP],
-    back: null,
-    // theme, English, Português, Copy.
-    targets: 4,
   },
   {
     path: "/cookie-policy",
@@ -429,11 +421,11 @@ test.describe("at md and up", () => {
     }
   }
 
-  test("the public header of /, /cli and /cookie-policy: logo, theme, language, Sign in or Dashboard (light and dark, English and Portuguese)", async ({
+  test("the public header of /, /mcp and /cookie-policy: logo, theme, language, Sign in or Dashboard (light and dark, English and Portuguese)", async ({
     page,
     browser,
   }) => {
-    for (const path of ["/", "/cli", "/cookie-policy"]) {
+    for (const path of ["/", "/mcp", "/cookie-policy"]) {
       await page.goto(path);
       await expectPublicOrder(
         page,
@@ -449,7 +441,7 @@ test.describe("at md and up", () => {
     await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
     await page.getByRole("radio", { name: "Português", exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
-    for (const path of ["/", "/cli", "/cookie-policy"]) {
+    for (const path of ["/", "/mcp", "/cookie-policy"]) {
       await page.goto(path);
       await expectPublicOrder(
         page,
@@ -466,7 +458,7 @@ test.describe("at md and up", () => {
     try {
       const signedIn = await context.newPage();
       await loginAs(signedIn, "user");
-      for (const path of ["/", "/cli", "/cookie-policy"]) {
+      for (const path of ["/", "/mcp", "/cookie-policy"]) {
         await signedIn.goto(path);
         await expect(
           signedIn.getByRole("banner").getByRole("link", { name: "Dashboard" }),

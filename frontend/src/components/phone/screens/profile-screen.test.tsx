@@ -29,7 +29,7 @@ vi.mock("next/navigation", async () => {
 vi.mock("@/services/services", () => ({
   services: {
     statistics: { getGeneralStats: mocks.general },
-    sessions: { list: mocks.sessions },
+    sessions: { list: mocks.sessions, createMcpToken: vi.fn() },
     users: { deleteMe: mocks.deleteMe },
     auth: { startGithubRestore: mocks.startRestore },
     cycles: { getCycles: () => Promise.resolve([]) },
@@ -195,6 +195,15 @@ describe("Profile below md", () => {
     await renderProfile();
 
     const nav = screen.getByRole("navigation", { name: "Profile sections" });
+    expect(
+      within(nav)
+        .getAllByRole("link")
+        .map((link) => [link.textContent, link.getAttribute("href")]),
+    ).toEqual([
+      ["Profile", "/profile"],
+      ["MCP", "/profile?tab=mcp"],
+      ["Devices", "/profile?tab=devices"],
+    ]);
     const profileLink = within(nav).getByRole("link", { name: "Profile" });
     const devicesLink = within(nav).getByRole("link", { name: "Devices" });
     expect(profileLink).toHaveAttribute("aria-current", "page");
@@ -253,6 +262,41 @@ describe("Profile below md", () => {
     expect(
       document.querySelector('[data-slot="phone-skeleton"]'),
     ).toHaveTextContent("Loading your profile");
+  });
+
+  it("switches to MCP in place through ?tab=mcp, the nav focused", async () => {
+    const user = userEvent.setup();
+    await renderProfile();
+
+    await user.click(screen.getByRole("link", { name: "MCP" }));
+
+    expect(window.location.search).toBe("?tab=mcp");
+    // No connection yet: McpEmpty whole.
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "No MCP connections yet",
+      }),
+    ).toBeInTheDocument();
+    const current = within(
+      screen.getByRole("navigation", { name: "Profile sections" }),
+    ).getByRole("link", { name: "MCP" });
+    expect(current).toHaveAttribute("aria-current", "page");
+    expect(current).toHaveFocus();
+    expect(mocks.sessions).toHaveBeenCalledOnce();
+  });
+
+  it("opens MCP from ?tab=mcp (the Account hub's row, /mcp's Create a token)", async () => {
+    setLocation("/profile?tab=mcp");
+    await renderProfile();
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "No MCP connections yet",
+      }),
+    ).toBeInTheDocument();
+    expect(mocks.general).not.toHaveBeenCalled();
   });
 
   it("opens Devices from ?tab=devices (the Account hub's row)", async () => {
@@ -373,6 +417,24 @@ describe("Profile below md", () => {
     expect(
       document.querySelector('[data-slot="phone-profile"]'),
     ).toBeInTheDocument();
+  });
+
+  it("lands on MCP when the width crosses md on ?tab=mcp", async () => {
+    setLocation("/profile?tab=mcp");
+    const { viewport } = renderPhonePage(<ProfilePage />, { user: FULL });
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "No MCP connections yet",
+      }),
+    ).toBeInTheDocument();
+
+    viewport.setPhone(false);
+
+    expect(screen.getByRole("tab", { name: "MCP" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("lands on the same section when the width crosses md", async () => {

@@ -98,15 +98,27 @@ def test_a_value_in_a_message_is_a_param_of_its_code():
 # Codes no longer raised since ADR-0026 (the password sign-in and the
 # membership confirm are gone): kept in the registry and the catalog, never
 # reused, never raised. The catalog marks each "not raised since ADR-0026".
-RETIRED = {'AUTH-1004', 'AUTH-1009', 'AUTH-1010', 'RPT-1002'}
-NOT_RAISED = 'not raised since ADR-0026'
+RETIRED_0026 = {'AUTH-1004', 'AUTH-1009', 'AUTH-1010', 'RPT-1002'}
+NOT_RAISED_0026 = 'not raised since ADR-0026'
+# Codes no longer raised since ADR-0028 (applika-cli's sign-in, token and
+# device-code routes, its 0.1.4 finalize body and its /steps routes are
+# gone): the same rule, marked "not raised since ADR-0028".
+RETIRED_0028 = {f'AUTH-{n}' for n in range(1019, 1043)} | {
+    f'APP-{n}' for n in range(1004, 1009)
+}
+NOT_RAISED_0028 = 'not raised since ADR-0028'
+RETIRED = RETIRED_0026 | RETIRED_0028
 
 
-def test_retired_codes_are_marked_in_the_catalog():
-    marked = {
-        row.code for row in catalog_rows() if NOT_RAISED in row.raised_by
-    }
-    assert marked == RETIRED
+@pytest.mark.parametrize(
+    ('retired', 'mark'),
+    [(RETIRED_0026, NOT_RAISED_0026), (RETIRED_0028, NOT_RAISED_0028)],
+)
+def test_retired_codes_are_marked_in_the_catalog(retired, mark):
+    marked = {row.code for row in catalog_rows() if mark in row.raised_by}
+    assert marked == retired
+    # Still members: a retired code keeps its value out of circulation.
+    assert retired <= {member.value for member in ErrorCode}
 
 
 def _string_constants() -> set[str]:
@@ -294,9 +306,13 @@ def test_the_borderless_openid_connect_codes():
     ]
     locked = exceptions.MembershipLocked()
     assert (locked.code, locked.status_code) == ('AUTH-1050', 403)
-    assert locked.message == rows['AUTH-1050'].detail == (
-        'Your Borderless sign-in has ended. Sign in again on the applika '
-        'website to use member features'
+    assert (
+        locked.message
+        == rows['AUTH-1050'].detail
+        == (
+            'Your Borderless sign-in has ended. Sign in again on the applika '
+            'website to use member features'
+        )
     )
     assert rows['AUTH-1049'].detail == (
         'Your Borderless sign-in has ended. Sign in again with Borderless'
@@ -397,21 +413,6 @@ async def test_session_service_handler_keeps_retry_after():
         'detail': 'Session service unavailable',
         'code': 'AUTH-1003',
     }
-
-
-async def test_oauth_handler_keeps_error_first():
-    response = await handlers._oauth_error_handler(
-        _request(),
-        exceptions.OAuthError(
-            'slow_down', 'Polling too fast', ErrorCode.AUTH_DEVICE_SLOW_DOWN
-        ),
-    )
-    assert response.status_code == 400
-    assert list(_body(response).items()) == [
-        ('error', 'slow_down'),
-        ('detail', 'Polling too fast'),
-        ('code', 'AUTH-1037'),
-    ]
 
 
 class _Waited(exceptions.CodedRefusal):

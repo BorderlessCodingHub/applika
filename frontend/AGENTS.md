@@ -115,7 +115,7 @@ read-only or clean up after themselves.
 (`playwright.config.ts`); `e2e/language.spec.ts` (serial) is the only one
 with `test.use({ locale: "pt-BR" })`. It proves: a pt browser gets Portuguese
 with `html[lang="pt-BR"]` and no cookie written; the switcher on `/`,
-`/cookie-policy` (and its `NEXT_LOCALE` row), `/login`, `/cli/code`; EN writes
+`/cookie-policy` (and its `NEXT_LOCALE` row) and `/login`; EN writes
 `NEXT_LOCALE=en` (`Path=/`, `SameSite=Lax`, about one year) and survives a
 reload and `loginAs`; BR in the header switches `/applications` in place (same
 URL, no `framenavigated`, a `window` marker and a half-typed search survive);
@@ -134,30 +134,49 @@ brand names and endonyms, and elements under a non-Portuguese `lang` (the
 "English" radio), and every string of the page's 2xx JSON API answers (data
 is shown as sent and can equal a message: a job's `location_text` "Europe"
 is the `en` timezone region; 4xx bodies are never excluded, so a raw `detail`
-on screen still fails; the legacy `steps`/`feedbacks` lists of `/supports`,
-which the web never shows, are not collected).
+on screen still fails).
 
-**Devices in E2E.** The seed also opens a `cli_device` session for
-`e2e-user` named "e2e-cli"; `frontend/scripts/e2e.sh` exports its tokens as
-`E2E_CLI_ACCESS_TOKEN` / `E2E_CLI_REFRESH_TOKEN`, and
-`e2e/support/auth.ts`'s `cliBearerHeader()` is the `Authorization: Bearer`
-value the CLI would send. `e2e/devices.spec.ts` (serial): the Devices tab
-lists "This device" and "e2e-cli", Revoke (Cancel first) moves it to Ended and
-the same Bearer then gets 401 from `GET /users/me` — so **"e2e-cli" is dead
-for the rest of the run**; nothing after it may use `cliBearerHeader()`. It
-never revokes e2e-user's web session (every later spec signs in with it);
-its "Sign out all other devices" step runs only once "e2e-cli" is gone, so
-the one other active session it ends is the device grant it made itself. Then
-`POST /auth/device/code` → `verification_uri_complete` (`:8180/device?code=`)
-→ Approve → the device grant on `POST /auth/token` is 200 after waiting out
-`interval` (polling sooner is `slow_down`) and the row is listed; a signed-out
-`/device?code=` → `/login` → `loginAs` + `/dashboard` lands back on `/device`
-with the code filled in; "Sign out all other devices" ends the granted
-session (its Bearer gets 401) and keeps "This device"; `/cli/code?code=&state=`
-shows `code#state` (in its desktop tree); last, at 390×844, a new code
-walks the DeviceSignIn board: code → request with its warning note →
-Approve in the action bar → the outcome and "See your devices". That code
-is never redeemed, so it opens no session.
+**Devices in E2E.** The seed also opens an `mcp` session for `e2e-user`
+named "e2e-mcp" (read scope, `mcp_token`); its token is minted at seed time
+and lives only in the env: `frontend/scripts/e2e.sh` exports it as
+`E2E_MCP_TOKEN`, `e2e/support/auth.ts`'s `seededMcpToken()` returns it and
+`mcpBearerHeader()` is its `Authorization: Bearer` value.
+`e2e/support/mcp.ts` holds `mcpCall()` (one JSON-RPC call to `POST
+<api>/mcp`, a failed call never prints the bearer) and `MCP_TOKEN_REFUSED`
+(401 AUTH-1051). `e2e/devices.spec.ts` (serial; trace, screenshot and
+video off, `PLAYWRIGHT_NO_COPY_PROMPT=1`, no assertion compares a token):
+`whoami` answers as e2e-user and the token opens no REST route (401); the
+Devices tab lists "This device" and "e2e-mcp" (MCP token, AI app (MCP),
+Read only, "Ends if unused"), Revoke (Cancel first) moves it to Ended and
+its next call gets 401 AUTH-1051 — so **"e2e-mcp" is dead for the rest of
+the run**; nothing after it may use `seededMcpToken()`. It never revokes
+e2e-user's web session (every later spec signs in with it). Then a token
+created with the page's cookie (`POST /users/me/mcp-tokens`, its name
+carries the run's mark) is the other device: "Sign out all other devices"
+moves it to Ended, its next call gets 401 AUTH-1051, and "This device" is
+the only active row. `/device` and `/cli/code` left with the CLI
+(ADR-0028): `smoke.spec.ts` and `phone.spec.ts` check that they answer like
+any unknown address (`e2e/support/unknown-page.ts`).
+
+**MCP in E2E (PRD 0023, ADR-0028).** `e2e/mcp.spec.ts` (serial) mints real
+MCP tokens for `e2e-user` in Profile › MCP and calls `POST <api>/mcp`
+(JSON-RPC, `Accept: application/json, text/event-stream`) as an AI app does:
+a Read only token lists no write or delete tool, `whoami` answers
+`e2e-user`, `create_application` is `isError` with `AUTH-1052`, the REST API
+refuses it (401), and revoked in Devices its next call is 401 `AUTH-1051`; a
+Read and write token lists the write tools and no delete tool, and is revoked
+in the MCP tab; at 390×844 `/mcp` (44px, no sideways scroll, light and dark)
+and the phone tab as `e2e-admin`, who holds no MCP connection in any spec
+order (McpEmpty, a Full access token through the create and result sheets,
+revoked behind its confirm sheet). The JSON-RPC call is
+`e2e/support/mcp.ts`'s `mcpCall()`. A token lives in one local
+variable only: the spec turns trace, screenshot and video off, sets
+`PLAYWRIGHT_NO_COPY_PROMPT` for its own tests (no failure page snapshot),
+compares tokens through booleans only (a failure message would print one)
+and closes the result dialog before asserting. Each token's name carries the
+run's mark and the spec revokes exactly those, so no active-device count in
+another spec moves; it never revokes the web session and never confirms
+"Sign out all other devices".
 
 **The job board in E2E.** `docker-compose.e2e.yml` also runs
 `worker` and `scheduler` (`applika-e2e-worker`/`-scheduler`, the
@@ -278,48 +297,39 @@ chip; the profile restore aborted at `github.com` (`scope=read:user`, a
 (nothing else in the URL) with its words; seeded e2e-user's PSP chip;
 a new account's welcome choice at 390×844 (STARTER deleted and signed in
 again: the "How to start" radiogroup, Start fresh → the phone dashboard);
-`/api/auth/cli/authorize` (PKCE) → the fake's page despite its session
-(`prompt=login` logged) → the API callback's 307 to the CLI's loopback
-`http://127.0.0.1:<port>/callback` with exactly `code` and `state` (the
-CLI's own state echoed). NOTHING listens there: the port is found closed by
-connecting, never by listening, and the hop is read as the browser's own
-request (Playwright raises one per redirect hop; a route never sees a
-redirect target): `page.waitForRequest` on that origin, its
-`redirectedFrom()` the callback's 307, itself from the fake; the navigation
-then fails `net::ERR_CONNECTION_REFUSED` (asserted), and the dashboard
-check opens a new tab of the same context. The browser's
-`__access`/`__refresh` stay the same → the code redeemed at
-`POST /auth/token` by the CLI's request context; e2e-revoke signed in again →
+e2e-revoke signed in (new: `/welcome`, Start fresh) →
 `/__fake/grants/{sub}/revoke` → 2.5 s → reload → `/auth/refresh` 401
-AUTH-1049 → `/login?error=AUTH-1049` words; the CLI `refresh_token` grant 200,
-its Bearer `GET /reports` 403 AUTH-1050, its `GET /users/me/sessions` lists
-every web row `revoked`; the button again (one click) → PSP chip → the CLI's
-`GET /reports` 200 → `POST /auth/revoke` 204. It never signs a seeded user in
-through the web (that would add a web session `devices.spec.ts` lists).
+AUTH-1049 → `/login?error=AUTH-1049` words, `GET /users/me` 401; the button
+again (one click) → PSP chip → `GET /reports` 200 on the page's cookie, and
+`GET /users/me/sessions` lists the ended web session `revoked` and this one
+the only active web session. It never signs a seeded user in through the web
+(that would add a web session `devices.spec.ts` lists).
 Its last describe is read-only and signed out: option C's states at
 390×844 (`/login` ready — the phone h1, the decoded badge image, the CTA
-focused —, `?error=AUTH-1046`, `?cli=1`, `?error=AUTH-1046&cli=1`), C at 390
+focused —, `?error=AUTH-1046`), C at 390
 and 320 with the Borderless logo in its CTA (and in Portuguese, light), and
 option A at 1280: the card, the tiles, focus on the CTA, the sign-up link, the
 pair at top 20 / right 24, the fit at 768 and at 812×375 (the card below the
 pair, the page scrolls to the button), the card centred with nothing to
-scroll at 1280×450, Portuguese light, AUTH-1047, `cli=1`; pending at 1280
+scroll at 1280×450, Portuguese light, AUTH-1047, a stale `?cli=1` that
+changes nothing (no terminal words; `?error=AUTH-1019&cli=1` reads the
+generic line, ADR-0028); pending at 1280
 and at 390, recorded in the page the moment it renders (a
 `MutationObserver` writing to `sessionStorage`, no stub; the real API
 answers, then the fake's page), then Back brings the page back ready.
-**`e2e/headers.spec.ts`** (serial): the phone header of `/` and `/cli` from
+**`e2e/headers.spec.ts`** (serial): the phone header of `/` and `/mcp` from
 320 to 430 wide, signed out (the page) and signed in (a second context with
 `loginAs`), English dark then Portuguese light switched from the flags: one
 row, the order home (the icon, named "Applika.dev home", no words), theme,
 English, Português, then the button ("Sign in" / "Entrar" → `/login`,
 "Dashboard" / "Painel" → `/dashboard`), the button's words the only ones
 drawn (no "applika.dev", "EN" or "BR"), every box 44×44 inside the
-viewport, the floors (7 on `/`, 13 on `/cli`), no sideways scroll at 320,
+viewport, the floors (7 on `/`, 9 on `/mcp`), no sideways scroll at 320,
 the header's button the page's one Sign in or Dashboard link, and both
-targets clicked; the pair of `/login` and `/cli/code` at 390 and 1280 and
+targets clicked; the pair of `/login` at 390 and 1280 and
 of `/cookie-policy`'s phone bar at 390 (theme, then language, in the DOM and
 on screen; the back link at its left below md; `/login`'s at top 20 / right
-24 at md and up); at 1280 the public header's order on `/`, `/cli` and
+24 at md and up); at 1280 the public header's order on `/`, `/mcp` and
 `/cookie-policy` (logo, theme, language, Sign in or Dashboard) and the
 signed-in app header's (the cycle selector at the left; the agenda, the
 theme and the language at the right).
@@ -341,8 +351,10 @@ one `<main>`) and `expectDocumentScrolls` (`<main>` is no scroll
 container, a tall page scrolls the document, the tab bar stays 14px off
 the viewport's bottom; Today and Cycles, where the back bar is also
 `sticky`). `e2e/phone.spec.ts` at 390×844: the public screens
-(signed out, read-only; `/cli` is the v3 board, its Copy says "Copied", and
-a refused clipboard says nothing; the header of `/` and `/cli` holds the
+(signed out, read-only; `/mcp` is the 0023/McpPage board, its Copy says
+"Server address copied", a refused clipboard says nothing and selects the
+address, Create a token signed out stores `/profile?tab=mcp` and goes to
+`/login`; the header of `/` and `/mcp` holds the
 home link, the theme toggle, the flags and Sign in, the page's one sign-in
 link; on every public screen the theme toggle sits left of the language
 toggle); as `e2e-user`, Today → Add → the quick add → the
@@ -366,8 +378,9 @@ and its PDF downloaded, Show changes draws today's markers, back
 "Application" to `?focus=<id>`, then read-only once the application is
 closed; its 44px checks exclude, by name and only where they show,
 `[data-slot="cv-keywords-input"]` (`KEYWORD_CHIPS`, today's keyword chips)
-with Skills open and `[data-slot="cv-diff-changed"]` beside a change), `/cli`
-signed in offering Dashboard, and `/admin` sending e2e-user back to Today.
+with Skills open and `[data-slot="cv-diff-changed"]` beside a change), `/mcp`
+signed in offering Dashboard (Create a token opens Profile › MCP), and
+`/admin` sending e2e-user back to Today.
 An added CV list item's move and remove buttons are measured, never
 excluded: `expectItemActions44(scope, atLeast)` (in `phone.spec.ts`) checks
 every `[data-slot="cv-item-actions"] > button` at 44×44 on `/cvs/editor`
@@ -377,7 +390,7 @@ checks also leave out v2/CVEditor's 32px "Add …" control (`EDITOR_ADD`).
 `cv-builder.spec.ts` proves the same buttons stay 32×32 at 1280. Today also
 shows a quiet open application whose latest event is a denial staying off
 Needs your attention (still under Closed, stale, on the Pipeline). Below md
-the applika-cli banner is on Today only, so no other phone screen's floor
+the Applika MCP banner is on Today only, so no other phone screen's floor
 counts its two controls; as `e2e-admin`, the
 Account hub's Admin row → seven chips, the Dashboard and Jobs (source cards)
 boards under "Admin Console", then the v3 boards, each under its own h1:
@@ -447,24 +460,31 @@ Route groups control access:
 
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
-`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option A at md and up and option C below md, one "Continue with Borderless" button each, behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
+`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option A at md and up and option C below md, one "Continue with Borderless" button each, behind a Suspense shell (it reads `?error=`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
 
-CLI sign-in routes (ADR-0019):
+The CLI's sign-in pages, `/device` and `/cli/code` (ADR-0019), were deleted
+with the CLI (ADR-0028): no message, forward or placeholder. Like any address
+no page owns, `docker/nginx.conf` answers them with the home page's document
+(`try_files … /index.html`, 200), at the address asked for.
 
-| Route                    | Shell                                    | Component                                                   |
-| ------------------------ | ---------------------------------------- | ----------------------------------------------------------- |
-| `/device?code=`          | `(protected)/device/page.tsx` (Suspense) | `device-page.tsx` — code, request card, approve/deny        |
-| `/cli/code?code=&state=` | `cli/code/page.tsx` (Suspense)           | `cli-code-page.tsx` — `code#state` read-only, Copy, no auth |
-
-`/cli` (`(public)/cli/`, `cli-page.tsx`) is the public applika-cli page under
-the landing layout: install, sign-in modes, examples, `applika skill`. The
-rail's footer links to it above the account card (`sidebar.tsx`); its PyPI
-links read `APP_CONFIG.cli.url` (`APPLIKA_CLI` build arg). It switches by CSS
-like the other public screens: below md v3/Cli (`PhoneCli`,
-`[data-slot="cli-phone"]`, under `PhoneLandingHeader`), at md and up today's
-page in `[data-slot="cli-desktop"]` (`hidden md:contents`). Both trees copy
-the commands `cli-page.tsx` exports (`INSTALL`, `SIGN_IN`, `TRACK`, `SKILL`,
-with `COPIED_MS`); see **Phone shell**.
+`/mcp` (`(public)/mcp/`, `mcp-page.tsx`, PRD 0023) is the public Applika MCP
+page under the landing layout: what the server does, the apps it writes a
+configuration for (header apps; claude.ai and ChatGPT wait), three steps, the
+server address with Copy, the scopes and the controls, and "Create a token"
+→ `/profile?tab=mcp` (a signed-out visitor signs in first and lands there:
+`/profile` is a return-to path). Not gated (ADR-0028: "mcp will be released
+to everyone, no beta gated"). The rail's footer links to it above the
+account card (`sidebar.tsx`, `data-slot="sidebar-mcp"`, outside the nav
+items, no `feature`). The server address is `APP_CONFIG.mcp.endpoint`
+(`<NEXT_PUBLIC_API_BASE_URL>/mcp`, trailing slash trimmed; the page is
+`APP_CONFIG.mcp.page`), never a fixed host. It switches by CSS like the other
+public screens: below md 0023/McpPage (`PhoneMcp`, `[data-slot="mcp-phone"]`,
+under `PhoneLandingHeader`), at md and up DeskMcpPage in
+`[data-slot="mcp-desktop"]` (`hidden md:contents`, the layout's header and
+footer); see **Phone shell**. `/cli` (`(public)/cli/page.tsx` +
+`cli-forward.tsx`) is a client `router.replace("/mcp")` (static export: no
+server rewrite), canonical `/mcp`, not indexed; it stayed when the CLI was
+retired (ADR-0028).
 
 Phone-only routes (ADR-0027, PRD 0021):
 
@@ -479,10 +499,8 @@ its address at both widths. At md and up each page `router.replace`s
 effect, never from the server snapshot, and again when the width crosses md
 while the page is open) and renders nothing meanwhile.
 
-`/cli/code` sits OUTSIDE the groups like `/login` (no shell, no session): the
-API 307s there when the CLI cannot reach its local callback. `/device` reads
-`?code=` once into a lazy `useState` (normalized `XXXX-XXXX`) and never
-auto-submits. **Return-to.** A signed-out visit to `/device` makes
+**Return-to.** A signed-out visit to `/profile`
+(`/mcp`'s "Create a token" → `/profile?tab=mcp`) makes
 `(protected)/layout.tsx` store path + query in
 `sessionStorage["applika:return-to"]` before `router.replace("/login")`; the
 first authenticated protected render consumes it ONCE (removed before
@@ -490,8 +508,8 @@ navigating) and `router.replace`s to it — unless the sign-in page already
 consumed it, or the account still owes its `/welcome` answer (then `/welcome`
 consumes it). Only a same-origin path is followed
 (`/x`, never `//host` or `/\host`). `src/lib/return-to.ts` owns the key, the
-allowed paths (`/device` only) and the check; add a path there, not in the
-layout.
+allowed paths (`/profile`) and the check; add a path there, not
+in the layout.
 
 **Search params under static export.** `output: "export"` FAILS THE BUILD on a
 page that reads `useSearchParams()` outside a `<Suspense>` boundary. The shell
@@ -681,38 +699,37 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   presentational half. Ungated (ADR-0025 beta exception): no `FeatureKey`,
   `useHasFeature` or `FeatureGate`. Mount it outside any `<form>`; in
   Playwright use `.click()`/`.check()`, not arrow keys.
-- **Where it mounts: six files, `variant="default"` in all of them**, in
+- **Where it mounts: five files, `variant="default"` in all of them**, in
   both themes, no portal (it renders inline in its host's layer of the
   **Stacking contract**), one mount per file and ONE switcher on screen at
   any width. Every mount reads the theme toggle first, then the language
   (the owner's order), with no exception:
   - the signed-in `Header` (right after `ThemeToggle`, so every protected
-    page at md and up, `/welcome` and `/device` included; below md a
+    page at md and up, `/welcome` included; below md a
     signed-in page has no header and the Account hub's "Language" radiogroup
     is the switch, see **Phone shell**);
   - `LandingHeader`, md and up only (`(public)/layout.tsx` hides it below
     md): after `ThemeToggle` and before the CTA, for `/`, `/cookie-policy`
-    and `/cli`;
+    and `/mcp`;
   - below md, `PhoneLandingHeader`, the public phone header of `/`
-    (`PhoneLanding`) and `/cli` (`PhoneCli`), in
+    (`PhoneLanding`) and `/mcp` (`PhoneMcp`), in
     `components/phone/landing/phone-landing-header.tsx`, after the theme
     toggle, before Sign in / Dashboard, and with `flagsOnly` (the only
     mount that passes it), and
     `PhonePublicBar`, the "Home" back bar of `/cookie-policy`, in
     `components/phone/phone-public-bar.tsx`, after the theme toggle;
-  - `SignInScreen` (`/login`) and `CliCodeScreen` (`/cli/code`): one mount
-    laid out for both widths, outside both trees and outside `<main>`,
-    after the theme toggle. On `/login` it is `[data-slot="sign-in-bar"]`:
-    below md the C_Mobile top bar (back "Back to home" → `/` on the left,
-    the pair on the right), at md and up `absolute top-5 right-6 z-10`; on
-    `/cli/code` the `absolute top-4 right-4 z-10` box at both widths.
+  - `SignInScreen` (`/login`): one mount laid out for both widths, outside
+    both trees and outside `<main>`, after the theme toggle:
+    `[data-slot="sign-in-bar"]`, below md the C_Mobile top bar (back "Back
+    to home" → `/` on the left, the pair on the right), at md and up
+    `absolute top-5 right-6 z-10`.
 
   Below md the pair sits in a `.ph-pair` wrapper: `phone.css` gives its
   radios a 44px height and the theme button a 44×44 box under
   `@media (max-width: 47.99rem)`, so `LanguageToggle`'s own classes stay
   exactly today's and md and up renders as before. The `landing` look is
   ported but mounted NOWHERE. `language-toggle-mounts.test.tsx` scans
-  `src/**/*.tsx` for `<LanguageToggle` and expects exactly these six files,
+  `src/**/*.tsx` for `<LanguageToggle` and expects exactly these five files,
   each with one `<LanguageToggle variant="default" />` (`PhoneLandingHeader`'s
   is `<LanguageToggle variant="default" flagsOnly />`): a new mount is
   added to its list. `flagsOnly` drops the EN / BR text and sets
@@ -761,7 +778,7 @@ localeSwitch: true })` (`src/test/portuguese.tsx`) for Portuguese,
   must come from the message files; the `allowedStrings` in
   `eslint.config.mjs` are only symbols and punctuation (`—`, `·`, `•`, `*`,
   `:`, `,`, `%`, `+`, `@`, quotes…), brand names (Applika, applika,
-  `.dev`, Borderless, GitHub, LinkedIn, BASE, PSP, applika-cli, Discord) and
+  `.dev`, Borderless, GitHub, LinkedIn, BASE, PSP, Discord) and
   the endonyms (English, Português, EN, BR). A literal in braces
   (`{"words"}`) is not caught: do not use it to dodge the rule. No file-level
   override exists; the CV preview (`cv-document-blocks.tsx`) passes because its
@@ -824,9 +841,8 @@ In the 401 interceptor, a refresh that answers 503 rejects the original call
 with that 503 (a temporary error to every caller), never a sign-out; only a
 401 from `/auth/refresh` really ends the session. Other queries show the
 503's `detail` through `getApiError`. The interceptor skips `/auth/*` on a
-401 (a failed refresh must not refresh) EXCEPT `/auth/device/*` and
-`/auth/github/restore`, ordinary signed-in calls that refresh and replay like
-any other.
+401 (a failed refresh must not refresh) EXCEPT `/auth/github/restore`, an
+ordinary signed-in call that refreshes and replays like any other.
 
 **AUTH-1049: Borderless refused applika's grant (ADR-0026).** The API then
 ends every web session of the user and answers that session's
@@ -1487,7 +1503,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   mutation hooks) own the `["timeline","list",applicationId]` query key.
   `use-application-steps.ts` and `step-form-dialog.tsx` are GONE (R-021); the
   web must never call `/applications/{id}/steps*` or
-  `/admin/{step,feedback}-definitions*` (all now CLI-0.1.4-only or 404).
+  `/admin/{step,feedback}-definitions*` (all 404 since ADR-0028).
 - **`TimelineSection`** (mounted directly inside `application-item.tsx`'s
   expanded area, not passed in as `children`) owns the add/edit dialog and the
   delete confirmation, and derives read-only from TWO signals:
@@ -1590,7 +1606,7 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   `avg-days-per-step-chart.tsx` map every stage to a row (defaulting to 0 when
   the API omits one, never a missing bar) rather than rendering only the rows
   the API happens to send. The agenda item's `step_name`/`step_color` are now
-  nullable, legacy, reverse-mapped fields kept only for the CLI; the agenda
+  nullable, legacy, reverse-mapped fields the web no longer reads; the agenda
   page, the agenda dropdown, agenda notifications and `lib/calendar.ts`'s ICS
   generation all label from `stageLabel(event_type, interview_type)` instead.
   The old step dialog's "Add to calendar (.ics)" button went with
@@ -1968,8 +1984,8 @@ The public companies/platforms admin screens (`admin/companies/companies-page.ts
 `admin/platforms/platforms-page.tsx`) gained a `VisibilityFilter` (All/Public/Private,
 sends `visibility=public|private`, `all` sends no param), an "Added by" column
 reading the row's nested `created_by.username` (a dash when absent — the
-LEGACY flat `created_by_username` field is still on the wire for the CLI but
-the web no longer reads it) and, on private rows only, `ApproveCatalogButton` —
+LEGACY flat `created_by_username` field is still on the wire but the web
+no longer reads it) and, on private rows only, `ApproveCatalogButton` —
 `Approve` behind an `AlertDialog` confirm, calling
 `POST /admin/{companies|platforms}/{id}/publish`. A 409 (the row would
 duplicate a public one) keeps the dialog open and shows the server's `detail`
@@ -2016,8 +2032,8 @@ now one component.
   the whole create flow now, for both catalogs.
 - **`hooks/use-platforms.ts`** (`usePlatforms(name?)`) reads the new
   `GET /platforms?name=` for the web picker — visible platforms only, search
-  substring, ordered by name. `GET /supports` is UNCHANGED and still what the
-  CLI reads; the web no longer uses it for the platform picker.
+  substring, ordered by name. `GET /supports` answers the platforms only
+  since ADR-0028; the web no longer uses it for the platform picker.
 - **`components/applications/form-section.tsx`** (`FormSection`) is the Card
   shell every application form section uses. `application-fields.tsx` groups
   its fields into three: "Role & company" (role+source, company+platform, job
@@ -2069,8 +2085,8 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
   `main.ph-a-main` centres one 448px card (`.ph-a-card`: padding 40,
   radius 24) holding the Applika tile, the dashed link mark and the
   Borderless tile (`[data-slot="sign-in-tiles"]`, `.ph-a-tile`,
-  `.ph-a-link`, decorative), h1 "Sign in to applika" (`.ph-a-h1`, always,
-  even with `&cli=1`), the lead "Use your Borderless account. Borderless
+  `.ph-a-link`, decorative), h1 "Sign in to applika" (`.ph-a-h1`, always),
+  the lead "Use your Borderless account. Borderless
   confirms it's you and sends you back here." (`optionA.lead`), the states,
   the 48px CTA "Continue with Borderless" (`.ph-a-cta`), a `Separator`, and
   "No account yet? Create a Borderless account" (`.ph-a-foot`,
@@ -2116,36 +2132,29 @@ noreferrer"`, described by the sr-only "Opens in a new tab."). The button
   cookies are set; the page moves on with `router.replace`, `/welcome` while
   `user.github_restore.prompt` — the return-to waits — else
   `consumeReturnTo() ?? "/dashboard"`, `signedInLandingFor`) or with
-  `?error=<code>` (`&cli=1` on a CLI attempt). The screen resolves
+  `?error=<code>`. The screen resolves
   `errors.<code>` itself through `useTranslations("errors")`, so the words
   follow a language switch; `en` is the API's `detail`, word for word.
-  `SIGN_IN_ERROR_CODES` is an ALLOWLIST (AUTH-1003, 1005..1008, 1017..1019,
-  1046..1049, GEN-1005, all free of ICU arguments): a code from the URL
+  `SIGN_IN_ERROR_CODES` is an ALLOWLIST (AUTH-1003, 1005..1008, 1017, 1018,
+  1046..1049, GEN-1005, all free of ICU arguments; AUTH-1019, the CLI login
+  code, left it with the CLI, ADR-0028): a code from the URL
   never puts an arbitrary catalog sentence on screen, and anything else reads
   `errors.unknown` (`signInErrorKey`). A new code the API sends to `?error=`
-  is added there. **The five states** sit under the lead in each tree:
-  ready; pending; refused (the alert `.ph-signin-alert`, its code's words);
-  from the command line (`&cli=1`: the hint `.ph-signin-hint` with a
-  terminal icon); refused from the command line (the alert, with the cli
-  line inside it). Each tree has its own `[data-slot="sign-in-error"]`,
-  always mounted with `role="alert"` and `data-code` (the shown key), and
-  its own `[data-slot="sign-in-cli-hint"]` "Return to your terminal and run
-  `applika login` again." (the command in `<code>`). **Focus on load lands
+  is added there. **The three states** sit under the lead in each tree:
+  ready; pending; refused (the alert `.ph-signin-alert`, its code's words).
+  The command-line states (`&cli=1`, the terminal hint) left with the CLI
+  (ADR-0028): a stale `cli` param is ignored. Each tree has its own
+  `[data-slot="sign-in-error"]`, always mounted with `role="alert"` and
+  `data-code` (the shown key). **Focus on load lands
   in the VISIBLE tree** (`matchMedia(PHONE_QUERY)` picks it, never the
   hidden one): its alert box (`tabindex="-1"`) when there is an error, else
   its CTA. Tests scope every query to a tree's `data-slot` (vitest renders
   both; Playwright's role queries see the visible one, but a `data-slot`
   locator matches both — name the tree, e.g.
-  `[data-slot="sign-in-phone"] [data-slot="sign-in-error"]`). A refused CLI attempt
-  stays on screen even for a signed-in browser; a stale WEB error with a live
-  session moves on. "Sign in" is in the h1, the button and the AUTH-1049
+  `[data-slot="sign-in-phone"] [data-slot="sign-in-error"]`). A stale error
+  with a live session moves on. "Sign in" is in the h1, the button and the AUTH-1049
   words: Playwright needs `exact: true`, and never `getByRole("alert")`
   (Next's route announcer is one too).
-- **`applika login` never shows an applika page**: `/auth/cli/authorize` and
-  `/auth/cli/login/{id}` 307 straight to Borderless with `prompt=login`, and
-  the callback 307s to the CLI's loopback (or `/cli/code`). Only a refusal
-  lands on `/login?error=<code>&cli=1`. `/login?cli=1` without an error has
-  no flow today (the screen shows the hint as a grey note).
 - **`/welcome`** (`(protected)/welcome/welcome-page.tsx`, `WelcomeScreen`) is
   the one-time choice of a new account: "Restore your data from GitHub"
   (`POST /auth/github/restore` → `window.location.assign(authorize_url)`; the
@@ -2221,11 +2230,12 @@ not_found|has_data|already_bound|error`. `profile-page.tsx` reads it once
 ### Profile — Devices (`src/components/profile/devices-*.tsx`, ADR-0019)
 
 The owner: "a lost of devices connected and a section to revoke the access,
-this must be displayed in a new tab inside user profile". `/profile` is now
-two `Tabs` (`variant="line"`): "Profile" (today's content, the edit form and
-the GitHub restore notice) and "Devices". `?tab=devices` (the `/device` page's "See
-your devices") opens Devices once, through a lazy `useState`; switching tabs
-is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
+this must be displayed in a new tab inside user profile". `/profile` is three
+`Tabs` (`variant="line"`, `PROFILE_TABS`): "Profile" (today's content, the
+edit form and the GitHub restore notice), "MCP" (see **Profile — MCP**) and
+"Devices". `?tab=devices` (the Account hub's "Devices") and
+`?tab=mcp` open their tab once, through a lazy `useState`; switching tabs is
+local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
 `FeatureGate`, no `useHasFeature`.
 
 - `DevicesTab` / `DeviceRow` / `devices-copy.ts` are the ui-designer's
@@ -2239,7 +2249,19 @@ is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
 - A row: name (h3), "This device" on the current one, status in words
   (Active / Signed out / Revoked / Expired), Client, How it signed in, IP
   address (last, plus "Signed in from <ip>"), Granted, Last used ("Never"),
-  then Expires (active) or Ended (`ended_at ?? expires_at`). Hooks:
+  then Expires (active) or Ended (`ended_at ?? expires_at`). An MCP
+  connection (`client_type: "mcp"`) wears the plug icon (`McpIcon`), its
+  scope chip (`McpScopeChip`, `[data-slot="mcp-scope"][data-scope]`), "MCP
+  token" as how it signed in, "AI app (MCP)" as Client (the server says
+  "Unknown device": no user agent; `sessionClientLabel`), and while active
+  "Ends if unused" with a date and no time (`formatSessionDate`: Postgres
+  `expires_at` can trail the real end, held in Redis, by up to a day); its
+  Revoke confirm says the app loses access (`revokeMcpBody`). Web rows are
+  unchanged. CLI rows (`client_type: "cli"`) are history since ADR-0028: no
+  CLI signs in any more, but a row keeps its terminal icon and its
+  `cli_browser` / `cli_device` / `cli_legacy` method labels, so the ended
+  list still reads. "Sign out all other devices" names MCP connections
+  (it ends them too). Hooks:
   `li[data-slot="device-row"][data-session-id][data-status][data-current]`,
   `[data-slot="device-status"]`, `[data-slot="this-device"]`,
   `ul[data-slot="active-devices"|"ended-devices"]`,
@@ -2256,8 +2278,9 @@ is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
   the data hooks, and scope confirms to `getByRole("alertdialog")`.
 - **Below md** the tab is the Devices board (see **Phone shell**, the
   account area): `?tab=` is read live and the switch is two links; a card
-  shows the name, "This device", how it signed in, IP address, Last used
-  (relative) and Expires; each action confirms in a `PhoneConfirmSheet`
+  shows the name, "This device" (or an MCP row's scope pill), how it signed
+  in, IP address, Last used (relative) and Expires (an MCP row: "Ends if
+  unused"); each action confirms in a `PhoneConfirmSheet`
   (an `alertdialog` too, so the scoping above holds); zero other devices
   shows "No other device is signed in." instead of the button. The same
   hooks and calls.
@@ -2839,13 +2862,70 @@ button, so the caption was the ONLY copy on screen and none of it was visible.
 `elementFromPoint` — jsdom reports every height as zero, so the geometry is not
 provable anywhere else.
 
+### Profile — MCP (`src/components/mcp/`, `profile/mcp-tab.tsx`, PRD 0023, ADR-0028)
+
+The owner: "this configuration will be moved to user profile in a new tab
+called MCP just between profile and devices"; "generate the full
+configuration to add the mcp". **Not gated** (ADR-0028: "mcp will be
+released to everyone, no beta gated") — no `FeatureKey`, no `FeatureGate`,
+no nav `feature`.
+
+- Data: `services.sessions.createMcpToken({name, scope})` →
+  `POST /users/me/mcp-tokens` (201 `McpTokenCreated`, the ONLY answer that
+  carries `token`); the connections are the `mcp` rows of `useSessions()`
+  (`activeMcpSessions`), revoked with `useRevokeSession` like any device.
+  `useCreateMcpToken` (`gcTime: 0`, invalidates `SESSIONS_QUERY_KEY`, no
+  toast) keeps the token in the mutation's state while shown; closing the
+  dialog/sheet calls `reset()`. The token is never cached in a query, stored,
+  logged or fetched again. A refusal is said once inside the dialog:
+  `mcpCreateErrorMessage` (`rateLimitNotice`, else the code's message or the
+  server's `detail` verbatim, else `mcpCreate.failed`).
+- Desktop: `ProfileMcp` (`profile-page.tsx`, mounted only while the tab is
+  open) wires `McpTab`: title, "How MCP works" → `/mcp`, the server address
+  with Copy, New token, Active rows (name, scope chip, Created, Last used —
+  relative within a week, Created/Ends dates only —, IP address, Ends if
+  unused, Revoke behind a `ConfirmDialog` "Revoke token") or the empty state.
+  One `Dialog` (`[data-slot="mcp-dialog"][data-step=create|result]`): the
+  create form (`McpCreateForm`: Name prefilled "MCP connection", max 100 with
+  a counter; `McpScopePicker`: Read only / Read and write (preselected,
+  Recommended) / Full access → `["read"]`, `["read","write"]`,
+  `["read","write","delete"]`), then the result (`McpTokenResult`: the token
+  once with the "shown once" warning and Copy, then a line tab per app and
+  its configuration with Copy). An outside press never closes the result;
+  Escape and Done do; nothing closes while creating. No scope edit: a wider
+  scope is a new token.
+- Phone: `McpScreen` (`phone/screens/mcp-screen.tsx`) wires `McpScreenView`:
+  0023/Main with connections, 0023/McpEmpty whole without one; one
+  `PhoneSheetFrame` is McpCreate then McpToken (`initialFocus` on the title,
+  `keepOnScrim` on the result); Revoke confirms in a `PhoneConfirmSheet`
+  (`confirm-revoke-mcp`). The Profile sections nav is three links (Profile |
+  MCP | Devices); the Account hub has an "MCP" row → `/profile?tab=mcp`.
+- `buildMcpConfigs(endpoint, token, {layout, otherWords})` writes, token
+  filled in, for Claude Code (`claude mcp add --transport http --scope user`),
+  Claude Desktop (`npx -y mcp-remote` with the bearer in `env`), Cursor
+  (`~/.cursor/mcp.json`), VS Code (user `mcp.json`, `type: "http"`), Codex
+  CLI (`~/.codex/config.toml`, `http_headers`), Gemini CLI (`httpUrl`) and
+  Other (the address and the header): user settings only, never a project
+  file. `wide` is DeskToken's line breaks, `narrow` McpToken's.
+- Hooks: `[data-slot="mcp-tab"][data-state]`, `mcp-new-token`,
+  `mcp-empty(-create)`, `mcp-address`, `mcp-connections`,
+  `mcp-row[data-session-id]`, `mcp-scope[data-scope]`, `mcp-token-value`,
+  `mcp-clients [data-client]`, `mcp-config[data-client][data-kind]`,
+  `mcp-config-where`; actions `create-mcp-token`, `copy-token`,
+  `copy-config`, `copy-address`, `mcp-token-done`; radios
+  `[data-scope][data-scope-names]` (check them with `.check()` or a click:
+  arrow keys never check a Radix radio). Tests and examples use the fake
+  token `applika_mcp_fake_` + padding (gitleaks allowlist).
+
 ### App shell
 
 Every signed-in page renders inside `AppShell`
 (`src/components/layout/app-shell.tsx`). At md and up it is the rail shell
 below, which owns the mobile-menu and feedback state and hoists a SINGLE
 `FeedbackDialog`. Below md it returns `PhoneShell` instead (ADR-0027; see
-**Phone shell** below). Either way it renders `CliPromoBanner` and the content
+**Phone shell** below). Either way it renders `McpPromoBanner` (the Applika
+MCP announcement, an internal link to `/mcp`, dismissed once per browser under
+`applika.mcp-banner-dismissed`) and the content
 container itself, so no page component renders one — including the pages that
 do NOT want it. At md and up the banner is on every page; below md on Today
 only (`CLI_BANNER_PATH`, `/dashboard`). The md-and-up `Header` holds the
@@ -2944,7 +3024,7 @@ min-h-viewport overflow-clip` column (no rail, no navigation sheet, no
   `overflow-hidden`/`auto` back on the root or `<main>` (`clip` opens no
   scroll container). The back bar is `sticky top-0 z-30`, ABOVE exactly ONE
   `<main>`, holding
-  `data-slot="app-content"` with, on Today only, `CliPromoBanner` first
+  `data-slot="app-content"` with, on Today only, `McpPromoBanner` first
   (in the board's `px-5 pt-5` margins), then the page; the
   tab bar after `<main>`; the FAB; ONE hoisted `FeedbackDialog`.
   `usePhoneShell()` gives a screen inside it `{navItems, openFeedback,
@@ -2961,7 +3041,7 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   `/insights` Insights), `FAB_PATHS` (`/dashboard`, `/applications`),
   `phoneBackFor(pathname)` (the back bar: tab roots and `/welcome` none;
   `/account` "Back" → `/dashboard`; `/jobs` `/cvs` `/cycles` `/reports`
-  `/profile` `/device` `/admin` and `/admin/*` "Account" → `/account`;
+  `/profile` `/admin` and `/admin/*` "Account" → `/account`;
   `BOARD_PARENTS`, the back bars the boards draw: `/jobs/view` "Jobs",
   `/cvs/editor` and `/cvs/new` "CVs", `/applications/new-with-cv`
   "Applications", `/applications/cv` "Application" (the screen's
@@ -2972,7 +3052,7 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   (the tests use `/somewhere/new`) "Back" → `/dashboard`),
   `PHONE_SCREEN_PATHS` (screens rendered from their board, which own the
   board's padding: `/dashboard`, `/applications`, `/agenda`, `/account`,
-  `/insights`, `/welcome`, `/device`, `/profile`, `/cycles`, `/reports`,
+  `/insights`, `/welcome`, `/profile`, `/cycles`, `/reports`,
   `/admin`, `/jobs`, `/jobs/view`, `/cvs`, `/cvs/editor`, `/cvs/new`,
   `/applications/new-with-cv`, `/applications/cv` — add a route when its
   board lands) plus
@@ -3049,7 +3129,7 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
 - **The Account hub** (`/account`, `components/phone/screens/account-screen.tsx`
   `AccountScreen` over the designer's `AccountScreenView`): name, initials,
   one pill per held badge, View profile; Workspace (Jobs, CVs, Reports,
-  Cycles) and Account (Profile, Devices & CLI, Sign in a device, Admin) rows
+  Cycles) and Account (Profile, MCP, Devices, Admin) rows
   from `accountRows(navItems)` — the rail's own entries, so feature keys, the
   Reports badge and `is_admin` decide exactly as on desktop and a feature
   taken away drops its row on the next load; metas from today's hooks
@@ -3072,12 +3152,14 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   `.ph-iconbtn`, the pager and the state cards) follow the V2 classes, then
   one board-only prefix per board: `ph-au-` (Users), `ph-cat-` (Companies,
   Platforms), `ph-af-` (Features), `ph-fv-` (a feature), `ph-wh-` (Report
-  webhooks), `ph-clp-` (`/cli`), `ph-cn-` (`/cvs/new`) and `ph-acv-`
-  (`/applications/cv`). `phone-css.test.ts` pins every one.
+  webhooks), `ph-mcp-` (`/mcp`), `ph-mt-` (Profile › MCP and its sheets),
+  `ph-cn-` (`/cvs/new`) and `ph-acv-` (`/applications/cv`); `ph-cli-` left
+  with `/cli/code` (ADR-0028), and the test pins that none is declared.
+  `phone-css.test.ts` pins every one.
 - **44px.** Every control on a phone screen has a box of at least 44×44
   (`getBoundingClientRect`), its visible shape the board's size: `.ph-hit`, or
   the `::before` shape of `.ph-btn.ph-sm`, `.ph-chip`, `.ph-seg > *`,
-  `.ph-switch`. `CliPromoBanner` and `CookieConsent` get `max-md:` 44px boxes.
+  `.ph-switch`. `McpPromoBanner` and `CookieConsent` get `max-md:` 44px boxes.
   An added CV list item's move and remove buttons (`CvRepeatableSection`,
   `[data-slot="cv-item-actions"]`) are 44px wide and, through
   `margin-block: -6px`, 44px tall with the item's header row kept at 32px,
@@ -3161,9 +3243,9 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   (`useReportForm`, both report forms) and `useGithubRestoreReturn`
   (`hooks/use-github-restore.ts`, the `?account=github&status=` notice at
   both widths). `useReports` also returns `data`, `isError` and `refetch`.
-  - **Profile / Devices** are one screen: `?tab=devices` is read on every
-    render (`useSearchParams`), the "Profile sections" nav is two links
-    (`/profile`, `/profile?tab=devices`, the current one
+  - **Profile / MCP / Devices** are one screen: `?tab=mcp|devices` is read
+    on every render (`useSearchParams`), the "Profile sections" nav is three
+    links (`/profile`, `/profile?tab=mcp`, `/profile?tab=devices`, the current one
     `aria-current="page"`) whose plain tap `pushState`s (Back returns), the
     other section's nav takes focus. Crossing md lands on the URL's tab
     (the desktop's own tab switch writes no URL, as today). Edit (top bar)
@@ -3358,12 +3440,12 @@ page]` key, so the optimistic dismiss reaches all of them; the phone
     render today's pages.
 - **The v3 screens (PRD 0022)**: `/admin/users`, `/admin/companies`,
   `/admin/platforms`, `/admin/features`, `/admin/features/view`,
-  `/admin/report-webhooks`, `/cli`, `/cvs/new` and `/applications/cv`, each
-  from its own v3 board. The signed-in eight keep the account area's wrapper
+  `/admin/report-webhooks`, `/cvs/new` and `/applications/cv`, each
+  from its own v3 board (v3/Cli's `/cli` gave way to 0023's `/mcp`, below). The signed-in eight keep the account area's wrapper
   shape: the page keeps its hooks, calls `useIsPhone()` after them and
   returns the board's `…ScreenView` with its own queries, forms and
   mutations (`report-webhooks-page.tsx` swaps `ReportWebhookFormDialog` for
-  `PhoneReportWebhookSheet`); `/cli` switches by CSS (below). `/cvs/new` and
+  `PhoneReportWebhookSheet`); `/mcp` switches by CSS (below). `/cvs/new` and
   `/applications/cv` stay inside their `FeatureGate feature="cvs"` with
   today's Beta mark. A sheet closes when the width crosses md, and a
   half-filled form in it is lost. Details: **Admin — private
@@ -3374,28 +3456,20 @@ page]` key, so the optimistic dismiss reaches all of them; the phone
   below md (v2/Welcome: `radiogroup` "How to start" of two `PhoneOption
 size="lg"`, restore preselected, ONE CTA that follows the choice —
   `[data-action="restore"]` or `[data-action="start-fresh"]` — on the same
-  restore / dismiss calls); `device-page.tsx` hands the same props to
-  `components/phone/screens/device-screen.tsx` (`PhoneDeviceCode`,
-  `PhoneDeviceRequest` with the `role="note"` warning and Deny / Approve in
-  a `PhoneActionBar`, `PhoneDeviceOutcome`) instead of `DeviceSignInLayout`
-  and `components/device/*`. The data hooks (`device-code-form`,
-  `device-request*`, `device-outcome`) are the same at both widths; the
-  step and `?code=` survive a crossing of md.
+  restore / dismiss calls).
 - **Public screens switch by CSS**, one tree per width with a `data-slot`
   per tree, so the static HTML hydrates as is: `/` (`PhoneLanding`
   `[data-slot="landing-phone"]`, v2/Landing; today's sections in
   `[data-slot="landing-desktop"]`), `/cookie-policy` (`PhoneCookiePolicy`
   `[data-slot="cookie-policy-phone"]`, today's words in the board's cards
   `li[data-slot="cookie-row"][data-cookie]`; today's page in
-  `[data-slot="cookie-policy-desktop"]`), `/cli` (`PhoneCli`
-  `[data-slot="cli-phone"]`, v3/Cli, PRD 0022: the four command blocks
-  `[data-slot="cli-phone-term"]`, each Copy ("Copy command",
-  `data-action="copy-commands"`, described by its section's heading)
-  copying the block's commands and saying "Copied" with its own status
-  line, the "$ " prompts hidden from screen readers and never copied, View
-  on PyPI, its own footer; today's page in `[data-slot="cli-desktop"]`),
-  `/cli/code` (`[data-slot="cli-code-phone"]` /
-  `[data-slot="cli-code-desktop"]`) and `/login` (above). `/` and `/cli`
+  `[data-slot="cookie-policy-desktop"]`), `/mcp` (`PhoneMcp`
+  `[data-slot="mcp-phone"]`, 0023/McpPage: the hero with "Create a token",
+  three steps, the server address in `[data-slot="mcp-phone-address"]` with
+  Copy (`data-action="copy-address"`, "Server address copied" in its status
+  line; a refused clipboard selects the address), the apps, the scope pills,
+  its own footer; DeskMcpPage in `[data-slot="mcp-desktop"]`) and `/login`
+  (above). `/` and `/mcp`
   share `PhoneLandingHeader`
   (`components/phone/landing/phone-landing-header.tsx`, on one row from 320
   to 430): at the left the home link, the Applika icon alone
@@ -3441,14 +3515,15 @@ page)` renders a route in the phone shell with the query client, the cycle
   the real form does — and Radix's `onCloseAutoFocus` on unmount).
   `e2e/shell-responsive.spec.ts` walks the phone shell at
   390×844; `e2e/phone.spec.ts` the public screens (`/`, `/cookie-policy`,
-  `/cli`, `/cli/code`), the core screens and the Account hub as e2e-user,
+  `/mcp`; `/device` and `/cli/code` answer like any unknown page), the core
+  screens and the Account hub as e2e-user,
   every account-area, job and CV board read-only, the new master CV and an
   application's CV copy, the admin console's v2 and v3 boards as e2e-admin
   (a private company approved on the phone included) and Logout in a
   disposable account (see **Phone in E2E**);
   `borderless-signin.spec.ts` option C's states, option A at md and up and
-  the welcome choice; `headers.spec.ts` the public and app headers;
-  `devices.spec.ts` `/device`. `e2e/support/phone.ts` has `PHONE`
+  the welcome choice; `headers.spec.ts` the public and app headers.
+  `e2e/support/phone.ts` has `PHONE`
   (390×844), `expectPhoneTargets` (every rendered control's box at least
   44×44, and a floor on how many were measured) and
   `expectNoSidewaysScroll` (the document and the shell's `<main>`).
@@ -3478,8 +3553,8 @@ page)` renders a route in the phone shell with the query client, the cycle
   `/admin/features`; "Application" is the CV copy's back link and inside
   "Application CV"; "Add user" opens the sheet and "Add <user>" adds;
   "Download PDF" is inside "Download PDF of <name>" on the copy's picker;
-  every `/cli` block has its own "Copy command" (scope to
-  `[data-slot="cli-phone-term"]`). Hooks: `data-slot` `phone-today`,
+  "Create token" is both the empty state's button and the create form's
+  submit on Profile › MCP (scope to the dialog or sheet). Hooks: `data-slot` `phone-today`,
   `today-next-interview`, `today-stats`, `today-attention(-item)`,
   `today-upcoming(-item)`, `phone-pipeline`, `pipeline-summary`,
   `pipeline-empty`, `phone-application` (`data-application-id`,

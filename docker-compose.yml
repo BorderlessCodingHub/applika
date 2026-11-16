@@ -5,7 +5,7 @@
 #   Down:  docker compose down            # keeps the database
 #   Nuke:  docker compose down -v         # drops the database too
 #
-# Six services, wired the way production serves them: `api` from
+# Seven services, wired the way production serves them: `api` from
 # `backend/Dockerfile` (uvicorn under the `/api` prefix) and `web` from
 # `frontend/docker/Dockerfile` (the Next.js static export served by nginx),
 # against a real Postgres and a real Redis. The schema comes from the real
@@ -13,12 +13,15 @@
 # `worker` and `scheduler` (ADR-0016) run the same backend image
 # with taskiq instead of uvicorn: the hourly job collection and the fit
 # recompute. They start once `api` is healthy, i.e. after the migration ran,
-# and never run Alembic themselves.
+# and never run Alembic themselves. `borderless-fake` is the fake Borderless
+# sign-in (ADR-0026 §12): the BORDERLESS_* settings default to it, and `.env`
+# overrides them to sign in through a real OpenID Connect provider.
 #
 #   Worker logs:  docker compose logs -f worker
 #
-#   web  http://127.0.0.1:8080
-#   api  http://127.0.0.1:8000/api      docs at /api/docs
+#   web   http://127.0.0.1:8080
+#   api   http://127.0.0.1:8000/api      docs at /api/docs
+#   fake  http://127.0.0.1:8081          the fake Borderless (/health, /__fake/log)
 #
 # Relationship to the other compose files in this repo:
 #   - `docker-compose.e2e.yml` is the ephemeral E2E stack (project `applika-e2e`,
@@ -28,9 +31,10 @@
 #     under the `applika` project name, so its database is SEPARATE from the one
 #     `backend/docker-compose.yml` creates.
 #
-# Copy `.env.example` to `.env` first and set the four BORDERLESS_* values — the
-# api boots without them, but every sign-in fails with AUTH-1018 until they are
-# set. `.env.example` also lists the public URLs to change behind a tunnel.
+# Copy `.env.example` to `.env` first. Every setting has a local default: the
+# BORDERLESS_* values point at the fake Borderless, so sign-in works with no
+# edit. `.env.example` lists what to change for a real provider and the public
+# URLs to change behind a tunnel.
 #
 # NOTE ON THE FRONTEND: the Next.js build is a STATIC EXPORT and
 # NEXT_PUBLIC_API_BASE_URL is baked in at BUILD time, so a frontend source change
@@ -52,20 +56,19 @@ x-api-environment: &api-environment
   CORS_ORIGINS: '${CORS_ORIGINS:-["http://127.0.0.1:8080"]}'
   CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
   JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
-  # Sign in with Borderless through OpenID Connect (ADR-0026): ?error=AUTH-1018
-  # until the issuer, client id, secret and key are set. Locally, the fake:
-  #   cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth
-  BORDERLESS_ISSUER: ${BORDERLESS_ISSUER:-}
-  BORDERLESS_CLIENT_ID: ${BORDERLESS_CLIENT_ID:-}
-  BORDERLESS_CLIENT_SECRET: ${BORDERLESS_CLIENT_SECRET:-}
+  # Sign in with Borderless through OpenID Connect (ADR-0026). Every value
+  # defaults to the `borderless-fake` service: its issuer, its synthetic client
+  # (backend/tests/fixtures/borderless/accounts.json) and a throwaway Fernet key
+  # (it decodes to "applika-local-dev-key-not-secret"). Set them in .env to sign
+  # in through a real provider instead; the fake then stays up, unused. Use your
+  # own key with a real provider, and keep it once set: a new key makes the
+  # stored tokens unreadable and users sign in again.
+  BORDERLESS_ISSUER: ${BORDERLESS_ISSUER:-http://borderless-fake:8081/api/auth}
+  BORDERLESS_CLIENT_ID: ${BORDERLESS_CLIENT_ID:-applika-fake-client}
+  BORDERLESS_CLIENT_SECRET: ${BORDERLESS_CLIENT_SECRET:-applika-fake-client-secret-not-real}
   BORDERLESS_REDIRECT_URI: ${BORDERLESS_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/borderless/callback}
-  BORDERLESS_TOKEN_ENCRYPTION_KEY: ${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
+  BORDERLESS_TOKEN_ENCRYPTION_KEY: ${BORDERLESS_TOKEN_ENCRYPTION_KEY:-YXBwbGlrYS1sb2NhbC1kZXYta2V5LW5vdC1zZWNyZXQ=}
   WEB_SIGNIN_URI: ${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
-  # The web pages the CLI sign-in sends the browser to: the device-code
-  # approval (`applika login --device`) and the code#state to paste
-  # (`applika login --manual`).
-  DEVICE_VERIFICATION_URI: ${DEVICE_VERIFICATION_URI:-http://127.0.0.1:8080/device}
-  CLI_MANUAL_REDIRECT_URI: ${CLI_MANUAL_REDIRECT_URI:-http://127.0.0.1:8080/cli/code}
   # GitHub restore only (ADR-0024): 503 until the id and secret are set.
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
@@ -155,8 +158,6 @@ services:
         API_BASE_URL: ${API_BASE_URL:-http://127.0.0.1:8000/api}
         # Where "Create a Borderless account" on the sign-in page leads.
         BORDERLESS_SIGN_UP: ${BORDERLESS_SIGN_UP:-https://platform.borderlesscoding.com/sign-up}
-        # Where "View on PyPI" on the CLI promo banner leads.
-        APPLIKA_CLI: ${APPLIKA_CLI:-https://pypi.org/project/applika-cli/}
     ports:
       - "127.0.0.1:8080:80"
     healthcheck:
@@ -202,6 +203,40 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+
+  # The fake Borderless OpenID Connect provider (ADR-0026 §12,
+  # backend/tests/fixtures/borderless/fake_oidc.py): discovery, a sign-in page,
+  # the code exchange, refresh, JWKS and revocation, plus its `/__fake/*`
+  # controls (GET /__fake/log, POST /__fake/reset, POST /__fake/accounts/<sub>).
+  # It runs on its OWN test-only image, built from that folder's Dockerfile
+  # with the synthetic accounts.json baked in; never on the API image. Sign in
+  # with an account from that file. The api reaches the fake in-stack at the
+  # issuer; the browser opens its sign-in page on the published port
+  # (--public-url). Its grants live in memory: after it restarts, users sign in
+  # again. The api does not depend on it (discovery is read at sign-in, not at
+  # boot), so an api pointed at a real provider never waits for it. The image
+  # has no curl or wget: the healthcheck uses its python.
+  borderless-fake:
+    container_name: applika-borderless-fake
+    build:
+      context: ./backend/tests/fixtures/borderless
+    command:
+      - --issuer
+      - http://borderless-fake:8081/api/auth
+      - --public-url
+      - http://127.0.0.1:8081
+    ports:
+      - "127.0.0.1:8081:8081"
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 12
     restart: unless-stopped
 
 volumes:

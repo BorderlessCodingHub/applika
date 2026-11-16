@@ -835,11 +835,11 @@ async def test_write_paths_emit_audit_events(
 
 
 # ---------------------------------------------------------------------------
-# The Application's legacy fields follow the timeline (R-019)
+# The Application's derived fields follow the timeline (R-019)
 # ---------------------------------------------------------------------------
 
 
-async def test_application_list_derives_last_step_and_salary_offer(
+async def test_application_list_derives_the_last_event(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await ts.seed_open_application(db_session)
@@ -848,14 +848,18 @@ async def test_application_list_derives_last_step_and_salary_offer(
 
     [application] = (await async_client.get('/applications')).json()
 
-    assert application['last_step'] == {
-        'id': str(ts.STEP_OFFER),
-        'name': 'Offer',
-        'color': '#28a745',
+    offer = (await async_client.get(BASE)).json()[-1]
+    assert application['last_event'] == {
+        'id': offer['id'],
+        'event_type': 'offer',
+        'interview_type': None,
+        'denied_reason': None,
         'date': '2025-12-05',
     }
-    assert application['salary_offer'] == 4200.5
-    assert application['feedback'] is None
+    assert 'last_step' not in application
+    # The fields only applika-cli read are gone (ADR-0028).
+    assert 'salary_offer' not in application
+    assert 'feedback' not in application
     assert application['finalized'] is False
     assert application['finalized_at'] is None
 

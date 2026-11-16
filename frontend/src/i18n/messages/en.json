@@ -30,8 +30,6 @@
     "signIn": {
       "title": "Sign in to applika",
       "pending": "Opening Borderless…",
-      "cliCommand": "applika login",
-      "cliRetry": "Return to your terminal and run <code>{command}</code> again.",
       "opensInNewTab": "Opens in a new tab.",
       "optionC": {
         "backToHome": "Back to home",
@@ -148,6 +146,8 @@
     "AUTH-1048": "Borderless's answer could not be verified. Try signing in again",
     "AUTH-1049": "Your Borderless sign-in has ended. Sign in again with Borderless",
     "AUTH-1050": "Your Borderless sign-in has ended. Sign in again on the applika website to use member features",
+    "AUTH-1051": "MCP token invalid, revoked or expired. Create a new one in Applika: Profile > MCP.",
+    "AUTH-1052": "This MCP token's scope does not allow this tool. Create a token with more access in Applika: Profile > MCP.",
     "USR-1001": "User not found",
     "APP-1001": "Application not found or not owned by user",
     "APP-1002": "Cannot modify an application from an archived cycle",
@@ -177,6 +177,7 @@
     "CAT-1002": "Platform not found",
     "CAT-1003": "A platform with this name already exists: {name}",
     "CAT-1004": "A company with this name and URL already exists.",
+    "CAT-1005": "A platform with this website already exists: {name}",
     "CV-1001": "Base CV not found",
     "CV-1002": "Base CV limit reached (max {max} per user)",
     "CV-1003": "CV copy not found",
@@ -538,47 +539,6 @@
     "freshBody": "You can still restore from your profile later, as long as this account holds no data.",
     "startFresh": "Start fresh"
   },
-  "cliCode": {
-    "title": "Sign in to applika-cli",
-    "instruction": "Paste this code into your terminal",
-    "copy": "Copy",
-    "copied": "Copied",
-    "copiedStatus": "Code copied.",
-    "copyFailed": "Could not copy. The code is selected, copy it with your keyboard.",
-    "expiry": "The code works once and expires after a minute.",
-    "missingTitle": "This sign-in link is missing its code.",
-    "missingBody": "Run the login command in your terminal again."
-  },
-  "device": {
-    "title": "Sign in a device",
-    "lead": "Enter the code your terminal shows. You'll see which device is asking before you approve it.",
-    "codeLabel": "Device code",
-    "codeHint": "8 letters, shown in your terminal as XXXX-XXXX.",
-    "codePlaceholder": "XXXX-XXXX",
-    "incomplete": "Enter all 8 letters of the code.",
-    "continue": "Continue",
-    "requestTitle": "A device wants to sign in",
-    "requestLead": "Check that these details match the device you are signing in.",
-    "terms": {
-      "code": "Code",
-      "device": "Device",
-      "client": "Client",
-      "ip": "IP address",
-      "requested": "Requested",
-      "expires": "Code expires"
-    },
-    "notRecorded": "Not recorded",
-    "warning": "Only approve if you started this sign-in yourself",
-    "warningDetail": "If someone sent you this code or link, deny it.",
-    "approve": "Approve",
-    "deny": "Deny",
-    "differentCode": "Use a different code",
-    "approved": "Device signed in. You can return to your terminal.",
-    "seeDevices": "See your devices",
-    "denied": "Sign-in denied. The device was not signed in.",
-    "anotherCode": "Enter another code",
-    "errorFallback": "Something went wrong. Try again."
-  },
   "nav": {
     "primary": "Primary",
     "dashboard": "Dashboard",
@@ -591,7 +551,7 @@
     "profile": "Profile",
     "admin": "Admin",
     "system": "System",
-    "cli": "Applika CLI"
+    "mcp": "Applika MCP"
   },
   "userMenu": {
     "open": "Open account menu",
@@ -624,34 +584,165 @@
     "title": "Oops! Page not found",
     "home": "Return to Home"
   },
-  "cliBanner": {
-    "region": "applika-cli announcement",
-    "title": "Try the <mono>applika-cli</mono> command-line tool",
-    "body": "A CLI to log applications from your terminal. Ships with a ready-to-use skill for AI tools like Claude and Codex. See PyPI for installation and full details.",
-    "cta": "View on PyPI",
-    "dismiss": "Dismiss announcement"
-  },
-  "cliPage": {
-    "eyebrow": "Command line",
-    "title": "applika-cli",
-    "lead": "Log, filter and update your job applications without leaving the terminal. It ships with a skill that teaches AI assistants like Claude, Codex and Gemini how to use it.",
-    "pypi": "View on PyPI",
-    "copy": "Copy command",
+  "mcpCopy": {
+    "copy": "Copy",
     "copied": "Copied",
-    "installTitle": "Install",
-    "installBody": "Needs Python 3.10 or newer. Install it with <code>uv</code> (recommended) or <code>pipx</code>; either gives you the global <code>applika</code> command.",
-    "signInTitle": "Sign in",
-    "signInBody": "The CLI signs in with your Borderless account and gets a session of its own, listed as a device in your profile's Devices tab, where you can revoke it at any time.",
-    "signInBrowser": "<strong>Default:</strong> your browser opens and the sign-in comes back to the terminal by itself.",
-    "signInManual": "<strong>Browser on another machine:</strong> <code>--manual</code> shows a code in the browser for you to paste in the terminal.",
-    "signInDevice": "<strong>No browser at all</strong> (SSH, containers): <code>--device</code> prints a short code to approve from any signed-in browser.",
-    "trackTitle": "Track from your terminal",
-    "trackBody": "List and filter your pipeline, add new applications, record interviews and offers on the timeline, and close applications when they end. Add <code>--output-format json</code> to pipe the results into other tools.",
-    "skillTitle": "Teach your AI assistant",
-    "skillBody": "<code>applika skill</code> installs the bundled skill for Claude Code, Codex, Gemini or OpenCode. Your assistant then knows every command, checks your session first and builds valid applications for you, so you can just say \"log my application to Stripe\".",
-    "moreTitle": "Everything else",
-    "moreBody": "Application timelines, finalizing and every flag are documented on the package page.",
-    "footer": "Back to the <link>home page</link>."
+    "refused": "Copying is blocked here. The text is selected: copy it by hand."
+  },
+  "mcpScope": {
+    "legend": "What can it do?",
+    "recommended": "Recommended",
+    "fixed": "The scope can't change later. For more access, create a new token. CV tools appear only if you have the CVs feature.",
+    "read": {
+      "title": "Read only",
+      "body": "Look up and read applications, timeline events, CVs, platforms and companies."
+    },
+    "read_write": {
+      "title": "Read and write",
+      "body": "Also create, edit, close and reopen applications, add and edit timeline events, and write CVs."
+    },
+    "full": {
+      "title": "Full access",
+      "body": "Also delete timeline events, master CVs and application CVs. Deleting can’t be undone."
+    }
+  },
+  "mcpCreate": {
+    "title": "New MCP token",
+    "lead": "Your AI app sends it with every call to act as you.",
+    "nameLabel": "Name",
+    "defaultName": "MCP connection",
+    "nameHintPhone": "Shown in Devices and in this tab.",
+    "nameHintDesktop": "Shown in Devices and in the MCP tab.",
+    "cancel": "Cancel",
+    "create": "Create token",
+    "failed": "Could not create the token. Try again."
+  },
+  "mcpToken": {
+    "title": "Your token is ready",
+    "summary": "{name} · {scope} · ends 90 days after its last use",
+    "warning": "Copy it now. Applika shows it only once. Lost it? Create a new token and revoke this one.",
+    "tokenLabel": "Token",
+    "copyToken": "Copy the token",
+    "tokenCopied": "Token copied",
+    "addTitle": "Add it to your app",
+    "appGroup": "AI app",
+    "copyConfig": "Copy the configuration",
+    "configCopied": "Configuration copied",
+    "keep": "Keep it in your own settings, never in a project file you commit. Restart the app, then ask it: <ask>“List my open applications.”</ask>",
+    "done": "Done"
+  },
+  "mcpConfig": {
+    "other": "Other",
+    "otherAddress": "Address",
+    "otherHeader": "Header",
+    "where": {
+      "claude_code": "Run it in a terminal. --scope user adds it to your user settings, not to a project.",
+      "claude_desktop": "Settings › Developer › Edit config, in claude_desktop_config.json. Needs Node.js.",
+      "cursor": "In ~/.cursor/mcp.json, your user file.",
+      "vscode": "Command Palette › MCP: Open User Configuration (mcp.json).",
+      "codex": "In ~/.codex/config.toml.",
+      "gemini": "In ~/.gemini/settings.json, your user file.",
+      "other": "Any app that connects to a streamable HTTP MCP server and sends a header."
+    }
+  },
+  "mcpTab": {
+    "title": "MCP connections",
+    "lead": "Tokens that let your AI app use Applika through the MCP server. Each one is also listed in Devices.",
+    "deskLead": "Tokens that let your AI app use Applika through the MCP server. Each one is also listed in Devices. A token ends 90 days after its last use. <link>How MCP works</link>",
+    "serverAddress": "Server address",
+    "copyAddress": "Copy the server address",
+    "addressCopied": "Server address copied",
+    "newToken": "New token",
+    "activeTitle": "Active",
+    "loading": "Loading MCP connections",
+    "loadErrorTitle": "Could not load your MCP connections",
+    "loadErrorBody": "Check your connection and try again.",
+    "retry": "Try again",
+    "terms": {
+      "created": "Created",
+      "lastUsed": "Last used",
+      "ip": "IP address",
+      "ends": "Ends",
+      "endsIfUnused": "Ends if unused"
+    },
+    "endsValue": "{date} if unused",
+    "never": "Never",
+    "notRecorded": "Not recorded",
+    "revoke": "Revoke",
+    "revokeLabel": "Revoke the token {name}",
+    "revokeTitle": "Revoke the token {name}?",
+    "revokeBody": "Apps that use it lose access on their next call. To connect again, create a new token.",
+    "revokeConfirm": "Revoke token",
+    "cancel": "Cancel",
+    "emptyTitle": "No MCP connections yet",
+    "emptyBody": "Connect Claude Code, Cursor, VS Code or another AI app, and ask it to log applications, update the timeline or tailor a CV for you.",
+    "step1": "<strong>Create a token</strong> and choose what it may do.",
+    "step2": "<strong>Copy the configuration</strong> for your app. It holds the token.",
+    "step3": "<strong>Paste it</strong> in your app and restart it.",
+    "createToken": "Create token",
+    "whatIsMcp": "What is MCP?",
+    "deskEmptyBody": "Create a token, copy the configuration for your app, paste it and restart the app.",
+    "footHint": "A token ends 90 days after its last use. Need more access? Create a new token with a wider scope and revoke the old one; a scope never changes. <link>How MCP works</link>",
+    "deskFootHint": "Need more access? Create a new token with a wider scope and revoke the old one; a scope never changes."
+  },
+  "mcpPage": {
+    "eyebrow": "MCP server",
+    "title": "Applika in your AI assistant",
+    "lead": "Connect Claude Code, Cursor, VS Code and other AI apps to your Applika account. Ask them to log an application, add an interview to the timeline or tailor a CV. Nothing to install.",
+    "cta": "Create a token",
+    "ctaNote": "You sign in first, then land on Profile › MCP.",
+    "exampleLabel": "Example conversation",
+    "exampleAsk": "Add my interview with Acme tomorrow at 10:00, and keep the application open.",
+    "exampleReply": "Done. <strong>Acme — Backend engineer</strong> now has an interview on Nov 15 at 10:00. It stays open.",
+    "stepsTitle": "Connect in three steps",
+    "steps": {
+      "create": {
+        "title": "Create a token",
+        "body": "In Profile › MCP, name it and choose what it may do: read only, read and write, or full access."
+      },
+      "copy": {
+        "title": "Copy the configuration",
+        "body": "Applika writes it for your app with the token already in it. Copy it now: the token is shown once."
+      },
+      "paste": {
+        "title": "Paste it and ask",
+        "body": "Paste it in your app's user settings, restart, and try “List my open applications.”"
+      }
+    },
+    "addressTitle": "Server address",
+    "addressBody": "Streamable HTTP. Your app sends the token in the <code>Authorization</code> header.",
+    "copyAddress": "Copy the server address",
+    "addressCopied": "Server address copied",
+    "appsTitle": "Works with",
+    "appsBody": "Any app that can send a header to an MCP server. Applika writes the configuration for these:",
+    "appsLater": "Apps that only connect through their own sign-in page, like claude.ai or ChatGPT on the web, are not supported yet.",
+    "canTitle": "What your assistant can do",
+    "can": {
+      "applications": "<strong>Applications.</strong> List, read, add, edit, close and reopen them.",
+      "timeline": "<strong>Timeline.</strong> List, add, edit and delete interviews, offers and other events.",
+      "cvs": "<strong>CVs.</strong> Read, write, download and compare master and application CVs, if you have the CVs feature.",
+      "lookups": "<strong>Lookups.</strong> Find platforms and companies, and check who you are signed in as."
+    },
+    "reachTitle": "You choose its reach",
+    "reach": {
+      "read": "Looks things up. Changes nothing.",
+      "read_write": "Also creates, edits, closes and reopens. Deletes nothing.",
+      "full": "Also deletes timeline events and CVs. Your app asks you first."
+    },
+    "controlTitle": "You stay in control",
+    "control": {
+      "devices": "Every token is listed in <strong>Devices</strong>. Revoke it and it stops at once.",
+      "ends": "A token ends <strong>90 days after its last use</strong>.",
+      "own": "It reaches only your own data, never anyone else's, and never admin tools."
+    },
+    "footerHome": "Home"
+  },
+  "mcpBanner": {
+    "region": "Applika MCP announcement",
+    "title": "Use Applika from your AI assistant",
+    "body": "The Applika MCP server lets Claude Code, Cursor, VS Code and other AI apps log applications, update the timeline and tailor CVs for you. Nothing to install.",
+    "cta": "See how it works",
+    "dismiss": "Dismiss announcement"
   },
   "features": {
     "beta": "Beta",
@@ -672,6 +763,7 @@
   "profile": {
     "tabs": {
       "profile": "Profile",
+      "mcp": "MCP",
       "devices": "Devices"
     },
     "edit": "Edit",
@@ -766,7 +858,7 @@
   },
   "devices": {
     "activeTitle": "Active",
-    "activeDescription": "Browsers and CLIs signed in to your account. Revoke any you don't recognize.",
+    "activeDescription": "Browsers and MCP connections signed in to your account. Revoke any you don't recognize.",
     "endedTitle": "Ended (last 30 days)",
     "endedEmpty": "No device has ended in the last 30 days.",
     "thisDevice": "This device",
@@ -778,7 +870,7 @@
     "signOutBody": "You are signed out here right away and taken to the login page.",
     "signOutOthers": "Sign out all other devices",
     "signOutOthersConfirm": "Sign out other devices",
-    "signOutOthersBody": "They are signed out on their next request and have to sign in again. This device stays signed in.",
+    "signOutOthersBody": "They are signed out on their next request and have to sign in again; MCP connections stop working. This device stays signed in.",
     "noOtherDevices": "No other device is signed in.",
     "cancel": "Cancel",
     "loading": "Loading devices",
@@ -786,7 +878,7 @@
     "loadErrorBody": "Check your connection and try again.",
     "retry": "Try again",
     "emptyTitle": "No active devices",
-    "emptyBody": "Browsers and CLIs you sign in with appear here.",
+    "emptyBody": "Browsers you sign in with and your MCP connections appear here.",
     "never": "Never",
     "notRecorded": "Not recorded",
     "revokeTitle": "Revoke access for {name}?",
@@ -801,7 +893,8 @@
       "granted": "Granted",
       "lastUsed": "Last used",
       "expires": "Expires",
-      "ended": "Ended"
+      "ended": "Ended",
+      "endsIfUnused": "Ends if unused"
     },
     "status": {
       "active": "Active",
@@ -814,8 +907,11 @@
       "github_web": "GitHub in the browser",
       "cli_browser": "Approved in the browser",
       "cli_device": "Approved with a device code",
-      "cli_legacy": "Older CLI sign-in"
-    }
+      "cli_legacy": "Older CLI sign-in",
+      "mcp_token": "MCP token"
+    },
+    "revokeMcpBody": "Apps that use this token lose access on their next call. To connect again, create a new token in Profile › MCP.",
+    "mcpClient": "AI app (MCP)"
   },
   "badges": {
     "memberName": "Borderless {badge} member",
@@ -2282,9 +2378,8 @@
     "account": {
       "workspace": "Workspace",
       "viewProfile": "View profile",
-      "devices": "Devices & CLI",
+      "devices": "Devices",
       "signedIn": "{count} signed in",
-      "codeFormat": "XXXX-XXXX",
       "reportDay": "Day {day}",
       "language": "Language",
       "english": "English",
@@ -2294,7 +2389,8 @@
       "dark": "Dark",
       "sendFeedback": "Send feedback",
       "cookiePolicy": "Cookie policy",
-      "openSource": "Applika.dev · open source"
+      "openSource": "Applika.dev · open source",
+      "mcp": "MCP"
     },
     "landing": {
       "eyebrow": "Free & open-source job tracker",

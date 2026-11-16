@@ -128,3 +128,55 @@ async def test_create_platform_integrity_error_is_a_named_conflict():
 
     with pytest.raises(ResourceConflict, match='My Board'):
         await uc.execute(_dto(), user_id=7)
+
+
+@pytest.mark.parametrize(
+    'url',
+    [
+        'https://remoteok.com',
+        'https://www.RemoteOK.com/remote-jobs',
+        'http://remoteok.com/?ref=x',
+        'https://www.remoteok.com./',
+    ],
+)
+async def test_create_platform_on_a_visible_platforms_site_conflicts(url):
+    platform_repo = AsyncMock()
+    platform_repo.find_visible_by_name.return_value = None
+    platform_repo.list_visible.return_value = [
+        SimpleNamespace(id=1, name='Referral', url=''),
+        SimpleNamespace(id=2, name='RemoteOK', url='https://remoteok.com'),
+    ]
+
+    uc = CreatePlatformUseCase(platform_repo)
+    with pytest.raises(ResourceConflict) as exc:
+        await uc.execute(_dto(name='Remote OK', url=url), user_id=7)
+
+    assert exc.value.code == 'CAT-1005'
+    assert exc.value.params == {'name': 'RemoteOK'}
+    platform_repo.list_visible.assert_awaited_once_with(7)
+    platform_repo.create.assert_not_called()
+
+
+async def test_create_platform_on_another_subdomain_is_a_new_site():
+    platform_repo = AsyncMock()
+    platform_repo.find_visible_by_name.return_value = None
+    platform_repo.list_visible.return_value = [
+        SimpleNamespace(id=1, name='Lever', url='https://www.lever.co'),
+    ]
+    platform_repo.create.return_value = SimpleNamespace(
+        id=3,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        updated_at=None,
+        name='Acme Careers',
+        url='https://jobs.lever.co/acme',
+        is_public=False,
+        created_by=7,
+        created_by_user=None,
+    )
+
+    uc = CreatePlatformUseCase(platform_repo)
+    await uc.execute(
+        _dto(name='Acme Careers', url='https://jobs.lever.co/acme'), user_id=7
+    )
+
+    platform_repo.create.assert_awaited_once()

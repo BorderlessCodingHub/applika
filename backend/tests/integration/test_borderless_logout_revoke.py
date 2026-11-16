@@ -2,10 +2,10 @@
 (ADR-0026 §10), on the real stack against the fake Borderless.
 
 While another applika session of the user is open, Borderless is not told.
-When a logout (``GET /auth/logout``, ``POST /auth/revoke``), a device
-revocation or an account deletion leaves no open session, the refresh
-token is forgotten, the Redis access token goes, and Borderless is asked
-once to revoke the refresh token, after the answer. The Borderless browser
+When a logout (``GET /auth/logout``), a device revocation or an account
+deletion leaves no open session, the refresh token is forgotten, the Redis
+access token goes, and Borderless is asked once to revoke the refresh
+token, after the answer. The Borderless browser
 session is never touched.
 """
 
@@ -14,7 +14,7 @@ import logging
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from app.config.settings import REFRESH_COOKIE_NAME
+from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.domain.models import BorderlessAccountModel
 from tests import borderless_flow as flow
 from tests.base_db_setup import base_data
@@ -26,8 +26,9 @@ USER_ID = base_data()['user'].id
 ACCESS_KEY = f'applika:borderless:access:{USER_ID}'
 
 
-def _bearer(token: str) -> dict[str, str]:
-    return {'Authorization': f'Bearer {token}'}
+def _cookie(token: str) -> dict[str, str]:
+    """The ``__access`` cookie, the only REST credential (ADR-0028)."""
+    return {ACCESS_COOKIE_NAME: token}
 
 
 def _revokes(fake) -> list[dict]:
@@ -54,13 +55,8 @@ async def test_logout_with_another_session_open_tells_borderless_nothing(
     fake_borderless,
 ):
     web = await open_session(async_engine, redis_client, USER_ID)
-    await open_session(
-        async_engine,
-        redis_client,
-        USER_ID,
-        client_type='cli',
-        sign_in_method='cli_browser',
-    )
+    # Another browser of the same user.
+    await open_session(async_engine, redis_client, USER_ID)
     await redis_client.set(ACCESS_KEY, 'encrypted', ex=3600)
 
     response = await real_client.get(
@@ -114,41 +110,6 @@ async def test_logout_keeps_the_borderless_browser_session(
     assert 'code=' in back.headers['location']
 
 
-async def test_the_cli_revoking_its_last_session_revokes_the_grant(
-    real_client: AsyncClient,
-    async_engine,
-    db_session,
-    redis_client,
-    bound_user,
-    fake_borderless,
-):
-    cli = await open_session(
-        async_engine,
-        redis_client,
-        USER_ID,
-        client_type='cli',
-        sign_in_method='cli_browser',
-    )
-
-    response = await real_client.post(
-        '/auth/revoke', json={'refresh_token': cli.refresh_token}
-    )
-
-    assert response.status_code == 204
-    assert len(_revokes(fake_borderless)) == 1
-    assert await _token(db_session) is None
-
-
-async def test_revoking_an_unknown_value_tells_borderless_nothing(
-    real_client: AsyncClient, redis_client, bound_user, fake_borderless
-):
-    response = await real_client.post(
-        '/auth/revoke', json={'refresh_token': 'not-a-session'}
-    )
-    assert response.status_code == 204
-    assert _revokes(fake_borderless) == []
-
-
 async def test_revoking_the_last_device_revokes_the_grant(
     real_client: AsyncClient,
     async_engine,
@@ -163,7 +124,7 @@ async def test_revoking_the_last_device_revokes_the_grant(
     # Another device: the current one is still open, nothing told.
     first = await real_client.delete(
         f'/users/me/sessions/{other.session_id}',
-        headers=_bearer(current.access_token),
+        cookies=_cookie(current.access_token),
     )
     assert first.status_code == 204
     assert _revokes(fake_borderless) == []
@@ -171,7 +132,7 @@ async def test_revoking_the_last_device_revokes_the_grant(
     # This device, the last one.
     last = await real_client.delete(
         f'/users/me/sessions/{current.session_id}',
-        headers=_bearer(current.access_token),
+        cookies=_cookie(current.access_token),
     )
     assert last.status_code == 204
     assert len(_revokes(fake_borderless)) == 1
@@ -197,7 +158,7 @@ async def test_deleting_the_account_revokes_the_grant(
     await redis_client.set(ACCESS_KEY, 'encrypted', ex=3600)
 
     response = await real_client.delete(
-        '/users/me', headers=_bearer(current.access_token)
+        '/users/me', cookies=_cookie(current.access_token)
     )
 
     assert response.status_code == 204

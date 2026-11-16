@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { LoginPage } from "./login-page";
 
 /**
- * The sign-in page reads `?cli=1` with `useSearchParams`, which suspends.
+ * The sign-in page reads `?error=` with `useSearchParams`, which suspends.
  * Under `output: "export"` a page that reads search params without a
  * Suspense boundary fails the build, so the boundary is the route.
  */

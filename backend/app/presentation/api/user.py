@@ -19,13 +19,12 @@ from app.presentation.dependencies import (
     GithubConnectionRepositoryDp,
     ReleaseBorderlessGrantUseCaseDp,
     RevokeOtherSessionsUseCaseDp,
-    StepDefinitionRepositoryDp,
     TimelineEventRepositoryDp,
     UserBadgeRepositoryDp,
     UserRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
-from app.presentation.schemas.application_step import AgendaStepSchema
+from app.presentation.schemas.agenda import AgendaStepSchema
 from app.presentation.schemas.features import MyFeature, MyFeatures
 from app.presentation.schemas.user import UpdateUserProfile, UserProfile
 
@@ -108,7 +107,6 @@ async def update_me(
 async def get_my_agenda(
     c_user: CurrentUserDp,
     timeline_repo: TimelineEventRepositoryDp,
-    step_repo: StepDefinitionRepositoryDp,
     # Two separate Query() instances: FastAPI writes the first parameter's
     # name onto a shared Query default object, so a second parameter that
     # reuses the same instance ends up reading the first one's query key —
@@ -116,7 +114,7 @@ async def get_my_agenda(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
 ):
-    use_case = GetUserAgendaUseCase(timeline_repo, step_repo)
+    use_case = GetUserAgendaUseCase(timeline_repo)
     dtos = await use_case.execute(
         user_id=c_user.id,
         from_date=from_date,

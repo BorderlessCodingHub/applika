@@ -18,7 +18,8 @@ class EndSessionUseCase:
 
     Only a live session ends. A row already ended, past ``expires_at`` or
     whose key is gone is left as it is - it already reads as ended or
-    expired - so ending it again is a no-op."""
+    expired - so ending it again is a no-op. An MCP token's row is judged
+    by its Redis keys only: its ``expires_at`` may lag up to a day."""
 
     def __init__(
         self, session_repo: UserSessionRepository, store: SessionStore
@@ -69,7 +70,12 @@ class EndSessionUseCase:
     async def end_row(self, row: UserSessionModel, reason: EndReason) -> bool:
         now = datetime.now(UTC)
         session_id = row.id
-        if row.ended_at is not None or row.expires_at <= now:
+        if row.ended_at is not None:
+            return False
+        # An MCP token's row follows its Redis end at most once a day
+        # (ADR-0028), so its ``expires_at`` can trail a token that still
+        # works: Redis alone says whether it is live.
+        if row.client_type != 'mcp' and row.expires_at <= now:
             return False
         live = await self.store.live(session_id)
         if not live.alive:

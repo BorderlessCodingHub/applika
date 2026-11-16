@@ -49,6 +49,9 @@ class ErrorCode(StrEnum):
     AUTH_SIGN_IN_AGAIN = 'AUTH-1016'
     AUTH_BORDERLESS_UNAVAILABLE = 'AUTH-1017'
     AUTH_BORDERLESS_NOT_CONFIGURED = 'AUTH-1018'
+    # AUTH-1019 to AUTH-1042 are not raised since ADR-0028 (applika-cli's
+    # sign-in, token and device-code routes are gone); they stay out of
+    # circulation, never reused.
     AUTH_CLI_LOGIN_EXPIRED = 'AUTH-1019'
     AUTH_CLI_LOGIN_NOT_FOUND = 'AUTH-1020'
     AUTH_CLI_EXCHANGE_INVALID = 'AUTH-1021'
@@ -81,6 +84,8 @@ class ErrorCode(StrEnum):
     AUTH_BORDERLESS_UNVERIFIABLE = 'AUTH-1048'
     AUTH_BORDERLESS_GRANT_ENDED = 'AUTH-1049'
     AUTH_MEMBERSHIP_LOCKED = 'AUTH-1050'
+    AUTH_MCP_TOKEN_INVALID = 'AUTH-1051'
+    AUTH_MCP_SCOPE_MISSING = 'AUTH-1052'
 
     # USR
     USR_USER_NOT_FOUND = 'USR-1001'
@@ -89,6 +94,9 @@ class ErrorCode(StrEnum):
     APP_APPLICATION_NOT_FOUND = 'APP-1001'
     APP_ARCHIVED_CYCLE = 'APP-1002'
     APP_APPLICATION_CLOSED = 'APP-1003'
+    # APP-1004 to APP-1008 are not raised since ADR-0028 (the 0.1.4 finalize
+    # body and the /applications/{id}/steps routes are gone); they stay out
+    # of circulation, never reused.
     APP_ALREADY_FINALIZED = 'APP-1004'
     APP_STEP_NOT_FOUND = 'APP-1005'
     APP_FEEDBACK_NOT_FOUND = 'APP-1006'
@@ -118,6 +126,7 @@ class ErrorCode(StrEnum):
     CAT_PLATFORM_NOT_FOUND = 'CAT-1002'
     CAT_PLATFORM_NAME_TAKEN = 'CAT-1003'
     CAT_COMPANY_EXISTS = 'CAT-1004'
+    CAT_PLATFORM_SITE_TAKEN = 'CAT-1005'
 
     # CV
     CV_BASE_CV_NOT_FOUND = 'CV-1001'

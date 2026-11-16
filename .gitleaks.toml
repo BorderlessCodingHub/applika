@@ -34,8 +34,25 @@ keywords = ["client_id", "client-id", "clientid", "client_secret", "client-secre
   regexTarget = "secret"
   regexes = ['''^[a-z_]+$''', '''^[A-Z_]+$''']
 
+# Applika MCP tokens (ADR-0028): `applika_mcp_` + 32 random bytes, base64url
+# (43 characters). A real one is a live credential on the user's account until
+# it is revoked or idle for 90 days.
+[[rules]]
+id = "applika-mcp-token"
+description = "Applika MCP token"
+regex = '''applika_mcp_[A-Za-z0-9_-]{43}'''
+keywords = ["applika_mcp_"]
+
+  # The synthetic token docs, examples and tests use (`applika_mcp_fake_` and
+  # padding): it never names a session. Tests mint real-shaped tokens at run
+  # time and never write them to a file.
+  [[rules.allowlists]]
+  description = "synthetic MCP tokens (applika_mcp_fake_...)"
+  regexTarget = "match"
+  regexes = ['''^applika_mcp_fake_''']
+
 # Synthetic clients: the fake Borderless's (backend/tests/fixtures/borderless,
-# docker-compose.e2e.yml, the root Makefile) and the E2E stack's dummy GitHub
+# docker-compose.yml, docker-compose.e2e.yml) and the E2E stack's dummy GitHub
 # and Discord apps. Never a real client.
 [[allowlists]]
 description = "synthetic OAuth clients for tests and the E2E stack"
@@ -50,6 +67,14 @@ condition = "AND"
 paths = ['''^docker-compose\.e2e\.yml$''']
 regexTarget = "match"
 regexes = ['''_TOKEN_ENCRYPTION_KEY:''']
+
+# The local stack's throwaway Fernet key for the fake Borderless: base64url of
+# "applika-local-dev-key-not-secret", the default in docker-compose.yml and the
+# value in .env.example. It only encrypts the fake's tokens in a local database.
+[[allowlists]]
+description = "local stack synthetic encryption key"
+regexTarget = "secret"
+regexes = ['''^YXBwbGlrYS1sb2NhbC1kZXYta2V5LW5vdC1zZWNyZXQ''']
 
 # Synthetic tokens and passwords that backend tests use as fixtures.
 [[allowlists]]

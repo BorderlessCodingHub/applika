@@ -77,3 +77,28 @@ async def live_access_token(
     )
     token, _, _ = create_access_token(str(user_id), str(sid))
     return token
+
+
+async def open_mcp_token(
+    async_engine: AsyncEngine,
+    redis_client: redis.Redis,
+    user_id: int,
+    scope: tuple[str, ...] = ('read', 'write', 'delete'),
+    name: str | None = 'Test MCP',
+    ip: str | None = '203.0.113.50',
+):
+    """An MCP token (ADR-0028) through the app's own
+    ``CreateMcpTokenUseCase``: its row and its Redis keys. The token is
+    minted at run time and never written to a file. Answers ``(row,
+    token)``."""
+    from app.application.use_cases.mcp_tokens.create_token import (
+        CreateMcpTokenUseCase,
+    )
+    from app.core.mcp_scopes import parse_scope
+
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    async with maker() as session:
+        use_case = CreateMcpTokenUseCase(
+            UserSessionRepository(session), SessionStore(redis_client)
+        )
+        return await use_case.execute(user_id, name, parse_scope(scope), ip)

@@ -840,9 +840,7 @@ def test_the_revision_chain_above_r3_resolves() -> None:
     assert r3.down_revision == GREATGRANDPARENT_REVISION
 
 
-def test_duplicated_constants_match_revision_af50c83911a7_and_step_translation() -> (
-    None
-):
+def test_duplicated_constants_match_revision_af50c83911a7() -> None:
     """A revision must not import another revision, so R2 copies R1's
     constants and SQL - this pins the copies against drift. The trigger
     bodies are the one exception since the R3 (then R4)
@@ -879,29 +877,14 @@ def test_duplicated_constants_match_revision_af50c83911a7_and_step_translation()
     assert r2.DENIED_REASON_FALLBACK == r3.DENIED_REASON_FALLBACK
     assert r2.DENIED_REASON_FALLBACK == r4.DENIED_REASON_FALLBACK
 
-    from app.application.use_cases.compat.step_translation import (
-        REVERSE_STEP_NAMES,
-    )
-    from app.core.enums import EventType, InterviewType
-
     # ADR-0020: note and feedback left the enum; both named the step
-    # interview/unknown names, so dropping them moves no step id.
-    retired = {('note', None), ('feedback', None)}
-    for key in retired:
+    # interview/unknown names, so dropping them moved no step id.
+    for key in (('note', None), ('feedback', None)):
         assert r2.REVERSE_STEP_MAP[key] == 'Phase 2'
         assert (
             r2.REVERSE_STEP_MAP[key]
             == r2.REVERSE_STEP_MAP[('interview', 'unknown')]
         )
-    for (event_type, interview_type), name in r2.REVERSE_STEP_MAP.items():
-        if (event_type, interview_type) in retired:
-            continue
-        key = (
-            EventType(event_type),
-            InterviewType(interview_type) if interview_type else None,
-        )
-        assert REVERSE_STEP_NAMES[key] == name, key
-    assert len(REVERSE_STEP_NAMES) == len(r2.REVERSE_STEP_MAP) - len(retired)
 
 
 def test_app_never_reads_or_writes_an_old_object() -> None:
@@ -1540,20 +1523,17 @@ def test_orm_maps_only_objects_that_exist_post_r2_and_nothing_old(
 async def test_release_c_api_runs_on_the_post_r2_schema(
     contract_client: AsyncClient, contract_session: AsyncSession
 ) -> None:
-    """AC2 (R-016), AC3 (R-017), AC4 (R-018), AC5 (R-019) on the schema this
-    revision leaves: the deprecated 0.1.4 routes, the legacy finalize body,
-    the new optional-outcome finalize, ``/supports`` and the timeline all
-    keep working through the real API."""
+    """AC3 (R-017), AC4 (R-018), AC5 (R-019) on the schema this revision
+    leaves, as the API stands after ADR-0028: the bodyless and the outcome
+    finalize, ``/supports`` (its platforms) and the timeline all work
+    through the real API; the 0.1.4 ``/steps`` routes and finalize body,
+    retired with applika-cli, answer 404 and 422."""
     from sqlalchemy import text as sa_text
 
     from tests.base_db_setup import base_data
 
     seed = base_data()
-    step_id = seed['step_applied'].id
-    fb_id = seed['fb_accepted'].id
     platform_id = seed['plat_linkedin'].id
-    # The 0.1.4 finalize body needs a *strict* step (legacy_finalize.py
-    # refuses a non-strict one, 404) - the real, frozen catalog has one.
     strict_step_id = await contract_session.scalar(
         sa_text("SELECT id FROM steps_definition WHERE name = 'Denied'")
     )
@@ -1571,51 +1551,30 @@ async def test_release_c_api_runs_on_the_post_r2_schema(
     assert created.status_code == 201, created.text
     app_id = created.json()['id']
 
-    # AC4 (R-018): /supports still serves the frozen catalog.
+    # AC4 (R-018): /supports serves the platforms only (ADR-0028).
     supports = await contract_client.get('/supports')
     assert supports.status_code == 200
-    assert supports.json()['steps']
-    assert supports.json()['feedbacks']
+    assert set(supports.json()) == {'platforms'}
 
-    # AC2 (R-016): the deprecated legacy steps routes, with their Deprecation
-    # header, still write and read through the timeline.
-    step_created = await contract_client.post(
-        f'/applications/{app_id}/steps',
-        json={'step_id': str(step_id), 'step_date': '2026-01-11'},
-    )
-    assert step_created.status_code == 201, step_created.text
-    assert step_created.headers['deprecation'] == '@1789430400'
-    legacy_step_id = step_created.json()['id']
-
-    listed_steps = await contract_client.get(f'/applications/{app_id}/steps')
-    assert listed_steps.status_code == 200
-    assert listed_steps.headers['deprecation'] == '@1789430400'
-    assert [s['id'] for s in listed_steps.json()] == [legacy_step_id]
-
-    edited_step = await contract_client.put(
-        f'/applications/{app_id}/steps/{legacy_step_id}',
-        json={'step_id': str(step_id), 'step_date': '2026-01-12'},
-    )
-    assert edited_step.status_code == 200, edited_step.text
-
-    deleted_step = await contract_client.delete(
-        f'/applications/{app_id}/steps/{legacy_step_id}'
-    )
-    assert deleted_step.status_code == 204
-
-    # AC3 (R-017): the 0.1.4 finalize body.
+    # The retired 0.1.4 routes and body (ADR-0028).
+    steps = await contract_client.get(f'/applications/{app_id}/steps')
+    assert steps.status_code == 404
     legacy_finalize = await contract_client.post(
         f'/applications/{app_id}/finalize',
         json={
             'step_id': str(strict_step_id),
-            'feedback_id': str(fb_id),
+            'feedback_id': '1',
             'finalize_date': '2026-01-13',
         },
     )
-    assert legacy_finalize.status_code == 201, legacy_finalize.text
-    assert legacy_finalize.headers['deprecation'] == '@1789430400'
+    assert legacy_finalize.status_code == 422, legacy_finalize.text
 
-    # R-032: reopen, then the bodyless close (no Deprecation header).
+    # R-032: the outcome close, reopen, then the bodyless close.
+    outcome = await contract_client.post(
+        f'/applications/{app_id}/finalize',
+        json={'outcome': 'denied', 'event_date': '2026-01-13'},
+    )
+    assert outcome.status_code == 200, outcome.text
     reopened = await contract_client.post(f'/applications/{app_id}/reopen')
     assert reopened.status_code == 200
     assert reopened.json()['finalized'] is False
@@ -1625,15 +1584,16 @@ async def test_release_c_api_runs_on_the_post_r2_schema(
     assert 'deprecation' not in {k.lower() for k in closed.headers}
     assert closed.json()['finalized'] is True
 
-    # AC5 (R-019): the legacy application fields, derived from the timeline.
+    # AC5 (R-019): the derived application fields, from the timeline.
     apps = {
         a['id']: a for a in (await contract_client.get('/applications')).json()
     }
     read_back = apps[app_id]
     assert read_back['finalized'] is True
     assert read_back['finalized_at'] is not None
-    assert read_back['last_step'] is not None
-    assert read_back['feedback'] is None
+    assert read_back['last_event'] is not None
+    assert 'feedback' not in read_back
+    assert 'salary_offer' not in read_back
 
     # The timeline routes themselves, on a fresh, open application.
     second = await contract_client.post(

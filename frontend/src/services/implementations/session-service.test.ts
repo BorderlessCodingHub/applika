@@ -47,25 +47,41 @@ describe("SessionService", () => {
     });
     expect(post).toHaveBeenCalledWith("/users/me/sessions/revoke-others");
   });
-});
 
-describe("AuthService device code calls", () => {
-  it("verifies with GET /auth/device/verify?user_code=", async () => {
-    await new AuthService().verifyDeviceCode("BCDF-GHJK");
-    expect(get).toHaveBeenCalledWith("/auth/device/verify", {
-      params: { user_code: "BCDF-GHJK" },
+  it("creates an MCP token with POST /users/me/mcp-tokens {name, scope} and hands back the 201", async () => {
+    const created = {
+      id: "7300000000000000009",
+      name: "Claude Code",
+      scope: ["read", "write"],
+      token: "applika_mcp_fake_00000000000000000000000000000000000000",
+      created_at: "2026-11-14T09:00:00Z",
+      expires_at: "2027-02-12T09:00:00Z",
+    };
+    post.mockResolvedValueOnce({ data: created });
+
+    await expect(
+      new SessionService().createMcpToken({
+        name: "Claude Code",
+        scope: ["read", "write"],
+      }),
+    ).resolves.toEqual(created);
+    expect(post).toHaveBeenCalledWith("/users/me/mcp-tokens", {
+      name: "Claude Code",
+      scope: ["read", "write"],
     });
   });
+});
 
-  it("approves and denies with POST {user_code}", async () => {
-    await new AuthService().approveDeviceCode("BCDF-GHJK");
-    await new AuthService().denyDeviceCode("BCDF-GHJK");
-    expect(post).toHaveBeenNthCalledWith(1, "/auth/device/approve", {
-      user_code: "BCDF-GHJK",
-    });
-    expect(post).toHaveBeenNthCalledWith(2, "/auth/device/deny", {
-      user_code: "BCDF-GHJK",
-    });
+describe("AuthService after the CLI retirement (ADR-0028)", () => {
+  it("has no device-code call: the web reaches no deleted CLI route", () => {
+    expect(Object.getOwnPropertyNames(AuthService.prototype).sort()).toEqual([
+      "borderlessLoginUrl",
+      "constructor",
+      "dismissGithubRestore",
+      "logout",
+      "refresh",
+      "startGithubRestore",
+    ]);
   });
 });
 

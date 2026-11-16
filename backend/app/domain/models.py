@@ -511,6 +511,9 @@ class PlatformModel(BaseMixin, Base):
 
 
 class StepDefinitionModel(BaseMixin, Base):
+    """The legacy step catalog. Steps were replaced by timeline events and
+    no code reads it any more; the table stays until a migration drops it."""
+
     __tablename__ = 'steps_definition'
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
@@ -527,13 +530,6 @@ class StepDefinitionModel(BaseMixin, Base):
     interview_type: Mapped[InterviewType | None] = mapped_column(
         _lower_case_enum(InterviewType, 'interview_type'), nullable=True
     )
-
-
-class FeedbackDefinitionModel(BaseMixin, Base):
-    __tablename__ = 'feedbacks_definition'
-
-    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
-    color: Mapped[str] = mapped_column(sa.String(7), default='#28a745')
 
 
 class CycleModel(BaseMixin, Base):
@@ -1552,7 +1548,8 @@ class UserSessionModel(BaseMixin, Base):
     use) lives in Redis on ``REDIS_URL``. No refresh value and no hash of
     it is ever stored here. An ended row stays, so ended devices remain
     visible. ``__table_args__`` mirror revision ``ed39a0fad1e5``
-    name for name, so ``create_all`` builds the migrated schema.
+    name for name, so ``create_all`` builds the migrated schema; its CHECKs
+    carry the MCP values and the scope pair of ``0ee9f822e6d1``.
     """
 
     __tablename__ = 'user_sessions'
@@ -1560,14 +1557,20 @@ class UserSessionModel(BaseMixin, Base):
     __table_args__ = (
         sa.PrimaryKeyConstraint('id', name='pk_user_sessions'),
         sa.CheckConstraint(
-            "client_type IN ('web', 'cli')",
+            "client_type IN ('web', 'cli', 'mcp')",
             name='ck_user_sessions_client_type',
         ),
         sa.CheckConstraint(
             'sign_in_method IN '
             "('github_web', 'cli_browser', 'cli_device', 'cli_legacy', "
-            "'borderless')",
+            "'borderless', 'mcp_token')",
             name='ck_user_sessions_sign_in_method',
+        ),
+        # An MCP token always has a scope; no other session has one
+        # (revision ``0ee9f822e6d1``, ADR-0028).
+        sa.CheckConstraint(
+            "(client_type = 'mcp') = (scope IS NOT NULL)",
+            name='ck_user_sessions_mcp_scope',
         ),
         sa.CheckConstraint(
             'end_reason IN '
@@ -1618,3 +1621,6 @@ class UserSessionModel(BaseMixin, Base):
         sa.DateTime(timezone=True), nullable=True
     )
     end_reason: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
+    # An MCP token's scope set, space-separated (``app/core/mcp_scopes.py``);
+    # NULL on web and CLI sessions. Fixed at creation (ADR-0028).
+    scope: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)

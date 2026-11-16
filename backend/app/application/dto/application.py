@@ -8,7 +8,9 @@ from app.application.dto import BaseSchema
 from app.core.enums import (
     Currency,
     DeniedReason,
+    EventType,
     ExperienceLevel,
+    InterviewType,
     SalaryPeriod,
     WorkMode,
 )
@@ -78,16 +80,6 @@ class ApplicationUpdateDTO(BaseModel):
     job_description: str | None = None
 
 
-class LegacyFinalizeApplicationDTO(BaseModel):
-    """The 0.1.4 finalize body (R-017), handled by the compat layer."""
-
-    step_id: int  # only strict steps
-    feedback_id: int
-    finalize_date: date
-    salary_offer: float | None = None
-    observation: str | None = None
-
-
 class FinalizeOutcomeDTO(BaseModel):
     """The new optional finalize body, once an outcome is chosen (R-032).
 
@@ -105,17 +97,14 @@ class FinalizeOutcomeDTO(BaseModel):
     denied_reason: DeniedReason | None = None
 
 
-class ApplicationLastStep(BaseModel):
-    id: int
-    name: str
-    color: str
-    date: date
+class ApplicationLastEvent(BaseModel):
+    """The application's latest timeline event, in timeline order (a
+    future-dated interview included)."""
 
-
-class ApplicationFeedback(BaseModel):
     id: int
-    name: str
-    color: str
+    event_type: EventType
+    interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     date: date
 
 
@@ -141,10 +130,6 @@ class ApplicationDTO(BaseSchema):
     finalized_at: datetime | None = None
     finalized: bool
 
-    # The legacy fields installed CLIs read (R-019). They are no longer
-    # columns: ApplicationReadModel derives them from the timeline, so a
-    # plain ``model_validate(model)`` leaves them at their defaults.
-    # ``feedback`` stays null: feedbacks are not data any more.
-    salary_offer: float | None = None
-    last_step: ApplicationLastStep | None = None
-    feedback: ApplicationFeedback | None = None
+    # Not a column: ApplicationReadModel derives it from the timeline, so a
+    # plain ``model_validate(model)`` leaves it at its default.
+    last_event: ApplicationLastEvent | None = None

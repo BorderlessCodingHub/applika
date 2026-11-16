@@ -58,9 +58,8 @@ function toIcsTime(t: string): string {
 }
 
 /**
- * Agenda item shape needed for the .ics export (PRD 0008, ADR 0012). Labelled
- * from `event_type`/`interview_type` via `stageLabel`, NEVER from the
- * now-nullable, legacy `step_name`/`step_color` (AC6, R-026).
+ * Agenda item shape needed for the .ics export (PRD 0008, ADR 0012), labelled
+ * from `event_type`/`interview_type` via `stageLabel` (AC6, R-026).
  */
 export function genAgendaStepIcsFile(step: {
   step_date: string;

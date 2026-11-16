@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.routing import Route
 
 from app.application.services.borderless_oidc import (
     close_borderless_oidc_client,
@@ -14,15 +15,14 @@ from app.presentation.api.application import router as application_router
 from app.presentation.api.application_draft import (
     router as application_draft_router,
 )
-from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.base_cv import router as base_cv_router
 from app.presentation.api.borderless_auth import router as borderless_router
-from app.presentation.api.cli_auth import router as cli_auth_router
 from app.presentation.api.company import router as company_router
 from app.presentation.api.cycle import router as cycle_router
 from app.presentation.api.github_restore import router as restore_router
 from app.presentation.api.job_searches import router as job_search_router
 from app.presentation.api.jobs import router as jobs_router
+from app.presentation.api.mcp_tokens import router as mcp_tokens_router
 from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.platform import router as platform_router
 from app.presentation.api.reports import router as reports_router
@@ -33,11 +33,8 @@ from app.presentation.api.timeline_event import router as timeline_router
 from app.presentation.api.user import router as profile_router
 from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.api.user_sessions import router as user_sessions_router
-from app.presentation.deprecation import (
-    DEPRECATION_HEADER,
-    DeprecationHeaderMiddleware,
-)
 from app.presentation.handlers import register_handlers
+from app.presentation.mcp.server import mcp_endpoint, mcp_runtime
 from app.worker import broker as task_broker
 
 
@@ -46,7 +43,10 @@ async def lifespan(_: FastAPI):
     # ADR-0016: the API only produces tasks. Starting the broker client
     # never fails the boot (plan corrections 12).
     await task_broker.start_client()
-    yield
+    # ADR-0028: the MCP session manager runs for the app's whole life; a
+    # request on /mcp before it starts would fail.
+    async with mcp_runtime.run():
+        yield
     await task_broker.stop_client()
     await close_borderless_oidc_client()
 
@@ -73,42 +73,34 @@ app.add_middleware(
     allow_methods=envs.CORS_METHODS,
     allow_headers=envs.CORS_HEADERS,
     # The API and the web app are separate origins, so the browser cannot
-    # read the PDF download's filename unless this header is exposed.
-    # ``Deprecation`` is exposed for the same reason: a browser client of a
-    # deprecated route can read it (R-020). The rate limiter's headers
-    # (ADR-0015) are exposed so the web app can read them and
-    # Retry-After across origins (R-019).
+    # read the PDF download's filename unless this header is exposed. The
+    # rate limiter's headers (ADR-0015) are exposed so the web app can read
+    # them and Retry-After across origins (R-019).
     expose_headers=[
         'Content-Disposition',
-        DEPRECATION_HEADER,
         'Retry-After',
         'X-RateLimit-Limit',
         'X-RateLimit-Remaining',
         'X-RateLimit-Reset',
     ],
 )
-# The Deprecation header of the compat routes, on errors too. The ignores:
-# ty cannot match a middleware class against Starlette's ParamSpec-based
-# ``_MiddlewareFactory`` (CORSMiddleware above hits the same false positive).
-app.add_middleware(DeprecationHeaderMiddleware)  # ty: ignore[invalid-argument-type]
 # Logging middlewares
 register_middleware(app)
 # Register exception handlers
 register_handlers(app)
 # REST Routes
 app.include_router(auth_router)
-app.include_router(cli_auth_router)
 app.include_router(borderless_router)
 app.include_router(restore_router)
 app.include_router(profile_router)
 app.include_router(user_sessions_router)
+app.include_router(mcp_tokens_router)
 app.include_router(support_router)
 app.include_router(company_router)
 app.include_router(platform_router)
 app.include_router(application_draft_router)
 app.include_router(application_router)
 app.include_router(timeline_router)
-app.include_router(app_step_router)
 app.include_router(statistic_router)
 app.include_router(reports_router)
 app.include_router(feedback_router)
@@ -120,3 +112,9 @@ app.include_router(job_search_router)
 # REST Admin routes
 for _r in admin_routers:
     app.include_router(_r)
+# The hosted MCP server (ADR-0028): a plain route, not a mount (a mount
+# answers POST /mcp with a 307 to /mcp/). POST only: GET and DELETE are the
+# framework's 405. Behind the same CORS and rate limiter as REST.
+app.router.routes.append(
+    Route('/mcp', mcp_endpoint, methods=['POST'], include_in_schema=False)
+)

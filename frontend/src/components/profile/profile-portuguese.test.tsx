@@ -87,6 +87,7 @@ const CURRENT: UserSession = {
   ended_at: null,
   status: "active",
   current: true,
+  scope: null,
 };
 
 const CLI: UserSession = {
@@ -100,6 +101,7 @@ const CLI: UserSession = {
   last_ip: null,
   last_used_at: null,
   current: false,
+  scope: null,
 };
 
 const REVOKED: UserSession = {

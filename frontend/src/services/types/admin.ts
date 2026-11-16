@@ -119,7 +119,7 @@ export interface AdminCompanyRow {
   url: string;
   is_active: boolean;
   applications_count: number;
-  /** Legacy flat field, kept for the CLI. Prefer `created_by` on the web (PRD 0010). */
+  /** Legacy flat field the API still sends. Prefer `created_by` on the web (PRD 0010). */
   created_by_username?: string;
   created_by?: AdminCatalogCreatedBy | null;
   is_public: boolean;
