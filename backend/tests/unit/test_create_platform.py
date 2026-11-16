@@ -136,6 +136,7 @@ async def test_create_platform_integrity_error_is_a_named_conflict():
         'https://remoteok.com',
         'https://www.RemoteOK.com/remote-jobs',
         'http://remoteok.com/?ref=x',
+        'https://www.remoteok.com./',
     ],
 )
 async def test_create_platform_on_a_visible_platforms_site_conflicts(url):
