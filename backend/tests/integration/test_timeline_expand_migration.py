@@ -1823,18 +1823,14 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
     from app.domain.repositories.application_repository import (
         ApplicationRepository,
     )
-    from app.domain.repositories.step_definition_repository import (
-        StepDefinitionRepository,
-    )
     from app.domain.repositories.timeline_event_repository import (
         TimelineEventRepository,
     )
 
     async def work(session: Any) -> dict[str, Any]:
         apps = ApplicationRepository(session)
-        step_repo = StepDefinitionRepository(session)
         timeline = TimelineEventRepository(session)
-        read_model = ApplicationReadModel(timeline, step_repo)
+        read_model = ApplicationReadModel(timeline)
         create = CreateTimelineEventUseCase(apps, timeline)
 
         def event(app_id: int, day: date, **fields: Any) -> Any:
@@ -1986,11 +1982,11 @@ def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
     # Release B reads R1's data: the legacy fields come from the timeline.
     listed = written['listed']
     assert listed[APP_FRESH].finalized is True
-    assert listed[APP_FRESH].last_step is not None
-    assert listed[APP_FRESH].last_step.id == steps['Offer']
+    assert listed[APP_FRESH].last_event is not None
+    assert listed[APP_FRESH].last_event.event_type.value == 'offer'
     assert listed[APP_OFFER].finalized is False
-    assert listed[APP_TO_DENY].last_step is not None
-    assert listed[APP_TO_DENY].last_step.id == steps['Denied']
+    assert listed[APP_TO_DENY].last_event is not None
+    assert listed[APP_TO_DENY].last_event.event_type.value == 'denied'
     # B wrote timeline_events only; the steps table knows nothing yet.
     step_rows = _step_rows(migration_db)
     for key in ('note', 'tech', 'denied', 'phase_3'):

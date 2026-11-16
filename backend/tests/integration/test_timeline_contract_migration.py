@@ -840,9 +840,7 @@ def test_the_revision_chain_above_r3_resolves() -> None:
     assert r3.down_revision == GREATGRANDPARENT_REVISION
 
 
-def test_duplicated_constants_match_revision_af50c83911a7_and_step_translation() -> (
-    None
-):
+def test_duplicated_constants_match_revision_af50c83911a7() -> None:
     """A revision must not import another revision, so R2 copies R1's
     constants and SQL - this pins the copies against drift. The trigger
     bodies are the one exception since the R3 (then R4)
@@ -879,29 +877,14 @@ def test_duplicated_constants_match_revision_af50c83911a7_and_step_translation()
     assert r2.DENIED_REASON_FALLBACK == r3.DENIED_REASON_FALLBACK
     assert r2.DENIED_REASON_FALLBACK == r4.DENIED_REASON_FALLBACK
 
-    from app.application.use_cases.compat.step_translation import (
-        REVERSE_STEP_NAMES,
-    )
-    from app.core.enums import EventType, InterviewType
-
     # ADR-0020: note and feedback left the enum; both named the step
-    # interview/unknown names, so dropping them moves no step id.
-    retired = {('note', None), ('feedback', None)}
-    for key in retired:
+    # interview/unknown names, so dropping them moved no step id.
+    for key in (('note', None), ('feedback', None)):
         assert r2.REVERSE_STEP_MAP[key] == 'Phase 2'
         assert (
             r2.REVERSE_STEP_MAP[key]
             == r2.REVERSE_STEP_MAP[('interview', 'unknown')]
         )
-    for (event_type, interview_type), name in r2.REVERSE_STEP_MAP.items():
-        if (event_type, interview_type) in retired:
-            continue
-        key = (
-            EventType(event_type),
-            InterviewType(interview_type) if interview_type else None,
-        )
-        assert REVERSE_STEP_NAMES[key] == name, key
-    assert len(REVERSE_STEP_NAMES) == len(r2.REVERSE_STEP_MAP) - len(retired)
 
 
 def test_app_never_reads_or_writes_an_old_object() -> None:
@@ -1608,7 +1591,7 @@ async def test_release_c_api_runs_on_the_post_r2_schema(
     read_back = apps[app_id]
     assert read_back['finalized'] is True
     assert read_back['finalized_at'] is not None
-    assert read_back['last_step'] is not None
+    assert read_back['last_event'] is not None
     assert 'feedback' not in read_back
     assert 'salary_offer' not in read_back
 
