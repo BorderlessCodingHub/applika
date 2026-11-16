@@ -178,7 +178,7 @@ async def test_applications_finalized_before_the_switch_read_closed_with_outcome
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """Criteria 14 and 18: closed, outcome and salary on the timeline, and
-    ``last_step`` derived from it (``salary_offer`` and ``feedback`` left
+    ``last_event`` derived from it (``salary_offer`` and ``feedback`` left
     with ADR-0028; the salary is the outcome event's)."""
     await _seed_r1_shape(db_session)
 
@@ -187,19 +187,18 @@ async def test_applications_finalized_before_the_switch_read_closed_with_outcome
     offer = apps[str(APP_OFFER)]
     assert offer['finalized'] is True
     assert offer['finalized_at'].startswith('2025-08-31T00:00:00')
-    assert offer['last_step']['id'] == str(ts.STEP_OFFER)
-    assert offer['last_step']['name'] == 'Offer'
-    assert offer['last_step']['date'] == '2025-08-31'
+    assert offer['last_event']['event_type'] == 'offer'
+    assert offer['last_event']['date'] == '2025-08-31'
     assert 'salary_offer' not in offer
     assert 'feedback' not in offer
 
     denied = apps[str(APP_DENIED)]
     assert denied['finalized'] is True
-    assert denied['last_step']['name'] == 'Denied'
+    assert denied['last_event']['event_type'] == 'denied'
 
     synthetic = apps[str(APP_SYNTHETIC)]
     assert synthetic['finalized'] is True
-    assert synthetic['last_step']['name'] == 'Offer'
+    assert synthetic['last_event']['event_type'] == 'offer'
     synthetic_events = (
         await async_client.get(f'/applications/{APP_SYNTHETIC}/timeline')
     ).json()
@@ -208,8 +207,8 @@ async def test_applications_finalized_before_the_switch_read_closed_with_outcome
     still_open = apps[str(APP_OPEN)]
     assert still_open['finalized'] is False
     assert still_open['finalized_at'] is None
-    assert still_open['last_step']['name'] == 'Phase 2'
-    assert still_open['last_step']['date'] == '2025-08-12'
+    assert still_open['last_event']['event_type'] == 'interview'
+    assert still_open['last_event']['date'] == '2025-08-12'
 
     events = (
         await async_client.get(f'/applications/{APP_OFFER}/timeline')

@@ -848,7 +848,7 @@ async def test_finalize_reopen_and_the_outcome_close(
     # The answer is REST's Application: no CLI-only field (ADR-0028).
     assert 'salary_offer' not in offer
     assert 'feedback' not in offer
-    assert offer['last_step'] is not None
+    assert offer['last_event']['event_type'] == 'offer'
 
     missing = _error(
         await call(

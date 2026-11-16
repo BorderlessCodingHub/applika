@@ -8,7 +8,9 @@ from app.application.dto import BaseSchema
 from app.core.enums import (
     Currency,
     DeniedReason,
+    EventType,
     ExperienceLevel,
+    InterviewType,
     SalaryPeriod,
     WorkMode,
 )
@@ -95,10 +97,14 @@ class FinalizeOutcomeDTO(BaseModel):
     denied_reason: DeniedReason | None = None
 
 
-class ApplicationLastStep(BaseModel):
+class ApplicationLastEvent(BaseModel):
+    """The application's latest timeline event, in timeline order (a
+    future-dated interview included)."""
+
     id: int
-    name: str
-    color: str
+    event_type: EventType
+    interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     date: date
 
 
@@ -126,4 +132,4 @@ class ApplicationDTO(BaseSchema):
 
     # Not a column: ApplicationReadModel derives it from the timeline, so a
     # plain ``model_validate(model)`` leaves it at its default.
-    last_step: ApplicationLastStep | None = None
+    last_event: ApplicationLastEvent | None = None

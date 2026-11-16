@@ -11,7 +11,7 @@ web keeps.
 * ``Authorization: Bearer <JWT>`` is no REST credential: 401 AUTH-1001, the
   same as no credential; the ``__access`` cookie still signs in.
 * ``/supports`` holds ``platforms`` only; no application answer (REST or an
-  MCP tool) carries ``feedback`` or ``salary_offer``; ``last_step``,
+  MCP tool) carries ``feedback`` or ``salary_offer``; ``last_event``,
   ``finalized`` and ``finalized_at`` stay.
 
 Real Postgres and Redis; ``real_client`` runs the real ``get_current_user``.
@@ -91,8 +91,8 @@ LEGACY_BODY = {
     'finalize_date': '2025-12-15',
     'salary_offer': 95000.0,
 }
-CLI_ONLY_FIELDS = {'feedback', 'salary_offer'}
-KEPT_FIELDS = {'last_step', 'finalized', 'finalized_at'}
+CLI_ONLY_FIELDS = {'feedback', 'salary_offer', 'last_step'}
+KEPT_FIELDS = {'last_event', 'finalized', 'finalized_at'}
 
 
 def _headers(response: Response) -> dict[str, str]:
@@ -248,7 +248,7 @@ async def test_finalize_with_an_outcome_still_closes(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body['finalized'] is True
-    assert body['last_step']['name'] == 'Denied'
+    assert body['last_event']['event_type'] == 'denied'
 
 
 # --------------------------------------------------------------------------
@@ -427,5 +427,5 @@ async def test_every_application_answer_drops_the_cli_only_fields(
         assert set(answer) >= KEPT_FIELDS, answer
     assert answers[3]['finalized'] is True
     assert answers[3]['finalized_at'] is not None
-    assert answers[3]['last_step']['name'] == 'Offer'
+    assert answers[3]['last_event']['event_type'] == 'offer'
     assert answers[4]['finalized'] is False

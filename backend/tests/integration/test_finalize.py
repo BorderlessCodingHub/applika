@@ -185,7 +185,7 @@ async def test_finalize_does_not_set_any_outcome(
     body = response.json()
     assert 'salary_offer' not in body
     assert 'feedback' not in body
-    assert body['last_step'] is None
+    assert body['last_event'] is None
     assert await _events(db_session) == []
 
 
@@ -320,7 +320,8 @@ async def test_finalize_offer_outcome_writes_event_and_closes_no_deprecation(
     assert data['finalized'] is True
     assert data['finalized_at'] is not None
     assert 'salary_offer' not in data
-    assert data['last_step']['date'] == '2025-12-20'
+    assert data['last_event']['date'] == '2025-12-20'
+    assert data['last_event']['event_type'] == 'offer'
 
     [event] = await _events(db_session)
     assert event.event_type is EventType.OFFER

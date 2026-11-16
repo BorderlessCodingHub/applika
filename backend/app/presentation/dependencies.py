@@ -174,9 +174,6 @@ from app.domain.repositories.report_webhook_repository import (
 from app.domain.repositories.saved_job_search_repository import (
     SavedJobSearchRepository,
 )
-from app.domain.repositories.step_definition_repository import (
-    StepDefinitionRepository,
-)
 from app.domain.repositories.tailored_cv_repository import (
     TailoredCVRepository,
 )
@@ -201,10 +198,6 @@ DbSession = Annotated[AsyncSession, Depends(get_session)]
 
 def get_user_repository(session: DbSession):
     return UserRepository(session)
-
-
-def get_step_definition_repository(session: DbSession):
-    return StepDefinitionRepository(session)
 
 
 def get_platform_repository(session: DbSession):
@@ -232,10 +225,6 @@ def get_user_statistics_repository(session: DbSession):
 
 
 UserRepositoryDp = Annotated[UserRepository, Depends(get_user_repository)]
-
-StepDefinitionRepositoryDp = Annotated[
-    StepDefinitionRepository, Depends(get_step_definition_repository)
-]
 
 PlatformRepositoryDp = Annotated[
     PlatformRepository, Depends(get_platform_repository)
@@ -321,9 +310,8 @@ UserStatsRepositoryDp = Annotated[
 
 def get_application_read_model(
     timeline_event_repo: TimelineEventRepositoryDp,
-    step_repo: StepDefinitionRepositoryDp,
 ):
-    return ApplicationReadModel(timeline_event_repo, step_repo)
+    return ApplicationReadModel(timeline_event_repo)
 
 
 ApplicationReadModelDp = Annotated[

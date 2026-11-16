@@ -12,9 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
-from app.domain.repositories.step_definition_repository import (
-    StepDefinitionRepository,
-)
 from app.domain.repositories.timeline_event_repository import (
     TimelineEventRepository,
 )
@@ -54,9 +51,7 @@ def partial_model(
 
 
 def read_model(session: AsyncSession) -> ApplicationReadModel:
-    return ApplicationReadModel(
-        TimelineEventRepository(session), StepDefinitionRepository(session)
-    )
+    return ApplicationReadModel(TimelineEventRepository(session))
 
 
 # --- CV documents ---------------------------------------------------------------

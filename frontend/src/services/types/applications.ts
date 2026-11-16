@@ -20,17 +20,13 @@ export interface Company {
 }
 
 /**
- * One item of `GET /users/me/agenda` (PRD 0008, ADR 0012). `step_id`,
- * `step_name` and `step_color` are the legacy, now-nullable reverse-mapped
- * fields — the web must label the item from `event_type`/`interview_type`
- * (`stageLabel` in `@/components/timeline/timeline-options`), never from these.
+ * One item of `GET /users/me/agenda` (PRD 0008, ADR 0012), labelled from
+ * `event_type`/`interview_type` (`stageLabel` in
+ * `@/components/timeline/timeline-options`). `step_date` is the event's date.
  */
 export interface AgendaStep {
   id: string;
-  step_id?: string | null;
   step_date: string;
-  step_name?: string | null;
-  step_color?: string | null;
   event_type: TimelineEventType;
   interview_type?: InterviewType | null;
   start_time?: string;
@@ -89,20 +85,23 @@ export interface Application {
    */
   finalized_at: string | null;
   /**
-   * The latest timeline event as its legacy step (a summary the API
-   * derives): "Initial Screen", "Phase 2" (any other interview), "Offer"
-   * or "Denied"; `null` with no event. The phone Pipeline's stage reads it
-   * (`pipelineStage`, `src/lib/pipeline.ts`). Optional here so a fixture may
-   * leave it out: absent reads as `null`.
+   * The latest timeline event (latest `event_date`, then `start_time`, then
+   * `created_at`: it can be an upcoming interview); `null` with no event. The
+   * phone Pipeline's stage reads it (`pipelineStage`, `src/lib/pipeline.ts`).
+   * Optional here so a fixture may leave it out: absent reads as `null`.
    */
-  last_step?: ApplicationLastStep | null;
+  last_event?: ApplicationLastEvent | null;
 }
 
-/** `Application.last_step`: `date` is the event's `YYYY-MM-DD`. */
-export interface ApplicationLastStep {
+/**
+ * `Application.last_event`: `interview_type` is set only on an interview,
+ * `denied_reason` only on a denial; `date` is the event's `YYYY-MM-DD`.
+ */
+export interface ApplicationLastEvent {
   id: string;
-  name: string;
-  color: string;
+  event_type: TimelineEventType;
+  interview_type: InterviewType | null;
+  denied_reason: DeniedReason | null;
   date: string;
 }
 

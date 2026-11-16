@@ -15,7 +15,9 @@ from app.application.validators.salary import (
 from app.core.enums import (
     Currency,
     DeniedReason,
+    EventType,
     ExperienceLevel,
+    InterviewType,
     SalaryPeriod,
     WorkMode,
 )
@@ -108,10 +110,15 @@ class UpdateApplication(BaseModel):
         return self
 
 
-class ApplicationLastStep(BaseSchema):
+class ApplicationLastEvent(BaseSchema):
+    """The latest timeline event, in timeline order (latest
+    ``event_date``, then ``start_time``, then creation), so an upcoming
+    interview counts."""
+
     id: SnowflakeID
-    name: str
-    color: str
+    event_type: EventType
+    interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     date: date
 
 
@@ -137,10 +144,10 @@ class Application(BaseSchema, TimeSchema):
 
     # Closed since, or null when open (R-007, R-008).
     finalized_at: datetime | None = None
-    # Derived from the timeline: finalized = finalized_at is set; last_step
-    # = the latest event as its step (``compat/step_translation.py``).
+    # Derived from the timeline: finalized = finalized_at is set; last_event
+    # = the latest event (``use_cases/applications/read_model.py``).
     finalized: bool
-    last_step: ApplicationLastStep | None = None
+    last_event: ApplicationLastEvent | None = None
 
 
 OFFER_OUTCOME_NEEDS_SALARY = (

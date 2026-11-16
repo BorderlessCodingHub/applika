@@ -511,6 +511,9 @@ class PlatformModel(BaseMixin, Base):
 
 
 class StepDefinitionModel(BaseMixin, Base):
+    """The legacy step catalog. Steps were replaced by timeline events and
+    no code reads it any more; the table stays until a migration drops it."""
+
     __tablename__ = 'steps_definition'
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)

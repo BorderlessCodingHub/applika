@@ -47,7 +47,6 @@ from tests.unit.conftest import (
     make_application,
     make_event,
     make_read_model,
-    make_step_definition,
 )
 
 
@@ -197,8 +196,8 @@ async def test_finalize_emits_finalized_audit_event(caplog):
     assert 'application.finalized' in _events(caplog)
 
 
-async def test_finalize_returns_the_last_step_from_the_timeline():
-    """R-019 through the read model: the last step; ``salary_offer`` and
+async def test_finalize_returns_the_last_event_from_the_timeline():
+    """R-019 through the read model: the last event; ``salary_offer`` and
     ``feedback`` are gone (ADR-0028)."""
     application = make_application(id=123)
     offer = make_event(
@@ -208,14 +207,7 @@ async def test_finalize_returns_the_last_step_from_the_timeline():
         salary_currency=Currency.EUR,
         salary_period=SalaryPeriod.MONTHLY,
     )
-    read_model = make_read_model(
-        latest={123: offer},
-        catalog=[
-            make_step_definition(
-                id=5, name='Offer', color='#00ff00', strict=True
-            )
-        ],
-    )
+    read_model = make_read_model(latest={123: offer})
     app_repo = AsyncMock()
     app_repo.get_by_id_and_user_id.return_value = application
     app_repo.update.return_value = make_application(
@@ -226,9 +218,10 @@ async def test_finalize_returns_the_last_step_from_the_timeline():
         123, user_id=1
     )
 
-    assert result.last_step is not None
-    assert (result.last_step.id, result.last_step.name) == (5, 'Offer')
-    assert result.last_step.date == offer.event_date
+    assert result.last_event is not None
+    assert result.last_event.id == offer.id
+    assert result.last_event.event_type is EventType.OFFER
+    assert result.last_event.date == offer.event_date
     assert 'salary_offer' not in result.model_dump()
     assert 'feedback' not in result.model_dump()
 
