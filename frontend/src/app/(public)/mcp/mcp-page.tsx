@@ -21,8 +21,11 @@ import { cn } from "@/lib/utils";
 /** The example call in the hero card: a tool name, the same in every language. */
 const EXAMPLE_TOOL = "applika · add_timeline_event";
 
-/** DeskMcpPage.dc.html's classes. */
-const WRAP = "mx-auto box-border w-full max-w-[1120px] px-8";
+/**
+ * DeskMcpPage.dc.html's classes. The column is the landing page's and the
+ * header's (`max-w-5xl`, `px-5 md:px-8`), so the content lines up with them.
+ */
+const WRAP = "mx-auto box-border w-full max-w-5xl px-5 md:px-8";
 const SEC_H = "m-0 text-[28px] font-bold tracking-[-0.02em] text-foreground";
 const BODY = "mt-2.5 mb-0 text-base leading-[1.6] text-muted-foreground";
 const CARD = "rounded-2xl bg-surface p-5 shadow-card";
