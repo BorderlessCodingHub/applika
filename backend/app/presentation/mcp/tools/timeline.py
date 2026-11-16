@@ -9,7 +9,10 @@ what is sent onto the stored event, as the CLI did: fields that do not
 apply to the resulting type are dropped.
 """
 
+from decimal import Decimal
 from typing import Any
+
+from pydantic import field_serializer
 
 from app.application.dto.application import FinalizeOutcomeDTO
 from app.application.dto.timeline_event import (
@@ -70,6 +73,18 @@ from app.presentation.schemas.timeline_event import (
     TimelineEventUpdate,
 )
 
+
+class TimelineEvent(TimelineEventOut):
+    """The REST event, with ``salary_amount`` a JSON number, as every
+    salary on an application is. The REST body keeps its fixed 2-decimal
+    string, which the web parses; a model reading this answer is better
+    served by the same number type the application tools answer."""
+
+    @field_serializer('salary_amount')
+    def _serialize_salary(self, value: Decimal | None) -> float | None:
+        return None if value is None else float(value)
+
+
 # Which stored fields survive an edit, by the event's resulting type.
 _INTERVIEW_ONLY = ('interview_type', 'start_time', 'end_time', 'timezone')
 _OFFER_ONLY = ('salary_amount', 'salary_currency', 'salary_period')
@@ -99,18 +114,18 @@ class EventRef(ToolInput):
 
 async def list_timeline(
     ctx: ToolContext, args: ApplicationRef
-) -> list[TimelineEventOut]:
+) -> list[TimelineEvent]:
     use_case = ListTimelineEventsUseCase(
         ApplicationRepository(ctx.session),
         TimelineEventRepository(ctx.session),
     )
     events = await use_case.execute(args.application_id, ctx.user_id)
-    return [TimelineEventOut.model_validate(event) for event in events]
+    return [TimelineEvent.model_validate(event) for event in events]
 
 
 async def add_timeline_event(
     ctx: ToolContext, args: AddTimelineEventIn
-) -> TimelineEventOut | Application:
+) -> TimelineEvent | Application:
     app_repo = ApplicationRepository(ctx.session)
     timeline_repo = TimelineEventRepository(ctx.session)
     body = args.model_dump(exclude={'application_id', 'keep_open'})
@@ -140,7 +155,7 @@ async def add_timeline_event(
             **body,
         )
     )
-    return TimelineEventOut.model_validate(event)
+    return TimelineEvent.model_validate(event)
 
 
 def _merged_event(sent: dict[str, Any], stored: Any) -> TimelineEventUpdate:
@@ -163,7 +178,7 @@ def _merged_event(sent: dict[str, Any], stored: Any) -> TimelineEventUpdate:
     return TimelineEventUpdate.model_validate(merged)
 
 
-async def edit_timeline_event(ctx: ToolContext, args: Any) -> TimelineEventOut:
+async def edit_timeline_event(ctx: ToolContext, args: Any) -> TimelineEvent:
     app_repo = ApplicationRepository(ctx.session)
     timeline_repo = TimelineEventRepository(ctx.session)
     # The REST PUT's order: the application (404), its locks (422/409),
@@ -189,7 +204,7 @@ async def edit_timeline_event(ctx: ToolContext, args: Any) -> TimelineEventOut:
         ctx.user_id,
         UpdateTimelineEventDTO(**payload.model_dump()),
     )
-    return TimelineEventOut.model_validate(event)
+    return TimelineEvent.model_validate(event)
 
 
 async def delete_timeline_event(
@@ -214,7 +229,7 @@ TOOLS = (
         scope=McpScope.READ,
         input_model=ApplicationRef,
         handler=list_timeline,
-        output_schema=list_output(TimelineEventOut),
+        output_schema=list_output(TimelineEvent),
     ),
     McpTool(
         name='add_timeline_event',
@@ -225,12 +240,13 @@ TOOLS = (
             '(salary_amount, salary_currency, salary_period monthly|'
             'annually) or denied (denied_reason). An offer or denied event '
             'also closes the application and answers it, unless keep_open '
-            'is true; an interview answers the event.'
+            'is true; an interview answers the event. event_date may be in '
+            'the future, except on an event that closes the application.'
         ),
         scope=McpScope.WRITE,
         input_model=AddTimelineEventIn,
         handler=add_timeline_event,
-        output_schema=any_of_output(TimelineEventOut, Application),
+        output_schema=any_of_output(TimelineEvent, Application),
     ),
     McpTool(
         name='edit_timeline_event',
@@ -243,7 +259,7 @@ TOOLS = (
         scope=McpScope.WRITE,
         input_model=EditTimelineEventIn,
         handler=edit_timeline_event,
-        output_schema=object_output(TimelineEventOut),
+        output_schema=object_output(TimelineEvent),
     ),
     McpTool(
         name='delete_timeline_event',

@@ -231,10 +231,13 @@ async def edit_application(ctx: ToolContext, args: Any) -> Application:
         app_repo, args.application_id, ctx.user_id
     )
     current = Application.model_validate(await model.one(application))
-    fields = set(UpdateApplication.model_fields) & args.model_fields_set
-    payload = _merged_update(
-        args.model_dump(include=fields), current, list(args.clear)
-    )
+    # The parsed values, not a dump: ``SnowflakeID``'s serializer would turn
+    # a ``{name, url}`` company into its string form.
+    sent = {
+        field: getattr(args, field)
+        for field in set(UpdateApplication.model_fields) & args.model_fields_set
+    }
+    payload = _merged_update(sent, current, list(args.clear))
     use_case = UpdateApplicationUseCase(
         app_repo,
         PlatformRepository(ctx.session),
@@ -311,10 +314,13 @@ TOOLS = (
         name='create_application',
         title='Create application',
         description=(
-            'Record a new job application. company is a company id (see '
-            'search_companies) or {name, url} to use or create one; '
-            'platform_id comes from list_platforms; mode is active (you '
-            'applied) or passive (a recruiter reached you).'
+            'Record a new job application. company is a company id from '
+            'search_companies, or {name, url} only when no listed company '
+            'is that company (it reuses an exact name and url match, else '
+            'creates one); platform_id comes from list_platforms, or from '
+            'create_platform when no listed platform is that site. Always '
+            'look both up first and reuse an existing id. mode is active '
+            '(you applied) or passive (a recruiter reached you).'
         ),
         scope=McpScope.WRITE,
         input_model=CreateApplicationIn,
@@ -342,8 +348,10 @@ TOOLS = (
             'Close an application. With no outcome it just closes. With '
             'outcome offer (salary_amount, salary_currency and '
             'salary_period monthly|annually required) or denied '
-            '(denied_reason optional) it also records that event. Reopen '
-            'it with reopen_application.'
+            '(denied_reason optional) it also records that event, on '
+            "event_date (not in the future; absent, today's UTC date, so "
+            "send the user's local date). Reopen it with "
+            'reopen_application.'
         ),
         scope=McpScope.WRITE,
         input_model=FinalizeApplicationIn,

@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `POST /mcp`: the hosted MCP server (ADR-0028), streamable HTTP, stateless, JSON answers, on the official `mcp` SDK 1.30.0. It answers only an MCP token (`Authorization: Bearer applika_mcp_…`) and acts as its user within its scope: 25 tools for what applika-cli does (who am I; list, read, create, edit, close and reopen applications; list, add, edit and delete timeline events; platform and company lookups) and, for a user with the `cvs` feature, master CVs and application CVs. Each tool answers the REST body, refusal and code; a tool error is `isError: true` with `{detail, code}`. `read` tools are marked read-only, delete tools destructive. Its instructions are the CLI skill rewritten for tools. GET and DELETE `/mcp` answer 405. Not beta-gated.
 - MCP tool `guide` (ADR-0028 amendment 1): answers the server's instructions as Markdown, the same text the `initialize` answer carries for the token's scope and `cvs` feature, for AI apps that do not show a server's instructions to the model. Scope `read`, so every token has it. Its description tells the model to call it whenever it is unsure which tool to call. Every other tool's answer, refusals included, ends its content with a short tip about it, also in `_meta["applika.dev/tip"]`; the REST JSON stays the first text block.
+- MCP tool `create_platform` (ADR-0028 amendment 2): adds a platform `{name, url?}`, private to the user, through the same use case and rules as `POST /platforms` (a name the user already sees, ignoring case, answers 409 CAT-1003). Scope `write`. The instructions now say when to use it, and how `create_application`'s `{name, url}` company reuses or creates a company (and that `url: null` stores plain text, no company).
 - `POST /users/me/mcp-tokens`: a signed-in web user creates an MCP token `{name?, scope}` (scope `read`, `read write` or `read write delete`; `read` is required) and sees it once (`Cache-Control: no-store`). It ends 90 days after its last use (`MCP_TOKEN_IDLE_DAYS`); only its sha256 is kept, in Redis. Every REST route refuses an MCP token.
 - `GET /users/me/sessions`: items carry `scope` (an MCP token's scope names; null on web and CLI devices), `client_type` `mcp` and `sign_in_method` `mcp_token`; an MCP token is revoked like any device (`DELETE /users/me/sessions/{id}`, sign out everywhere else, account delete).
 - rate limiter bucket `mcp` (`RATE_LIMIT_MCP`, 120 per window), counted per MCP token hash.
@@ -360,6 +361,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `POST /applications` and `PUT /applications/{id}` (and the MCP `create_application`/`edit_application`): a salary amount (`expected_salary`, `salary_range_min` or `salary_range_max`) without both `currency` and `salary_period` answers 422 GEN-1003, the rule the web forms already enforce. Finishing a draft (`POST /applications/drafts/{id}/finish`) applies it too; saving a draft does not.
+- MCP timeline tools answer `salary_amount` as a JSON number; REST keeps its 2-decimal string. The `guide` tip and the instructions name the tool's title, "How to use Applika", as AI apps show it. The instructions now say that timeline events may be dated in the future except one that closes the application, and that `finalize_application` defaults `event_date` to the UTC day.
 - `POST /applications/{id}/finalize` (ADR-0028): the applika-cli 0.1.4 body (`step_id`, `feedback_id`, `finalize_date`, `salary_offer`, `observation`) answers 422 GEN-1003 and closes nothing; no body, `{}`, `null` and the outcome body answer 200 as before. Its OpenAPI request body is the outcome shape alone, with no 201 answer.
 - `GET /auth/refresh` ends a `cli` session as `revoked` and answers 401 AUTH-1016 (ADR-0028): an installed applika-cli fails its next renewal, within the 15 minutes its access token lives, and has no sign-in left to start again. The web's renewal and `GET /auth/logout` are unchanged; Devices still lists past `cli` sessions.
 - revision `11a92f3a9dc1`: `feedbacks_definition` renamed `feedbacks_definition_old` (ADR-0012 Delta 3, ADR-0028), every row and the foreign key from `applications.feedback_id_old` kept; no code reads it under either name. Its downgrade renames it back with its rows. Rollback: `alembic downgrade 0ee9f822e6d1` inside the release C container before the image goes back to release B. `steps_definition` keeps its name: `last_step` and the agenda still read it.
@@ -518,6 +521,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- an id past the BIGINT range (e.g. `9999999999999999999`) answered 500 GEN-1005; every `SnowflakeID` field now refuses it as a malformed id, 422 GEN-1003.
+- MCP `edit_application` refused `company` as `{name, url}` (GEN-1003): the sent fields were dumped, and `SnowflakeID`'s serializer turned the company into a string.
 - a create could answer 500 (`null value in column "id"`): the
   `snowflake-id` generator returns `None` when the wall clock steps back
   (an NTP or VM clock sync) or a millisecond's 4096 ids run out.

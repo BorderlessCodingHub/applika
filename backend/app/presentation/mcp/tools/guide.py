@@ -20,10 +20,14 @@ from app.presentation.mcp.registry import (
 from app.presentation.mcp.tools.common import NoInput
 
 GUIDE = 'guide'
+# What AI apps show for ``guide``: most list a tool by its title, so the
+# tip and the instructions name both.
+GUIDE_TITLE = 'How to use Applika'
 TIP_KEY = 'applika.dev/tip'
 TIP = (
-    'Unsure which tool to call next, or how? Call the `guide` tool: it '
-    'returns the instructions for this server.'
+    'Unsure which tool to call next, or how? Call the `guide` tool '
+    f'(shown as "{GUIDE_TITLE}"): it returns the instructions for this '
+    'server.'
 )
 
 
@@ -52,7 +56,7 @@ async def guide(ctx: ToolContext, _: NoInput) -> types.CallToolResult:
 TOOLS = (
     McpTool(
         name=GUIDE,
-        title='How to use Applika',
+        title=GUIDE_TITLE,
         description=(
             'Returns the instructions on how to use this Applika MCP server: '
             'what each tool does, the values its arguments take, the order '

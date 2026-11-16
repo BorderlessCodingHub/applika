@@ -13,6 +13,7 @@ from app.config.settings import envs
 SNOWFLAKE_EPOCH_MS = int(datetime(2010, 1, 1, tzinfo=UTC).timestamp() * 1000)
 _MAX_INSTANCE = (1 << 10) - 1
 _MAX_SEQ = (1 << 12) - 1
+_MAX_BIGINT = (1 << 63) - 1
 
 
 class SnowflakeGenerator:
@@ -81,10 +82,12 @@ class SnowflakeID(int):
 
     @classmethod
     def validate(cls, value):
-        if isinstance(value, int):
-            return value
         if isinstance(value, str) and value.isdigit():
-            return int(value)
+            value = int(value)
+        # A BIGINT column: past its range the database refuses the id (a
+        # 500), so it is refused here as any malformed id is.
+        if isinstance(value, int) and 0 <= value <= _MAX_BIGINT:
+            return value
         raise ValueError('Invalid SnowflakeID')
 
     @classmethod

@@ -121,6 +121,7 @@ READ = {
     'list_timeline',
 }
 WRITE = {
+    'create_platform',
     'create_application',
     'edit_application',
     'finalize_application',
@@ -636,6 +637,179 @@ async def test_create_and_edit_an_application(
     assert refused['detail'][0]['loc'] == ['mode']
 
 
+async def test_new_platform_and_company_are_reused_by_id(
+    mcp: AsyncClient, mcp_token_read_write
+):
+    token = mcp_token_read_write.token
+    platform_answer = await call(
+        mcp,
+        token,
+        'create_platform',
+        {'name': 'Otta', 'url': 'https://otta.com'},
+    )
+    _validates_output('create_platform', platform_answer)
+    platform = _ok(platform_answer)
+    assert platform['is_public'] is False
+    listed = _ok(await call(mcp, token, 'list_platforms', {'name': 'otta'}))
+    assert [row['id'] for row in listed] == [platform['id']]
+
+    taken = _error(await call(mcp, token, 'create_platform', {'name': 'OTTA'}))
+    assert taken['code'] == 'CAT-1003'
+
+    body = {
+        'role': 'Platform Engineer',
+        'mode': 'active',
+        'platform_id': platform['id'],
+        'application_date': '2026-01-05',
+    }
+    first = _ok(
+        await call(
+            mcp,
+            token,
+            'create_application',
+            {**body, 'company': {'name': 'Lumen', 'url': 'https://lumen.io'}},
+        )
+    )
+    assert first['platform_id'] == platform['id']
+    assert first['company_id'] is not None
+    companies = _ok(
+        await call(mcp, token, 'search_companies', {'name': 'lumen'})
+    )
+    assert [row['id'] for row in companies] == [first['company_id']]
+
+    by_id = _ok(
+        await call(
+            mcp,
+            token,
+            'create_application',
+            {**body, 'company': first['company_id']},
+        )
+    )
+    assert by_id['company_id'] == first['company_id']
+    # The same name, any case, and url reuse the company too.
+    by_match = _ok(
+        await call(
+            mcp,
+            token,
+            'create_application',
+            {**body, 'company': {'name': 'LUMEN', 'url': 'https://lumen.io/'}},
+        )
+    )
+    assert by_match['company_id'] == first['company_id']
+    # No url: plain text, no company.
+    free_text = _ok(
+        await call(
+            mcp,
+            token,
+            'create_application',
+            {**body, 'company': {'name': 'Lumen', 'url': None}},
+        )
+    )
+    assert free_text['company_id'] is None
+
+
+async def test_edit_application_takes_a_company_by_name_and_url(
+    mcp: AsyncClient, mcp_token_read_write
+):
+    token = mcp_token_read_write.token
+    created = _ok(
+        await call(
+            mcp,
+            token,
+            'create_application',
+            {
+                'company': str(COMPANY_ID),
+                'role': 'Platform Engineer',
+                'mode': 'active',
+                'platform_id': str(PLATFORM_ID),
+                'application_date': '2026-01-05',
+            },
+        )
+    )
+    edited = _ok(
+        await call(
+            mcp,
+            token,
+            'edit_application',
+            {
+                'application_id': created['id'],
+                'company': {'name': 'Nu Mexico', 'url': 'https://nu.com.mx'},
+            },
+        )
+    )
+    assert edited['company_name'] == 'Nu Mexico'
+    assert edited['company_id'] != str(COMPANY_ID)
+
+
+async def test_an_id_past_the_bigint_range_is_a_validation_error(
+    mcp: AsyncClient, mcp_token_read
+):
+    refused = _error(
+        await call(
+            mcp,
+            mcp_token_read.token,
+            'get_application',
+            {'application_id': '9999999999999999999'},
+        )
+    )
+    assert refused['code'] == 'GEN-1003'
+
+
+async def test_a_salary_needs_its_currency_and_period(
+    mcp: AsyncClient, mcp_token_read_write
+):
+    token = mcp_token_read_write.token
+    body = {
+        'company': str(COMPANY_ID),
+        'role': 'Platform Engineer',
+        'mode': 'active',
+        'platform_id': str(PLATFORM_ID),
+        'application_date': '2026-01-05',
+    }
+    refused = _error(
+        await call(
+            mcp, token, 'create_application', {**body, 'expected_salary': 5}
+        )
+    )
+    assert refused['code'] == 'GEN-1003'
+    assert 'currency and salary_period are required' in str(refused)
+
+    created = _ok(
+        await call(
+            mcp,
+            token,
+            'create_application',
+            {
+                **body,
+                'salary_range_min': 5,
+                'currency': 'USD',
+                'salary_period': 'monthly',
+            },
+        )
+    )
+    # The stored currency and period complete an amount sent alone.
+    edited = _ok(
+        await call(
+            mcp,
+            token,
+            'edit_application',
+            {'application_id': created['id'], 'expected_salary': 7},
+        )
+    )
+    assert edited['expected_salary'] == 7
+    assert edited['currency'] == 'USD'
+
+    cleared = _error(
+        await call(
+            mcp,
+            token,
+            'edit_application',
+            {'application_id': created['id'], 'clear': ['currency']},
+        )
+    )
+    assert cleared['code'] == 'GEN-1003'
+
+
 async def test_finalize_reopen_and_the_outcome_close(
     mcp: AsyncClient, mcp_token_read_write, async_engine
 ):
@@ -809,6 +983,59 @@ async def test_timeline_writes(
         'detail': 'Reopen the application to edit it (it is currently closed)',
         'code': 'APP-1003',
     }
+
+
+async def test_timeline_dates_and_the_numeric_salary(
+    mcp: AsyncClient, mcp_token_read_write, async_engine
+):
+    token = mcp_token_read_write.token
+    mine = await _seed(async_engine, USER.id)
+    app_id = str(mine.application_id)
+    next_month = (date.today() + timedelta(days=30)).isoformat()
+
+    # An upcoming interview may be dated in the future.
+    upcoming = _ok(
+        await call(
+            mcp,
+            token,
+            'add_timeline_event',
+            {
+                'application_id': app_id,
+                'event_type': 'interview',
+                'event_date': next_month,
+            },
+        )
+    )
+    assert upcoming['event_date'] == next_month
+
+    # An event that closes the application may not.
+    offer = {
+        'application_id': app_id,
+        'event_type': 'offer',
+        'event_date': next_month,
+        'salary_amount': '7000.50',
+        'salary_currency': 'EUR',
+        'salary_period': 'annually',
+    }
+    closing = _error(await call(mcp, token, 'add_timeline_event', offer))
+    assert closing['code'] == 'APP-1013'
+
+    kept_open_answer = await call(
+        mcp, token, 'add_timeline_event', {**offer, 'keep_open': True}
+    )
+    _validates_output('add_timeline_event', kept_open_answer)
+    assert _ok(kept_open_answer)['salary_amount'] == 7000.5
+
+    listed_answer = await call(
+        mcp, token, 'list_timeline', {'application_id': app_id}
+    )
+    _validates_output('list_timeline', listed_answer)
+    amounts = [
+        event['salary_amount']
+        for event in _ok(listed_answer)
+        if event['event_type'] == 'offer'
+    ]
+    assert amounts == [7000.5]
 
 
 # ---------------------------------------------------------------------------

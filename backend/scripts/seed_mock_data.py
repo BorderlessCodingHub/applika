@@ -1085,7 +1085,12 @@ def main():
             ]
             work_modes = ['remote', 'hybrid', 'on_site', None]
 
-            salary_min = random.choice([None, 3000, 5000, 8000, 10000, 15000])
+            # A salary needs its currency and period: none without one.
+            salary_min = (
+                random.choice([None, 3000, 5000, 8000, 10000, 15000])
+                if currency
+                else None
+            )
             salary_max = (
                 salary_min + random.randint(2000, 8000) if salary_min else None
             )
@@ -1099,6 +1104,8 @@ def main():
                 'observation': random.choice(OBSERVATIONS),
                 'expected_salary': (
                     random.choice([None, 5000, 8000, 12000, 18000, 25000])
+                    if currency
+                    else None
                 ),
                 'salary_range_min': salary_min,
                 'salary_range_max': salary_max,

@@ -8,6 +8,10 @@ from app.application.use_cases.timeline_events.rules import (
     OFFER_PERIOD_INVALID,
     OFFER_PERIODS,
 )
+from app.application.validators.salary import (
+    SALARY_NEEDS_CURRENCY_AND_PERIOD,
+    salary_is_incomplete,
+)
 from app.core.enums import (
     Currency,
     DeniedReason,
@@ -26,6 +30,20 @@ MAX_JOB_DESCRIPTION = 50_000
 class ApplicationCompany(BaseSchema):
     name: str
     url: HttpUrl | None
+
+
+def _ensure_salary_complete(
+    body: 'CreateApplication | UpdateApplication',
+) -> None:
+    """A salary amount needs its currency and period (``validators.salary``),
+    on create and on the full-replace update alike."""
+    amounts = (
+        body.expected_salary,
+        body.salary_range_min,
+        body.salary_range_max,
+    )
+    if salary_is_incomplete(amounts, body.currency, body.salary_period):
+        raise ValueError(SALARY_NEEDS_CURRENCY_AND_PERIOD)
 
 
 class CreateApplication(BaseSchema):
@@ -47,6 +65,11 @@ class CreateApplication(BaseSchema):
     job_description: str | None = Field(
         default=None, max_length=MAX_JOB_DESCRIPTION
     )
+
+    @model_validator(mode='after')
+    def _validate_salary(self) -> 'CreateApplication':
+        _ensure_salary_complete(self)
+        return self
 
 
 class UpdateApplication(BaseModel):
@@ -78,6 +101,11 @@ class UpdateApplication(BaseModel):
     job_description: str | None = Field(
         default=None, max_length=MAX_JOB_DESCRIPTION
     )
+
+    @model_validator(mode='after')
+    def _validate_salary(self) -> 'UpdateApplication':
+        _ensure_salary_complete(self)
+        return self
 
 
 class ApplicationLastStep(BaseSchema):

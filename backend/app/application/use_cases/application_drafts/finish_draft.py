@@ -4,6 +4,10 @@ from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
 from app.application.validators.application_date import ensure_not_in_future
+from app.application.validators.salary import (
+    SALARY_NEEDS_CURRENCY_AND_PERIOD,
+    salary_is_incomplete,
+)
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from app.domain.repositories.application_repository import (
@@ -20,7 +24,9 @@ class FinishDraftUseCase:
     application. R-003: the finish body's ``application_date`` is
     optional - given, it wins; absent, the draft's own stored date (set on
     create or on a later PUT) is used. Either way the date is refused in the
-    future, same rule every other application date uses."""
+    future, same rule every other application date uses. A draft saves
+    any partial salary, but a finished application follows the create rule:
+    a salary amount needs its currency and period."""
 
     def __init__(
         self,
@@ -40,6 +46,19 @@ class FinishDraftUseCase:
         if application.tailored_cv is None:
             raise BusinessRuleViolation(
                 NEEDS_CV_MESSAGE, ErrorCode.APP_DRAFT_NEEDS_CV
+            )
+
+        amounts = (
+            application.expected_salary,
+            application.salary_range_min,
+            application.salary_range_max,
+        )
+        if salary_is_incomplete(
+            amounts, application.currency, application.salary_period
+        ):
+            raise BusinessRuleViolation(
+                SALARY_NEEDS_CURRENCY_AND_PERIOD,
+                ErrorCode.GEN_VALIDATION_FAILED,
             )
 
         day = data.application_date or application.application_date

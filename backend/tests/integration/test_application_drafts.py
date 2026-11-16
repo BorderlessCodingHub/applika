@@ -444,6 +444,21 @@ async def test_finish_draft_date_beyond_utc_plus_one_is_422(
     assert response.status_code == 422, msg(422, response.status_code)
 
 
+async def test_finish_draft_salary_without_currency_is_422(
+    async_client: AsyncClient,
+):
+    """A draft may hold a partial salary; finishing it may not."""
+    draft = await _create_draft(async_client, expected_salary=5000)
+    base_cv = await _create_base_cv(async_client)
+    await _attach_cv(async_client, draft['id'], base_cv['id'])
+
+    response = await async_client.post(
+        f'/applications/drafts/{draft["id"]}/finish'
+    )
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert response.json()['code'] == 'GEN-1003'
+
+
 async def test_finish_draft_no_body_uses_stored_date(async_client: AsyncClient):
     given = '2026-01-02'
     draft = await _create_draft(async_client, application_date=given)

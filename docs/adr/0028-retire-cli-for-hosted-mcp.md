@@ -148,7 +148,8 @@ It needs an ADR for these reasons:
     variable, and only a `cvs` user gets the CV part.
   - **Tool output.** `structuredContent` is the REST answer's object. A list answer is wrapped as `{"result": [...]}`,
     because MCP structured content is an object. A delete tool, whose REST route answers 204, answers
-    `{"deleted": true}`.
+    `{"deleted": true}`. One field differs: a timeline event's `salary_amount` is a JSON number, as every application
+    salary is, where REST keeps its fixed 2-decimal string for the web.
   - **Rate limiter subject.** `mcp:<first 32 hex of its sha256>` names the subject only in the `mcp` bucket, which is
     `/mcp`. On `/auth/*` and every REST route, a Bearer names no subject, whatever it holds. The request counts against
     the `__access` cookie's user, else the IP. Anyone can send a fresh `applika_mcp_…` string per request, so a
@@ -191,9 +192,24 @@ tip to the end of the content too".
   instructions as Markdown text, the same text the `initialize` answer carries for that token's scope and `cvs` feature
   (`app/presentation/mcp/instructions.py`). Its description says that it returns the instructions on how to use this
   server, and that whenever the model is unsure which tool to call, or how, it calls `guide` first. The instructions
-  name it too.
+  name it too. Its title is "How to use Applika", the name most AI apps show, so the tip and the instructions give
+  both.
 - **The tip.** Every other tool's answer carries a short tip about `guide`: as the last text block of its content,
   which the model reads, and under `_meta["applika.dev/tip"]`, which AI apps keep for themselves. Success, refusal,
   error and unknown tool alike. The REST JSON stays the first text block. `guide`'s own answer carries no tip.
 - **What it changes.** The Decision line "Its tools are applika-cli's commands, no more" and the non-goal "tools beyond
   the CLI's commands" now read: applika-cli's commands, plus `guide`.
+
+## Amendment 2: the `create_platform` tool
+
+**Status:** Accepted by LuisMSoares on 2026-11-15 · **Date:** 2026-11-15 · **Deciders:** LuisMSoares
+
+The owner, 2026-11-15, asked that an AI using the MCP can "create a new platform and after that, create a new
+application using the platform you just created", and chose adding the tool over documenting a web-only path.
+
+- **Why.** The web lets any user add a platform that is not listed (`POST /platforms`, ADR-0014); the MCP could only
+  list them, so an application on an unlisted platform could not be logged at all. A company needs no tool:
+  `create_application` already creates one from `{name, url}`.
+- **`create_platform`.** Scope `write`, not gated by `cvs`. It runs `POST /platforms`' use case and schema: `{name,
+  url?}`, private to the user, a name the user already sees (ignoring case) refused with 409 `CAT-1003` naming it.
+- **What it changes.** The Decision line now reads: applika-cli's commands, plus `guide` and `create_platform`.
