@@ -8,6 +8,7 @@ from app.presentation.mcp.tools import (
     applications,
     catalog,
     cvs,
+    cycles,
     guide,
     timeline,
 )
@@ -17,6 +18,7 @@ ALL_TOOLS: tuple[McpTool, ...] = (
     *account.TOOLS,
     *catalog.TOOLS,
     *applications.TOOLS,
+    *cycles.TOOLS,
     *timeline.TOOLS,
     *cvs.TOOLS,
     *application_cvs.TOOLS,

@@ -34,6 +34,7 @@ READ = {
     'list_applications',
     'get_application',
     'list_timeline',
+    'list_cycles',
 }
 WRITE = {
     'create_platform',
@@ -81,8 +82,9 @@ def _names(tools) -> set[str]:
     return {tool.name for tool in tools}
 
 
-def test_there_are_the_25_cli_tools_the_guide_and_create_platform():
-    assert len(registry.tools) == 27
+def test_there_are_the_25_cli_tools_and_three_more():
+    # guide, create_platform and list_cycles (ADR-0028 amendments 1-3).
+    assert len(registry.tools) == 28
     assert _names(registry.tools) == ALL
 
 
@@ -134,7 +136,7 @@ def test_each_tool_has_exactly_one_scope():
     assert by_scope[McpScope.READ] == READ | CV_READ
     assert by_scope[McpScope.WRITE] == WRITE | CV_WRITE
     assert by_scope[McpScope.DELETE] == DELETE | CV_DELETE
-    assert sum(len(names) for names in by_scope.values()) == 27
+    assert sum(len(names) for names in by_scope.values()) == 28
 
 
 def test_only_the_cv_tools_need_cvs():

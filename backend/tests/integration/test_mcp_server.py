@@ -119,6 +119,7 @@ READ = {
     'list_applications',
     'get_application',
     'list_timeline',
+    'list_cycles',
 }
 WRITE = {
     'create_platform',
@@ -655,6 +656,20 @@ async def test_new_platform_and_company_are_reused_by_id(
 
     taken = _error(await call(mcp, token, 'create_platform', {'name': 'OTTA'}))
     assert taken['code'] == 'CAT-1003'
+    # Another name on the same site is the same platform.
+    same_site = _error(
+        await call(
+            mcp,
+            token,
+            'create_platform',
+            {'name': 'Otta Jobs', 'url': 'https://www.otta.com/jobs'},
+        )
+    )
+    assert same_site == {
+        'detail': 'A platform with this website already exists: Otta',
+        'code': 'CAT-1005',
+        'params': {'name': 'Otta'},
+    }
 
     body = {
         'role': 'Platform Engineer',
@@ -1375,6 +1390,30 @@ async def test_an_archived_application_refuses_close_and_edit_with_the_webs_word
     )
     assert rest.status_code == 422
     assert rest.json() == archived
+
+    # list_cycles finds the cycle, and list_applications reads it by id.
+    cycles_answer = await call(mcp, token, 'list_cycles', {})
+    _validates_output('list_cycles', cycles_answer)
+    assert [(row['id'], row['name']) for row in _ok(cycles_answer)] == [
+        (str(cycle.id), '2025')
+    ]
+    in_cycle = _ok(
+        await call(mcp, token, 'list_applications', {'cycle_id': str(cycle.id)})
+    )
+    assert [row['id'] for row in in_cycle] == [str(mine.application_id)]
+    assert _ok(await call(mcp, token, 'list_applications', {})) == []
+    unknown = _error(
+        await call(
+            mcp,
+            token,
+            'list_applications',
+            {'cycle_id': '1234567890123456789'},
+        )
+    )
+    assert unknown == {
+        'detail': 'Cycle not found or not owned by user',
+        'code': 'CYC-1002',
+    }
 
 
 # ---------------------------------------------------------------------------

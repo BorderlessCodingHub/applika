@@ -42,6 +42,7 @@ from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
 from app.domain.repositories.company_repository import CompanyRepository
+from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.platform_repository import PlatformRepository
 from app.domain.repositories.timeline_event_repository import (
     TimelineEventRepository,
@@ -98,6 +99,7 @@ SALARY_FIELDS = (
     'currency',
     'salary_period',
 )
+CYCLE_NOT_FOUND = 'Cycle not found or not owned by user'
 # Sticky on the REST PUT: omitted, the stored text stays.
 STICKY_FIELDS = frozenset({'job_description'})
 
@@ -144,6 +146,16 @@ async def _own_application(
 async def list_applications(
     ctx: ToolContext, args: ListApplicationsIn
 ) -> list[Application]:
+    if args.cycle_id is not None:
+        # REST answers an unknown cycle with an empty list; a model cannot
+        # tell that from an empty cycle, so the tool says it is unknown.
+        cycle = await CycleRepository(ctx.session).get_by_id_and_user_id(
+            args.cycle_id, ctx.user_id
+        )
+        if cycle is None:
+            raise ResourceNotFound(
+                CYCLE_NOT_FOUND, ErrorCode.CYC_CYCLE_NOT_FOUND
+            )
     use_case = ListApplicationsUseCase(
         ApplicationRepository(ctx.session), read_model(ctx.session)
     )
@@ -290,7 +302,8 @@ TOOLS = (
         name='list_applications',
         title='List applications',
         description=(
-            'Your job applications in the current cycle (or in cycle_id), '
+            'Your job applications in the current cycle, or in an archived '
+            'one with cycle_id (from list_cycles), '
             'newest first. Filters: search (company or role, '
             'case-insensitive), mode (active|passive|all), status '
             '(active = open, finalized = closed, all), platform (name or '

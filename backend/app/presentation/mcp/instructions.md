@@ -21,8 +21,8 @@ Applika, Profile > MCP, and to update their AI app with it.
   - `status`: `active` (open), `finalized` (closed) or `all` (default);
   - `platform`: a platform name (case-insensitive) or id;
   - `from_date`, `to_date`: `YYYY-MM-DD`, inclusive;
-  - `cycle_id`: an archived job-search cycle instead of the current one. No tool lists cycle ids: use one only when
-    the user gives it. An unknown `cycle_id` answers an empty list, not an error.
+  - `cycle_id`: an archived job-search cycle instead of the current one. `list_cycles` lists the archived cycles
+    (`id`, `name`, `created_at` = when it was archived); an unknown `cycle_id` is refused (`CYC-1002`).
 - `get_application` reads one by id. Ids are snowflake strings such as `"1234567890123456789"`; always send them
   as strings.
 - An application that is not the user's answers "not found" (`APP-1001`), exactly as if it did not exist.
@@ -50,8 +50,9 @@ future).
     `company_id` is `null`, and nothing can be reused later. Send the company's website whenever it is known.
 - `platform_id` comes from `list_platforms` (LinkedIn, Indeed, RemoteOK, ...). When no listed platform is the site,
   `create_platform` adds it (`name`, optional `url`), private to the user, and answers its `id`: use it as
-  `platform_id` now and on later applications. A name the user already sees, ignoring case, is refused (`CAT-1003`)
-  and the message names that platform: use it instead of creating another. Name a new platform as the site calls
+  `platform_id` now and on later applications. A name the user already sees, ignoring case, is refused (`CAT-1003`),
+  and so is a `url` on the site of one they already see (`CAT-1005`, same host ignoring a leading `www.`): the message
+  names that platform, use it instead of creating another. Name a new platform as the site calls
   itself (`Wellfound`, not `Wellfound jobs board`), so the next lookup finds it.
 - Optional: `link_to_job`, `observation`, `country`, `experience_level` (`intern`, `junior`, `mid_level`, `senior`,
   `staff`, `lead`, `principal`, `specialist`), `work_mode` (`remote`, `hybrid`, `on_site`), `job_description`

@@ -213,3 +213,22 @@ application using the platform you just created", and chose adding the tool over
 - **`create_platform`.** Scope `write`, not gated by `cvs`. It runs `POST /platforms`' use case and schema: `{name,
   url?}`, private to the user, a name the user already sees (ignoring case) refused with 409 `CAT-1003` naming it.
 - **What it changes.** The Decision line now reads: applika-cli's commands, plus `guide` and `create_platform`.
+- **Same site.** A test run created "Remote OK" at remoteok.com next to the public "RemoteOK": the name check misses
+  it. `POST /platforms`, and so `create_platform`, also refuse a url on the site of a visible platform (409
+  `CAT-1005`, naming it); the site is the url's host, ignoring case and a leading `www.`.
+
+## Amendment 3: the `list_cycles` tool
+
+**Status:** Accepted by LuisMSoares on 2026-11-15 · **Date:** 2026-11-15 · **Deciders:** LuisMSoares
+
+The owner, 2026-11-15, asked to "apply the fixes" a test run listed, one of them: `list_applications` takes a
+`cycle_id`, but no tool answered one, and an unknown id answered an empty list, so a model could not read an archived
+cycle at all.
+
+- **`list_cycles`.** Scope `read`, not gated by `cvs`. It runs `GET /cycles`' use case and answers its `Cycle` objects
+  (`id`, `name`, `created_at`, `updated_at`): the archived cycles, not the current one.
+- **Unknown `cycle_id`.** The MCP `list_applications` answers 404 `CYC-1002` for a cycle the user does not own,
+  instead of REST's empty list, which a model cannot tell from an empty cycle. REST keeps its answer: the web only
+  sends ids it listed.
+- **What it changes.** The Decision line now reads: applika-cli's commands, plus `guide`, `create_platform` and
+  `list_cycles`.

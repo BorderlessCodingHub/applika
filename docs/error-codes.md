@@ -19,7 +19,7 @@ is written `<name>`, and `<name>` is a key of `params`.
 | USR | The signed-in user (`/users/me*`) and user lookups | 1 |
 | APP | Applications, drafts, finalize, reopen (and the retired compatibility step routes) | 14 |
 | EVT | Application timeline events | 10 |
-| CAT | Companies, platforms, supports | 4 |
+| CAT | Companies, platforms, supports | 5 |
 | CV | Master CVs, CV copies, fit, exports | 10 |
 | JOB | Jobs, dismissals, saved searches | 4 |
 | CYC | Cycles | 2 |
@@ -120,6 +120,7 @@ is written `<name>`, and `<name>` is a key of `params`.
 | CAT-1002 | 404 | `Platform not found` | — | The platform does not exist or is not visible to the caller. | catalog resolve, draft from a job, admin platform routes |
 | CAT-1003 | 409 | `A platform with this name already exists: <name>` | `name` | The caller already sees a platform with this name, ignoring case. `params.name` is that platform's name. | `POST /platforms` |
 | CAT-1004 | 409 | `A company with this name and URL already exists.` | — | A company with the same name and URL is already visible to the caller. | `POST /companies` (`CompanyRepository`) |
+| CAT-1005 | 409 | `A platform with this website already exists: <name>` | `name` | The caller already sees a platform on the same site: the url's host, ignoring case and a leading `www.`. `params.name` is that platform's name. | `POST /platforms`, MCP `create_platform` |
 | CV-1001 | 404 | `Base CV not found` | — | The master CV does not exist or belongs to someone else. | master CV routes, CV copy create, draft from a job |
 | CV-1002 | 409 | `Base CV limit reached (max <max> per user)` | `max` | The user already has the most master CVs allowed. `params.max` is the limit. | `POST /base-cvs` |
 | CV-1003 | 404 | `CV copy not found` | — | The application has no CV copy, or it belongs to someone else. | CV copy routes |
@@ -135,7 +136,7 @@ is written `<name>`, and `<name>` is a key of `params`.
 | JOB-1003 | 409 | `Saved search limit reached (max <max>)` | `max` | The user already has the most saved searches allowed. `params.max` is the limit. | saved search create |
 | JOB-1004 | 409 | `A saved search with this name already exists` | — | The user already has a saved search with this name. | saved search create and update |
 | CYC-1001 | 422 | `At least <min> applications are required to start a new cycle (currently <current>)` | `min`, `current` | A new cycle needs a minimum of applications in the current one. `params.min` is the minimum, `params.current` the count today. | `POST /cycles` |
-| CYC-1002 | 404 | `Cycle not found or not owned by user` | — | The cycle does not exist or belongs to someone else. | `DELETE /cycles/{id}` |
+| CYC-1002 | 404 | `Cycle not found or not owned by user` | — | The cycle does not exist or belongs to someone else. | `DELETE /cycles/{id}`, MCP `list_applications` with `cycle_id` |
 | RPT-1001 | 403 | `Reports are for Borderless BASE and PSP members` | — | The caller has no recorded BASE or PSP badge. Was `badge_required` (ADR-0024). | every report route (`require_reports_badge`) |
 | RPT-1002 | 403 | `Sign in again to confirm your membership` | — | The recorded badge no longer counted: the Borderless access expired or was refused. Was `membership_unconfirmed` (ADR-0024). Replaced by AUTH-1050 (ADR-0026); never reused. | not raised since ADR-0026 |
 | RPT-1003 | 409 | `Report already submitted` | — | This report day was already submitted. | `SubmitReportUseCase` |

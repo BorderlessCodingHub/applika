@@ -177,6 +177,7 @@
     "CAT-1002": "Platform not found",
     "CAT-1003": "A platform with this name already exists: {name}",
     "CAT-1004": "A company with this name and URL already exists.",
+    "CAT-1005": "A platform with this website already exists: {name}",
     "CV-1001": "Base CV not found",
     "CV-1002": "Base CV limit reached (max {max} per user)",
     "CV-1003": "CV copy not found",

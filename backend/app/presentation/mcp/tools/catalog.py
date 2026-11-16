@@ -82,8 +82,8 @@ TOOLS = (
             'list_platforms shows no platform for that site: reuse an '
             'existing one rather than adding a second. It is private to '
             'you; its id is the platform_id for create_application. A name '
-            'you already see, ignoring case, is refused with that platform '
-            'named.'
+            'you already see, ignoring case, or a url on the same site as '
+            'one, is refused with that platform named.'
         ),
         scope=McpScope.WRITE,
         input_model=CreatePlatformIn,
