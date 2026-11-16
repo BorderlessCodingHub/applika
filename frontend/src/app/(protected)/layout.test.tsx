@@ -7,7 +7,7 @@ import ProtectedLayout from "./layout";
 
 /**
  * T036 (PRD 0014): the protected layout's return-to. A signed-out visit to
- * `/device?code=` stores path + query before `router.replace("/login")`; the
+ * `/profile?tab=` stores path + query before `router.replace("/login")`; the
  * first authenticated render consumes it once and goes back there. Only a
  * same-origin path (`/x`, never `//host`) is ever followed.
  */
@@ -74,17 +74,40 @@ afterEach(() => {
 });
 
 describe("ProtectedLayout return-to", () => {
-  it("a signed-out visit to /device stores path + query, then goes to /login", () => {
+  it("a signed-out visit to /profile?tab=devices stores path + query, then goes to /login", () => {
     auth = { isAuthenticated: false, isLoading: false };
-    visit("/device?code=BCDF-GHJK");
+    visit("/profile?tab=devices");
 
     renderLayout();
 
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
-      "/device?code=BCDF-GHJK",
+      "/profile?tab=devices",
     );
     expect(replace).toHaveBeenCalledWith("/login");
     expect(replace).toHaveBeenCalledTimes(1);
+  });
+
+  it("a signed-out visit to /profile?tab=mcp (/mcp's Create a token) stores it, then goes to /login", () => {
+    auth = { isAuthenticated: false, isLoading: false };
+    visit("/profile?tab=mcp");
+
+    renderLayout();
+
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
+      "/profile?tab=mcp",
+    );
+    expect(replace).toHaveBeenCalledWith("/login");
+  });
+
+  it("once authenticated, goes back to /profile?tab=mcp", () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
+    auth = { isAuthenticated: true, isLoading: false };
+    visit("/dashboard");
+
+    renderLayout();
+
+    expect(replace).toHaveBeenCalledWith("/profile?tab=mcp");
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
   });
 
   it("a signed-out visit to another protected page stores nothing", () => {
@@ -99,7 +122,7 @@ describe("ProtectedLayout return-to", () => {
 
   it("stores nothing while auth is still loading", () => {
     auth = { isAuthenticated: false, isLoading: true };
-    visit("/device?code=BCDF-GHJK");
+    visit("/profile?tab=devices");
 
     renderLayout();
 
@@ -107,14 +130,14 @@ describe("ProtectedLayout return-to", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("once authenticated, consumes it once and goes back to /device with the code", () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+  it("once authenticated, consumes it once and goes back to the stored tab", () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=devices");
     auth = { isAuthenticated: true, isLoading: false };
     visit("/dashboard");
 
     const { unmount } = renderLayout();
 
-    expect(replace).toHaveBeenCalledWith("/device?code=BCDF-GHJK");
+    expect(replace).toHaveBeenCalledWith("/profile?tab=devices");
     expect(replace).toHaveBeenCalledTimes(1);
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
 
@@ -126,9 +149,9 @@ describe("ProtectedLayout return-to", () => {
   });
 
   it("does not navigate when already on the stored target, and still clears it", () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=devices");
     auth = { isAuthenticated: true, isLoading: false };
-    visit("/device?code=BCDF-GHJK");
+    visit("/profile?tab=devices");
 
     renderLayout();
 
@@ -136,19 +159,20 @@ describe("ProtectedLayout return-to", () => {
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
   });
 
-  it.each(["//evil.example/device", "/\\evil.example", "https://evil.example"])(
-    "refuses %s and clears it",
-    (stored) => {
-      window.sessionStorage.setItem(RETURN_TO_KEY, stored);
-      auth = { isAuthenticated: true, isLoading: false };
-      visit("/dashboard");
+  it.each([
+    "//evil.example/profile",
+    "/\\evil.example",
+    "https://evil.example",
+  ])("refuses %s and clears it", (stored) => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, stored);
+    auth = { isAuthenticated: true, isLoading: false };
+    visit("/dashboard");
 
-      renderLayout();
+    renderLayout();
 
-      expect(replace).not.toHaveBeenCalled();
-      expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
-    },
-  );
+    expect(replace).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
+  });
 
   it("an authenticated render with nothing stored does not navigate", () => {
     auth = { isAuthenticated: true, isLoading: false };
@@ -167,7 +191,7 @@ describe("ProtectedLayout return-to", () => {
  */
 describe("ProtectedLayout welcome prompt", () => {
   it("sends an account with an open prompt to /welcome, keeping the return-to", () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=devices");
     auth = { isAuthenticated: true, isLoading: false };
     currentUser = { github_restore: { available: true, prompt: true } };
     visit("/dashboard");
@@ -177,7 +201,7 @@ describe("ProtectedLayout welcome prompt", () => {
     expect(replace).toHaveBeenCalledWith("/welcome");
     expect(replace).toHaveBeenCalledTimes(1);
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
-      "/device?code=BCDF-GHJK",
+      "/profile?tab=devices",
     );
   });
 
@@ -217,18 +241,18 @@ describe("ProtectedLayout: a session Borderless ended (AUTH-1049, ADR-0026)", ()
     expect(replace).toHaveBeenCalledTimes(1);
   });
 
-  it("still keeps the /device return-to", () => {
+  it("still keeps the /profile return-to", () => {
     auth = {
       isAuthenticated: false,
       isLoading: false,
       sessionEndedCode: "AUTH-1049",
     };
-    visit("/device?code=BCDF-GHJK");
+    visit("/profile?tab=devices");
 
     renderLayout();
 
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
-      "/device?code=BCDF-GHJK",
+      "/profile?tab=devices",
     );
     expect(replace).toHaveBeenCalledWith("/login?error=AUTH-1049");
   });

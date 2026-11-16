@@ -196,8 +196,8 @@ describe("messages: errors.* is the API's error catalog", () => {
     ? parseCatalog(readFileSync(CATALOG, "utf8"))
     : [];
 
-  it("lists the 129 codes", () => {
-    expect(catalog).toHaveLength(129);
+  it("lists the 132 codes", () => {
+    expect(catalog).toHaveLength(132);
   });
 
   it("has one message per code, plus errors.unknown, in both languages", () => {

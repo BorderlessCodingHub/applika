@@ -84,7 +84,7 @@ export function PhoneTimelineDialog({
       open
       purpose={purpose}
       onOpenChange={(open) => {
-        // A saved event moves the list's `last_step` (stage, Stale, "Denied",
+        // A saved event moves the list's `last_event` (stage, Stale, "Denied",
         // Today's attention), which the timeline hooks do not refresh: the
         // phone reads it, so the list is asked again (after Cancel too:
         // harmless). Close already refreshes it through finalize.

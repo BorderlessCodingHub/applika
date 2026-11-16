@@ -14,8 +14,8 @@ import { services } from "@/services/services";
 /**
  * PRD 0014: the 401 interceptor's refresh. A refresh refused with 503 (the
  * session store is down) must surface as that temporary 503 — never as a
- * sign-out — and the device approval routes, which live under `/auth/`,
- * refresh on a 401 like any other signed-in call.
+ * sign-out — and the GitHub restore start, which lives under `/auth/`,
+ * refreshes on a 401 like any other signed-in call.
  */
 
 vi.mock("@/services/services", () => ({
@@ -103,14 +103,13 @@ describe("api-client 401 interceptor", () => {
     expect(calls).toEqual(["/users/me", "/users/me"]);
   });
 
-  it("refreshes on a 401 from the device approval routes", async () => {
-    answers = [401, 200];
-    vi.mocked(services.auth.refresh).mockResolvedValueOnce({ detail: "ok" });
+  it("never refreshes on a 401 from the deleted device-code routes", async () => {
+    answers = [401];
 
-    await api.get("/auth/device/verify", { params: { user_code: "BCDF" } });
+    await api.get("/auth/device/verify").catch((e) => e);
 
-    expect(services.auth.refresh).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual(["/auth/device/verify", "/auth/device/verify"]);
+    expect(services.auth.refresh).not.toHaveBeenCalled();
+    expect(calls).toEqual(["/auth/device/verify"]);
   });
 
   it("never refreshes on a 401 from another /auth/ route", async () => {

@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { CliPage } from "./cli-page";
+import { CliForward } from "./cli-forward";
 
-const pageTitle = "applika-cli";
-const pageDescription =
-  "Track your job applications from the terminal with applika-cli, and teach your AI assistant to use it with the bundled skill.";
-
+/**
+ * `/cli` was the applika-cli page; the Applika MCP page replaced it (ADR-0028).
+ * A saved link still lands on `/mcp`: a client-side forward, since this
+ * static export has no server rewrite. The page itself is never indexed.
+ */
 export const metadata: Metadata = {
-  title: pageTitle,
-  description: pageDescription,
-  alternates: { canonical: "/cli" },
-  robots: { index: true, follow: true },
+  title: "Applika MCP",
+  alternates: { canonical: "/mcp" },
+  robots: { index: false, follow: true },
 };
 
 export default function Page() {
-  return <CliPage />;
+  return <CliForward />;
 }

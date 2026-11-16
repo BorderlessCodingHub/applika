@@ -2,7 +2,7 @@
 
 Access token: a short-lived JWT, ``{sub: users.id, sid: <session id>,
 kind: 'access', exp}``. The web carries it in the HTTP-only ``__access``
-cookie; ``applika-cli`` 1.1.0 and later send it as ``Authorization: Bearer``.
+cookie, the only REST credential (ADR-0028).
 ``sid`` is the public ``user_sessions.id`` (a snowflake, as a string), never
 the refresh value.
 

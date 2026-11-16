@@ -2,9 +2,9 @@
 
 A job application tracker for active job seekers. Log every application,
 follow its timeline (interviews, offers, denials), see your statistics and
-agenda, and file biweekly reports — from the web or from the terminal.
+agenda, and file biweekly reports — from the web or from your AI assistant.
 
-**Use it:** <https://applika.dev> · **CLI:** [`applika-cli` on PyPI](https://pypi.org/project/applika-cli/)
+**Use it:** <https://applika.dev> · **AI assistants:** the Applika MCP server, <https://applika.dev/mcp>
 
 ## What's in this repository
 
@@ -12,7 +12,6 @@ agenda, and file biweekly reports — from the web or from the terminal.
 |---|---|---|
 | [`backend/`](backend/README.md) | The API and its background worker | Python 3.14, FastAPI, PostgreSQL, Redis, taskiq |
 | [`frontend/`](frontend/README.md) | The web app | Next.js 16 (static export), React 19, Tailwind 4 |
-| [`cli/`](cli/README.md) | `applika`, the command-line client | Python 3.10+, Typer |
 | [`docs/`](docs/) | Product requirements, architecture decisions, plans, infrastructure | |
 
 ## Run it locally
@@ -21,21 +20,21 @@ You need Docker. Everything else runs in containers.
 
 ```bash
 cp .env.example .env
-make run-fake-auth      # a fake Borderless sign-in; prints the .env values to paste
-make up-build           # api, web, worker, scheduler, Postgres and Redis
+make up-build           # api, web, worker, scheduler, Postgres, Redis and a fake Borderless
 ```
 
 - Web app: <http://127.0.0.1:8080>
 - API docs: <http://127.0.0.1:8000/api/docs>
 
 Sign-in goes through [Borderless](https://borderlesscoding.com). Locally, the
-fake Borderless stands in for it: paste the values `make run-fake-auth` prints
-into `.env`, run `make up` again, and sign in with one of the accounts in
-`backend/tests/fixtures/borderless/accounts.json`.
+stack's fake Borderless (`borderless-fake`, on <http://127.0.0.1:8081>) stands
+in for it: the API points at it by default, so sign in with one of the
+accounts in `backend/tests/fixtures/borderless/accounts.json`. To use a real
+OAuth server instead, set the `BORDERLESS_*` values in `.env` (see
+`.env.example`); they override the fake.
 
 ```bash
 make stop               # stop the stack, keep the data
-make stop-fake-auth     # stop the fake Borderless
 docker compose down -v  # remove everything, database included
 make help               # every target
 ```
@@ -46,7 +45,7 @@ The web app is a static export, so the stack only shows a frontend change
 after a rebuild. For a fast loop, run the frontend on your machine instead:
 
 ```bash
-docker compose up -d --wait api worker scheduler
+docker compose up -d --wait api worker scheduler borderless-fake
 cd frontend && pnpm install && pnpm dev     # http://127.0.0.1:8080
 ```
 
@@ -68,11 +67,11 @@ everyone is a click there, not a deploy.
 ## Checks before a pull request
 
 ```bash
-make full-gate      # secrets scan, then backend, frontend, CLI and end-to-end tests
+make full-gate      # secrets scan, then backend, frontend and end-to-end tests
 ```
 
-Or one part at a time: `make api-gate`, `make front-gate`, `make cli-gate`,
-`make e2e-gate`, `make leaks`.
+Or one part at a time: `make api-gate`, `make front-gate`, `make e2e-gate`,
+`make leaks`.
 
 Work goes to `develop`; merging `develop` into `main` is a release.
 Database migrations never drop a column or table
@@ -85,6 +84,9 @@ Database migrations never drop a column or table
 - [docs/adr/](docs/adr/) — architecture decisions
 - [docs/plan/](docs/plan/) — technical plans per feature
 - [docs/error-codes.md](docs/error-codes.md) — every API error code
-- Changelogs: [backend](backend/CHANGELOG.md), [CLI](cli/CHANGELOG.md)
+- Changelog: [backend](backend/CHANGELOG.md). The command-line client
+  `applika-cli` was retired for the MCP server
+  ([ADR-0028](docs/adr/0028-retire-cli-for-hosted-mcp.md)); its source and
+  changelog stay in git history.
 
 See also [CONTRIBUTORS.md](CONTRIBUTORS.md) and [SECURITY.md](SECURITY.md).

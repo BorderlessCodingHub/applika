@@ -1,7 +1,6 @@
 import { AxiosError, AxiosHeaders } from "axios";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { deviceErrorText } from "@/app/(protected)/device/device-page";
 import { safeErrorMessage } from "@/components/application-drafts/draft-copy";
 import { jobApiDetail } from "@/hooks/use-jobs";
 import { DEFAULT_LOCALE } from "@/i18n/config";
@@ -36,7 +35,6 @@ const known = refused({
 const readers = [
   ["jobApiDetail", jobApiDetail],
   ["safeErrorMessage", safeErrorMessage],
-  ["deviceErrorText", deviceErrorText],
 ] as const;
 
 afterEach(() => setTranslatorLocale(DEFAULT_LOCALE, en));

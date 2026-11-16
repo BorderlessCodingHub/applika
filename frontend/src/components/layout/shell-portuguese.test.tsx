@@ -74,10 +74,7 @@ describe("shell in Portuguese", () => {
       data: [
         {
           id: "1",
-          step_id: null,
           step_date: today(),
-          step_name: null,
-          step_color: null,
           event_type: "interview",
           interview_type: "technical",
           application_id: "app-1",
@@ -86,10 +83,7 @@ describe("shell in Portuguese", () => {
         },
         {
           id: "2",
-          step_id: null,
           step_date: today(1),
-          step_name: null,
-          step_color: null,
           event_type: "offer",
           interview_type: null,
           application_id: "app-2",
@@ -98,10 +92,7 @@ describe("shell in Portuguese", () => {
         },
         {
           id: "3",
-          step_id: null,
           step_date: today(3),
-          step_name: null,
-          step_color: null,
           event_type: "denied",
           interview_type: null,
           application_id: "app-3",

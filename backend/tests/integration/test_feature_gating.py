@@ -802,8 +802,8 @@ async def test_anonymous_gets_todays_401_on_slash_suffixed_gated_paths(
 async def test_other_slash_paths_keep_the_redirect(
     async_client: AsyncClient, world
 ):
-    """Only the gated routes changed: CLI routes still get Starlette's 307
-    to the slash-less path. The drafts and CV routes are gated on "cvs"
+    """Only the gated routes changed: the ungated routes still get
+    Starlette's 307 to the slash-less path. The drafts and CV routes are gated on "cvs"
     (ADR-0021), so they have twins: a user with "cvs" is served on the
     slash path directly, as on the slash-less one."""
     app_id = world['application_id']
@@ -812,7 +812,6 @@ async def test_other_slash_paths_keep_the_redirect(
         '/companies',
         '/applications',
         f'/applications/{app_id}',
-        f'/applications/{app_id}/steps',
         f'/applications/{app_id}/finalize',
         '/users/me',
     ):

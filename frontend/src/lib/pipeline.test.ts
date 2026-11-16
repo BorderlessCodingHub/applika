@@ -14,6 +14,8 @@ import {
   reachedStage,
   type PipelineApplication,
 } from "./pipeline";
+import type { InterviewType } from "@/components/timeline/timeline-types";
+import type { ApplicationLastEvent } from "@/services/types/applications";
 
 // A local calendar day: the clock the screens read.
 const TODAY = new Date(2026, 10, 9, 15, 30);
@@ -25,45 +27,50 @@ function app(
     id: "a1",
     application_date: "2026-11-01",
     finalized_at: null,
-    last_step: null,
+    last_event: null,
     ...overrides,
   };
 }
 
-const step = (name: string, date = "2026-11-03") => ({
-  id: "s1",
-  name,
-  color: "#000",
+/** `last_event` of one kind: an interview by its type, an offer or a denial. */
+const event = (
+  kind: InterviewType | "offer" | "denied",
+  date = "2026-11-03",
+): ApplicationLastEvent => ({
+  id: "e1",
+  event_type: kind === "offer" || kind === "denied" ? kind : "interview",
+  interview_type: kind === "offer" || kind === "denied" ? null : kind,
+  denied_reason: kind === "denied" ? "unknown" : null,
   date,
 });
 
 describe("pipelineStage", () => {
   it("reads Applied with no event yet", () => {
     expect(pipelineStage(app())).toBe("applied");
-    expect(pipelineStage(app({ last_step: undefined }))).toBe("applied");
+    expect(pipelineStage(app({ last_event: undefined }))).toBe("applied");
   });
 
   it("reads Screening from the initial screening", () => {
-    expect(pipelineStage(app({ last_step: step("Initial Screen") }))).toBe(
+    expect(pipelineStage(app({ last_event: event("initial_screening") }))).toBe(
       "screening",
     );
   });
 
-  it("reads Technical from any other interview (the API's Phase 2)", () => {
-    expect(pipelineStage(app({ last_step: step("Phase 2") }))).toBe(
+  it("reads Technical from any other interview", () => {
+    expect(pipelineStage(app({ last_event: event("technical") }))).toBe(
       "technical",
     );
-    expect(pipelineStage(app({ last_step: step("Something else") }))).toBe(
+    expect(pipelineStage(app({ last_event: event("cultural") }))).toBe(
       "technical",
     );
   });
 
   it("reads Offer from an open application's offer", () => {
-    expect(pipelineStage(app({ last_step: step("Offer") }))).toBe("offer");
+    expect(pipelineStage(app({ last_event: event("offer") }))).toBe("offer");
   });
 
   it("lists an open application whose latest event is a denial under Closed", () => {
-    expect(pipelineStage(app({ last_step: step("Denied") }))).toBe("closed");
+    expect(pipelineStage(app({ last_event: event("denied") }))).toBe("closed");
   });
 
   it("reads Closed once finalized_at is set, whatever the latest event", () => {
@@ -71,7 +78,7 @@ describe("pipelineStage", () => {
       pipelineStage(
         app({
           finalized_at: "2026-11-05T10:00:00Z",
-          last_step: step("Phase 2"),
+          last_event: event("technical"),
         }),
       ),
     ).toBe("closed");
@@ -84,33 +91,35 @@ describe("pipelineStage", () => {
 describe("pipelineOutcome", () => {
   it("names a closed application's offer or denial", () => {
     const closed = { finalized_at: "2026-11-05T10:00:00Z" };
-    expect(pipelineOutcome(app({ ...closed, last_step: step("Offer") }))).toBe(
-      "offer",
-    );
-    expect(pipelineOutcome(app({ ...closed, last_step: step("Denied") }))).toBe(
-      "denied",
-    );
     expect(
-      pipelineOutcome(app({ ...closed, last_step: step("Phase 2") })),
+      pipelineOutcome(app({ ...closed, last_event: event("offer") })),
+    ).toBe("offer");
+    expect(
+      pipelineOutcome(app({ ...closed, last_event: event("denied") })),
+    ).toBe("denied");
+    expect(
+      pipelineOutcome(app({ ...closed, last_event: event("technical") })),
     ).toBeNull();
   });
 
   it("names an open application's denial (it sits under Closed) but not its offer", () => {
-    expect(pipelineOutcome(app({ last_step: step("Denied") }))).toBe("denied");
-    expect(pipelineOutcome(app({ last_step: step("Offer") }))).toBeNull();
+    expect(pipelineOutcome(app({ last_event: event("denied") }))).toBe(
+      "denied",
+    );
+    expect(pipelineOutcome(app({ last_event: event("offer") }))).toBeNull();
   });
 });
 
 describe("lastUpdate and isStale", () => {
   it("takes the later of the application date and the latest event's date", () => {
     expect(lastUpdate(app())).toBe("2026-11-01");
-    expect(lastUpdate(app({ last_step: step("Phase 2", "2026-11-04") }))).toBe(
-      "2026-11-04",
-    );
+    expect(
+      lastUpdate(app({ last_event: event("technical", "2026-11-04") })),
+    ).toBe("2026-11-04");
     // An event dated before the application does not move it back.
-    expect(lastUpdate(app({ last_step: step("Phase 2", "2026-10-20") }))).toBe(
-      "2026-11-01",
-    );
+    expect(
+      lastUpdate(app({ last_event: event("technical", "2026-10-20") })),
+    ).toBe("2026-11-01");
   });
 
   it("is stale after more than 14 days: 15 is, 14 is not", () => {
@@ -126,7 +135,7 @@ describe("lastUpdate and isStale", () => {
   it("counts from the latest event when it is later", () => {
     const refreshed = app({
       application_date: "2026-09-01",
-      last_step: step("Initial Screen", "2026-11-02"),
+      last_event: event("initial_screening", "2026-11-02"),
     });
     expect(quietDays(refreshed, TODAY)).toBe(7);
     expect(isStale(refreshed, TODAY)).toBe(false);
@@ -174,9 +183,9 @@ describe("groupByStage", () => {
       [
         app({ id: "applied-old", application_date: "2026-10-01" }),
         app({ id: "applied-new", application_date: "2026-11-08" }),
-        app({ id: "tech", last_step: step("Phase 2") }),
-        app({ id: "denied", last_step: step("Denied") }),
-        app({ id: "offer", last_step: step("Offer") }),
+        app({ id: "tech", last_event: event("technical") }),
+        app({ id: "denied", last_event: event("denied") }),
+        app({ id: "offer", last_event: event("offer") }),
       ],
       TODAY,
     );
@@ -245,7 +254,7 @@ describe("attentionList", () => {
     const denied = app({
       id: "denied",
       application_date: "2026-09-01",
-      last_step: step("Denied", "2026-09-10"),
+      last_event: event("denied", "2026-09-10"),
     });
     const list = attentionList(
       [
@@ -253,12 +262,12 @@ describe("attentionList", () => {
         app({
           id: "offer",
           application_date: "2026-09-01",
-          last_step: step("Offer", "2026-09-20"),
+          last_event: event("offer", "2026-09-20"),
         }),
         app({
           id: "interview",
           application_date: "2026-09-01",
-          last_step: step("Phase 2", "2026-10-01"),
+          last_event: event("technical", "2026-10-01"),
         }),
       ],
       TODAY,
@@ -309,10 +318,10 @@ describe("reachedStage", () => {
     ).toBe("offer");
   });
 
-  it("falls back to last_step while the timeline loads", () => {
-    expect(reachedStage(app({ last_step: step("Initial Screen") }))).toBe(
+  it("falls back to last_event while the timeline loads", () => {
+    expect(reachedStage(app({ last_event: event("initial_screening") }))).toBe(
       "screening",
     );
-    expect(reachedStage(app({ last_step: step("Denied") }))).toBe("applied");
+    expect(reachedStage(app({ last_event: event("denied") }))).toBe("applied");
   });
 });

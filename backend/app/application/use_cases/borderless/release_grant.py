@@ -1,14 +1,13 @@
 """Give the Borderless grant back when the last session ends (ADR-0026
 §10).
 
-Called after a logout (``GET /auth/logout``, ``POST /auth/revoke``) or a
-device revocation, and with ``force`` before an account deletion. While
-another applika session of the user is still open, nothing happens and
-Borderless is not told. Otherwise the binding forgets its refresh token
-(one commit), the Redis access token goes, and the decrypted refresh token
-is returned for the route to revoke at Borderless after answering
-(``BackgroundTasks``, best effort). The Borderless browser session is never
-touched.
+Called after a logout (``GET /auth/logout``) or a device revocation, and
+with ``force`` before an account deletion. While another applika session of
+the user is still open, nothing happens and Borderless is not told.
+Otherwise the binding forgets its refresh token (one commit), the Redis
+access token goes, and the decrypted refresh token is returned for the route
+to revoke at Borderless after answering (``BackgroundTasks``, best effort).
+The Borderless browser session is never touched.
 """
 
 from datetime import UTC, datetime

@@ -48,9 +48,8 @@ async def test_agenda_lists_events_inside_the_default_window(
     assert item['id'] == '1'
     assert item['event_type'] == 'interview'
     assert item['interview_type'] == 'initial_screening'
-    assert item['step_id'] == str(ts.STEP_SCREEN)
-    assert item['step_name'] == 'Initial Screen'
-    assert item['step_color'] == '#111111'
+    # No legacy step any more: the event type and interview type say it.
+    assert not {'step_id', 'step_name', 'step_color'} & set(item)
     assert item['start_time'] == '10:00:00'
     assert item['end_time'] == '10:45:00'
     assert item['application_id'] == '1'
@@ -183,7 +182,7 @@ async def test_agenda_excludes_non_interview_events(
         ),
         ts.event(3, event_date=day, event_type=EventType.DENIED),
         # A former note, an interview of type unknown since ADR-0020 with no
-        # schedule: it is on the agenda, as its "Phase 2" step.
+        # schedule: it is on the agenda.
         ts.event(
             4,
             event_date=day,
@@ -201,7 +200,6 @@ async def test_agenda_excludes_non_interview_events(
         'interview',
         'unknown',
     )
-    assert item['step_name'] == 'Phase 2'
 
 
 async def test_agenda_empty_returns_empty_list(

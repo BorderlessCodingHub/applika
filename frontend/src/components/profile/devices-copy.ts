@@ -36,6 +36,8 @@ export const DEVICES_COPY = liveCopy("devices", [
   "emptyBody",
   "never",
   "notRecorded",
+  "revokeMcpBody",
+  "mcpClient",
 ]);
 
 export const DEVICE_TERMS = liveCopy("devices.terms", [
@@ -45,6 +47,7 @@ export const DEVICE_TERMS = liveCopy("devices.terms", [
   "granted",
   "lastUsed",
   "expires",
+  "endsIfUnused",
   "ended",
 ]);
 
@@ -58,7 +61,19 @@ export const SIGN_IN_METHOD_LABEL: Readonly<Record<SignInMethod, string>> =
     "cli_browser",
     "cli_device",
     "cli_legacy",
+    "mcp_token",
   ]);
+
+/**
+ * The Client cell: the server's label from the user agent, or for an MCP
+ * connection (no user agent, so the server says "Unknown device") the words
+ * for an AI app.
+ */
+export function sessionClientLabel(session: UserSession): string {
+  return session.client_type === "mcp"
+    ? DEVICES_COPY.mcpClient
+    : session.client_label;
+}
 
 /** The device name is data: shown as the API sends it, never translated. */
 export function revokeTitle(deviceName: string): string {
@@ -78,6 +93,23 @@ export function signInIpLine(ip: string | null): string {
 /** An expired row may have no `ended_at`; the server orders it by `expires_at`. */
 export function sessionEndedAt(session: UserSession): string {
   return session.ended_at ?? session.expires_at;
+}
+
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+};
+
+/**
+ * "Feb 12, 2027": an active MCP connection's end, without a time (Postgres
+ * can trail the real end by up to a day, ADR-0028).
+ */
+export function formatSessionDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : new Intl.DateTimeFormat(intlLocale(), DATE_OPTIONS).format(date);
 }
 
 const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {

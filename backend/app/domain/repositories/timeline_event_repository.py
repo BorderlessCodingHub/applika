@@ -168,28 +168,10 @@ class TimelineEventRepository:
         latest = await self.latest_for_applications([application_id])
         return latest.get(application_id)
 
-    async def latest_offer_for_application(
-        self, application_id: int
-    ) -> TimelineEventModel | None:
-        """The last offer event of the timeline, or ``None``."""
-        latest = await self.latest_offer_for_applications([application_id])
-        return latest.get(application_id)
-
     async def latest_for_applications(
         self, application_ids: Sequence[int]
     ) -> dict[int, TimelineEventModel]:
         """``application_id -> latest event`` in one query (DISTINCT ON)."""
-        return await self._latest(application_ids, event_type=None)
-
-    async def latest_offer_for_applications(
-        self, application_ids: Sequence[int]
-    ) -> dict[int, TimelineEventModel]:
-        """``application_id -> latest offer event`` in one query."""
-        return await self._latest(application_ids, event_type=EventType.OFFER)
-
-    async def _latest(
-        self, application_ids: Sequence[int], event_type: EventType | None
-    ) -> dict[int, TimelineEventModel]:
         if not application_ids:
             return {}
         stmt = (
@@ -198,8 +180,6 @@ class TimelineEventRepository:
             .distinct(TimelineEventModel.application_id)
             .order_by(TimelineEventModel.application_id, *latest_first_order())
         )
-        if event_type is not None:
-            stmt = stmt.where(TimelineEventModel.event_type == event_type)
         result = await self.session.scalars(stmt)
         return {event.application_id: event for event in result.all()}
 

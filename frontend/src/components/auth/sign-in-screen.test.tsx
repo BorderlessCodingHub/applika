@@ -108,9 +108,6 @@ describe.each(TREES)("SignInScreen, %s tree", (_name, slot, words) => {
     expect(button).not.toHaveAttribute("aria-disabled");
     expect(button).not.toHaveAttribute("aria-busy");
     expect(errorBox(slot)).toBeEmptyDOMElement();
-    expect(
-      tree(slot).querySelector('[data-slot="sign-in-cli-hint"]'),
-    ).toBeNull();
   });
 
   it("ready: Borderless's mark before the label, decorative, in the outline button", () => {
@@ -203,7 +200,6 @@ describe.each(TREES)("SignInScreen, %s tree", (_name, slot, words) => {
         "tabindex",
         "-1",
       );
-      expect(box.querySelector('[data-slot="sign-in-cli-hint"]')).toBeNull();
       // The CTA is still there to try again, after the alert.
       expect(cta(slot)).toHaveTextContent(words.cta);
       expect(
@@ -225,51 +221,6 @@ describe.each(TREES)("SignInScreen, %s tree", (_name, slot, words) => {
     expect(box).toHaveTextContent(ERRORS.unknown);
     expect(box).not.toHaveTextContent("Too many requests");
     expect(box.querySelector("img")).toBeNull();
-  });
-
-  it("cli: the terminal hint under the lead, the command in <code>", () => {
-    renderScreen({ cli: true, autoFocus: false });
-    const hints = tree(slot).querySelectorAll('[data-slot="sign-in-cli-hint"]');
-
-    expect(hints).toHaveLength(1);
-    const hint = hints[0] as HTMLElement;
-    expect(hint).toHaveClass("ph-signin-hint");
-    expect(hint).toHaveTextContent(
-      "Return to your terminal and run applika login again.",
-    );
-    expect(within(hint).getByText("applika login").tagName).toBe("CODE");
-    expect(errorBox(slot)).toBeEmptyDOMElement();
-    expect(
-      within(tree(slot)).getByRole("heading", { level: 1 }),
-    ).toHaveTextContent(words.h1);
-    // Under the lead, before the CTA.
-    expect(
-      hint.compareDocumentPosition(cta(slot)) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(document.querySelector('[data-slot="sign-in"]')).toHaveAttribute(
-      "data-mode",
-      "cli",
-    );
-  });
-
-  it("cli error: the code's words and the cli line, inside the alert", () => {
-    renderScreen({ cli: true, errorCode: "AUTH-1019", autoFocus: false });
-    const box = errorBox(slot);
-
-    expect(box).toHaveTextContent(ERRORS["AUTH-1019"]);
-    const hint = box.querySelector<HTMLElement>(
-      '[data-slot="sign-in-cli-hint"]',
-    );
-    expect(hint).not.toBeNull();
-    expect(hint).toHaveTextContent(
-      "Return to your terminal and run applika login again.",
-    );
-    expect(within(hint!).getByText("applika login").tagName).toBe("CODE");
-    // One cli line per tree: no separate grey hint beside the alert.
-    expect(
-      tree(slot).querySelectorAll('[data-slot="sign-in-cli-hint"]'),
-    ).toHaveLength(1);
   });
 });
 
@@ -405,16 +356,22 @@ describe("SignInScreen, desktop tree: option A", () => {
     expect(view.getAllByRole("button")).toEqual([cta("sign-in-desktop")]);
     expect(view.getAllByRole("link")).toHaveLength(1);
   });
-
-  it("keeps the h1 with ?cli=1", () => {
-    renderScreen({ cli: true, errorCode: "AUTH-1047", autoFocus: false });
-    expect(
-      within(desktop()).getByRole("heading", { level: 1 }),
-    ).toHaveTextContent("Sign in to applika");
-  });
 });
 
 describe("SignInScreen: both widths", () => {
+  it("no longer lists AUTH-1019, the CLI login the API stopped sending (ADR-0028)", () => {
+    expect(SIGN_IN_ERROR_CODES).not.toContain("AUTH-1019");
+    expect(signInErrorKey("AUTH-1019")).toBe("unknown");
+  });
+
+  it("draws no terminal hint and no CLI mode, whatever the URL said", () => {
+    renderScreen({ errorCode: "AUTH-1017", autoFocus: false });
+    expect(document.body).not.toHaveTextContent(/applika login|terminal/i);
+    expect(document.querySelector('[data-slot="sign-in"]')).not.toHaveAttribute(
+      "data-mode",
+    );
+  });
+
   it("lists only codes free of ICU arguments", () => {
     for (const code of SIGN_IN_ERROR_CODES) {
       expect(ERRORS[code], code).toBeTruthy();
@@ -499,7 +456,7 @@ describe("SignInScreen: focus on load lands in the visible tree", () => {
 
   it("phone width, an error: the phone alert, never the hidden tree's", () => {
     mockPhoneViewport();
-    renderScreen({ errorCode: "AUTH-1049", cli: true });
+    renderScreen({ errorCode: "AUTH-1049" });
     const alert = errorBox("sign-in-phone").querySelector(".ph-signin-alert");
 
     expect(document.activeElement).toBe(alert);

@@ -20,15 +20,14 @@ export function getApiError(error: AxiosError): string {
 
 /**
  * A 401 on `/auth/*` is final (a failed `/auth/refresh` must never trigger
- * another refresh). Signed-in calls that merely live under `/auth/` refresh
- * and retry like any other page: the device approval routes and the GitHub
- * restore start.
+ * another refresh). The one signed-in call that merely lives under `/auth/`
+ * refreshes and retries like any other page: the GitHub restore start.
  */
 function refreshesOn401(error: AxiosError): boolean {
   const url = error.config?.url;
   if (!url) return true;
   if (!url.includes("/auth/")) return true;
-  return url.includes("/auth/device/") || url.includes("/auth/github/restore");
+  return url.includes("/auth/github/restore");
 }
 
 let isRefreshing = false;

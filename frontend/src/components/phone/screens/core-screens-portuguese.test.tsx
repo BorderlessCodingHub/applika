@@ -71,7 +71,13 @@ const APPS: Application[] = [
     work_mode: "remote",
     finalized: false,
     finalized_at: null,
-    last_step: { id: "s", name: "Phase 2", color: "#000", date: "2026-10-20" },
+    last_event: {
+      id: "s",
+      event_type: "interview",
+      interview_type: "technical",
+      denied_reason: null,
+      date: "2026-10-20",
+    },
   },
   {
     id: "a2",
@@ -83,7 +89,13 @@ const APPS: Application[] = [
     application_date: "2026-11-01",
     finalized: true,
     finalized_at: "2026-11-05T00:00:00Z",
-    last_step: { id: "s", name: "Denied", color: "#000", date: "2026-11-05" },
+    last_event: {
+      id: "s",
+      event_type: "denied",
+      interview_type: null,
+      denied_reason: "unknown",
+      date: "2026-11-05",
+    },
   },
 ];
 

@@ -101,7 +101,13 @@ function app(overrides: Partial<Application> = {}): Application {
     observation: "Review Kafka basics before the technical round.",
     finalized: false,
     finalized_at: null,
-    last_step: { id: "s", name: "Phase 2", color: "#000", date: "2026-10-25" },
+    last_event: {
+      id: "s",
+      event_type: "interview",
+      interview_type: "technical",
+      denied_reason: null,
+      date: "2026-10-25",
+    },
     ...overrides,
   };
 }
@@ -343,10 +349,11 @@ describe("ApplicationScreen", () => {
       app({
         finalized: true,
         finalized_at: "2026-10-24T10:00:00Z",
-        last_step: {
+        last_event: {
           id: "s",
-          name: "Offer",
-          color: "#000",
+          event_type: "offer",
+          interview_type: null,
+          denied_reason: null,
           date: "2026-10-24",
         },
       }),
@@ -385,10 +392,11 @@ describe("ApplicationScreen", () => {
   it("marks an open application whose latest event is a denial Denied (PRD 0021 edge case)", async () => {
     mocks.getApplications.mockResolvedValue([
       app({
-        last_step: {
+        last_event: {
           id: "s",
-          name: "Denied",
-          color: "#000",
+          event_type: "denied",
+          interview_type: null,
+          denied_reason: "unknown",
           date: "2026-10-24",
         },
       }),

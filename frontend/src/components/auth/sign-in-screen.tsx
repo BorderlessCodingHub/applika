@@ -1,16 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useRef, type Ref } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import {
-  ChevronLeft,
-  CircleAlert,
-  Link2,
-  LoaderCircle,
-  SquareTerminal,
-} from "lucide-react";
+import { ChevronLeft, CircleAlert, Link2, LoaderCircle } from "lucide-react";
 
 import { ApplikaIcon } from "@/components/app-logo";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -28,7 +22,6 @@ export const SIGN_IN_ERROR_CODES = [
   "AUTH-1008",
   "AUTH-1017",
   "AUTH-1018",
-  "AUTH-1019",
   "AUTH-1046",
   "AUTH-1047",
   "AUTH-1048",
@@ -55,8 +48,6 @@ export interface SignInScreenProps {
   pending?: boolean;
   /** The `?error=` value, as read from the URL. */
   errorCode?: string | null;
-  /** `?cli=1`: the attempt came from `applika login`. */
-  cli?: boolean;
   /** Borderless sign-up page (`config.ts`). */
   createAccountHref: string;
   /** On mount, focus the visible tree's error when there is one, else its button. */
@@ -114,68 +105,37 @@ function PairedTiles() {
 
 interface SignInStatesProps {
   errorKey: SignInErrorCode | "unknown" | null;
-  cli: boolean;
   errorRef: Ref<HTMLDivElement>;
 }
 
-/** v2/SignIn's states under the lead: the refusal (the focus target), else the terminal hint. */
-function SignInStates({ errorKey, cli, errorRef }: SignInStatesProps) {
-  const t = useTranslations("auth.signIn");
+/** v2/SignIn's state under the lead: the refusal, the focus target. */
+function SignInStates({ errorKey, errorRef }: SignInStatesProps) {
   const tErrors = useTranslations("errors");
-  const cliRetry: ReactNode = t.rich("cliRetry", {
-    command: t("cliCommand"),
-    code: (chunks) => <code className="ph-mono">{chunks}</code>,
-  });
 
   return (
-    <>
-      <div
-        role="alert"
-        data-slot="sign-in-error"
-        data-code={errorKey ?? undefined}
-        className="self-stretch"
-      >
-        {errorKey ? (
-          <div
-            ref={errorRef}
-            tabIndex={-1}
-            className="ph-signin-alert text-start outline-none"
-          >
-            <CircleAlert
-              size={18}
-              aria-hidden="true"
-              className="mt-px flex-none text-(color:--destructive-text)"
-            />
-            <div className="flex min-w-0 flex-col gap-1 text-[14px] leading-[1.45]">
-              <p className="m-0 font-semibold break-words">
-                {tErrors(errorKey)}
-              </p>
-              {cli ? (
-                <p
-                  data-slot="sign-in-cli-hint"
-                  className="m-0 text-muted-foreground"
-                >
-                  {cliRetry}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-      </div>
-      {cli && !errorKey ? (
-        <p
-          data-slot="sign-in-cli-hint"
-          className="ph-signin-hint self-stretch text-start"
+    <div
+      role="alert"
+      data-slot="sign-in-error"
+      data-code={errorKey ?? undefined}
+      className="self-stretch"
+    >
+      {errorKey ? (
+        <div
+          ref={errorRef}
+          tabIndex={-1}
+          className="ph-signin-alert text-start outline-none"
         >
-          <SquareTerminal
+          <CircleAlert
             size={18}
             aria-hidden="true"
-            className="mt-px flex-none text-muted-foreground"
+            className="mt-px flex-none text-(color:--destructive-text)"
           />
-          <span className="min-w-0">{cliRetry}</span>
-        </p>
+          <div className="flex min-w-0 flex-col gap-1 text-[14px] leading-[1.45]">
+            <p className="m-0 font-semibold break-words">{tErrors(errorKey)}</p>
+          </div>
+        </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -305,7 +265,6 @@ export function SignInScreen({
   onSignIn,
   pending = false,
   errorCode = null,
-  cli = false,
   createAccountHref,
   autoFocus = true,
 }: SignInScreenProps) {
@@ -337,7 +296,6 @@ export function SignInScreen({
   return (
     <div
       data-slot="sign-in"
-      data-mode={cli ? "cli" : "web"}
       data-pending={pending || undefined}
       className="ph-app relative flex min-h-viewport flex-col overflow-hidden"
     >
@@ -380,11 +338,7 @@ export function SignInScreen({
           >
             {tC("lead")}
           </p>
-          <SignInStates
-            errorKey={errorKey}
-            cli={cli}
-            errorRef={phoneErrorRef}
-          />
+          <SignInStates errorKey={errorKey} errorRef={phoneErrorRef} />
         </div>
         <div className="ph-safe-bottom relative flex flex-col gap-1.5 px-6 pt-4">
           <SignInCta
@@ -414,11 +368,7 @@ export function SignInScreen({
             <p id={desktopLeadId} className="ph-a-lead">
               {tA("lead")}
             </p>
-            <SignInStates
-              errorKey={errorKey}
-              cli={cli}
-              errorRef={desktopErrorRef}
-            />
+            <SignInStates errorKey={errorKey} errorRef={desktopErrorRef} />
             <SignInCta
               ctaRef={desktopCtaRef}
               leadId={desktopLeadId}

@@ -25,9 +25,6 @@ const PROTECTED_PATHS = [
   "/reports",
   "/profile",
   "/admin",
-  // The device approval page (PRD 0014); a signed-out visit also stores the
-  // return-to (`e2e/devices.spec.ts` follows it after sign-in).
-  "/device",
   // ADR-0024: the one-time welcome choice of a new Borderless account.
   "/welcome",
   // ADR-0027: the phone's Insights tab and Account hub.

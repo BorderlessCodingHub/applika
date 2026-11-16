@@ -316,7 +316,7 @@ async def test_closed_application_swept_into_a_cycle_stays_closed(
     )
 
     assert closed['finalized'] is True
-    assert closed['last_step']['name'] == 'Offer'
+    assert closed['last_event']['event_type'] == 'offer'
     assert (reopen.status_code, finalize.status_code, add.status_code) == (
         422,
         422,

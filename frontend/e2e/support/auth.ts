@@ -266,12 +266,17 @@ export function apiUrl(path = ""): string {
 }
 
 /**
- * The `Authorization` header value of e2e-user's seeded CLI session
- * (PRD 0014: a `cli_device` session named "e2e-cli", exported by
- * `frontend/scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`). The CLI sends its access token
- * as a Bearer, never as a cookie. `e2e/devices.spec.ts` revokes this session,
- * so it is refused for the rest of the run after that spec.
+ * e2e-user's seeded MCP token (ADR-0028: an `mcp` session named "e2e-mcp",
+ * read scope, minted at seed time and exported by `frontend/scripts/e2e.sh`
+ * as `E2E_MCP_TOKEN`; never written to a file). `e2e/devices.spec.ts`
+ * revokes this session, so it is refused for the rest of the run after that
+ * spec. Never compare against it: a failure message would print it.
  */
-export function cliBearerHeader(): string {
-  return `Bearer ${requireEnv("E2E_CLI_ACCESS_TOKEN")}`;
+export function seededMcpToken(): string {
+  return requireEnv("E2E_MCP_TOKEN");
+}
+
+/** The `Authorization` header value of that seeded MCP session. */
+export function mcpBearerHeader(): string {
+  return `Bearer ${seededMcpToken()}`;
 }

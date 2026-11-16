@@ -94,12 +94,10 @@ class ApplicationDTO(BaseSchema):
     # Derived from the timeline by ApplicationReadModel, not read from the
     # row: model_validate() leaves them at their defaults.
     last_step: ApplicationLastStep | None = None
-    salary_offer: float | None = None
 ```
 
-A field that is no longer a column but that installed `applika-cli`
-versions still read keeps its place on the DTO and the schema with a default,
-and is filled in by the read model (`use_cases/applications/read_model.py`)
+A field that is not a column (`last_step`, derived from the timeline) has
+a default on the DTO and the schema, and is filled in by the read model (`use_cases/applications/read_model.py`)
 with `dto.model_copy(update=...)`.
 
 ## Presentation Schema Pattern
@@ -192,7 +190,7 @@ A body whose fields constrain each other validates them in
 
 A PUT that replaces the whole row sends the **full** body, so every
 cross-field rule can be checked on every write. When other paths build the
-same object without the schema (the compat layer), the rules also live in
+same object without the schema, the rules also live in
 the use case (`use_cases/timeline_events/rules.py`) and raise the domain
 exception; the database CHECKs are the last line.
 
@@ -209,10 +207,9 @@ enum type accepts the old value, while OpenAPI and every response only show
 the new one. Do not add the old value as a member or an alias: it would be
 advertised and could be returned.
 
-## Deprecated routes
+## Retired routes
 
-A route kept only for installed clients is `deprecated=True` on the router
-and depends on `mark_deprecated` (`presentation/deprecation.py`), which makes
-every answer, errors included, carry `Deprecation: @<unix-seconds>`
-(RFC 9745). Its request and response schemas stay exactly as the published
-client expects them (`presentation/schemas/application_step.py`).
+There are no deprecated routes since ADR-0028: the routes kept only for
+applika-cli, `presentation/deprecation.py` and its `Deprecation` header were
+deleted with the CLI. A retired route is deleted, with no tombstone, and
+answers 404 GEN-1001 like any unknown path.

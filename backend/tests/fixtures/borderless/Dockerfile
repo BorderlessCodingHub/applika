@@ -1,7 +1,8 @@
 # The fake Borderless OpenID Connect provider, for tests only (ADR-0026 §12).
 #
 # Its own image, never the API's: the end-to-end compose builds it from this
-# folder as `applika-e2e-borderless-fake`. backend/Dockerfile copies only
+# folder as `applika-e2e-borderless-fake`, the local stack (the root
+# docker-compose.yml) as `applika-borderless-fake`. backend/Dockerfile copies only
 # app/, migrations/ and alembic.ini, so the API image holds no fake code.
 #
 #   docker build -t applika-e2e-borderless-fake backend/tests/fixtures/borderless

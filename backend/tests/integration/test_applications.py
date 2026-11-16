@@ -170,6 +170,42 @@ async def test_create_application_invalid_enum_returns_422(
     assert response.status_code == 422, msg(422, response.status_code)
 
 
+@pytest.mark.parametrize(
+    'salary',
+    [
+        {'expected_salary': 5000},
+        {'salary_range_min': 1, 'currency': 'USD'},
+        {'salary_range_max': 9, 'salary_period': 'monthly'},
+    ],
+)
+async def test_create_application_salary_without_currency_or_period_is_422(
+    async_client: AsyncClient, db_session: AsyncSession, salary: dict
+):
+    """A salary amount needs its currency and period, as on the web."""
+    response = await async_client.post(
+        '/applications', json=_base_payload(**salary)
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    body = response.json()
+    assert body['code'] == 'GEN-1003'
+    assert 'currency and salary_period are required' in str(body['detail'])
+
+
+async def test_update_application_salary_without_currency_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    created = await async_client.post('/applications', json=_base_payload())
+    app_id = created.json()['id']
+
+    response = await async_client.put(
+        f'/applications/{app_id}',
+        json=_base_payload(expected_salary=5000, salary_period='monthly'),
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
 # ---------------------------------------------------------------------------
 # UPDATE — company resolution cases
 # ---------------------------------------------------------------------------
@@ -630,6 +666,8 @@ async def test_update_still_clears_other_omitted_optional_fields(
         observation='A stale note',
         link_to_job='https://example.com/job/7',
         expected_salary=4321.0,
+        currency='USD',
+        salary_period='monthly',
     )
     assert created['observation'] == 'A stale note'
 

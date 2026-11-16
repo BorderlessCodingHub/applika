@@ -29,7 +29,7 @@ const MOBILE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 800 };
 
 const COOKIE_NOTICE = '[role="dialog"][aria-label="Cookie notice"]';
-const CLI_BANNER = '[role="region"][aria-label="applika-cli announcement"]';
+const MCP_BANNER = '[role="region"][aria-label="Applika MCP announcement"]';
 
 /**
  * The primary entries a non-admin sees, in display order. "Jobs" and "CVs"
@@ -326,12 +326,15 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     await expect(
       account.getByRole("link", { name: "Profile", exact: true }),
     ).toBeVisible();
+    // Profile › MCP, between Profile and Devices, for every user.
+    const mcp = account.getByRole("link", { name: "MCP", exact: true });
+    await expect(mcp).toBeVisible();
+    await expect(mcp).toHaveAttribute("href", "/profile?tab=mcp");
     await expect(
-      account.getByRole("link", { name: "Devices & CLI" }),
-    ).toBeVisible();
-    await expect(
-      account.getByRole("link", { name: "Sign in a device" }),
-    ).toBeVisible();
+      account.getByRole("link", { name: "Devices", exact: true }),
+    ).toHaveAttribute("href", "/profile?tab=devices");
+    // No row for the deleted /device page (ADR-0028).
+    await expect(account.locator('a[href="/device"]')).toHaveCount(0);
     await expect(account.getByRole("link", { name: "Admin" })).toHaveCount(0);
     await expect(
       page.getByRole("radiogroup", { name: "Language" }),
@@ -413,8 +416,8 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
               '[data-slot="phone-fab"]',
               '[data-slot="phone-account"] a',
               '[data-slot="phone-account"] button',
-              '[role="region"][aria-label="applika-cli announcement"] a',
-              '[role="region"][aria-label="applika-cli announcement"] button',
+              '[role="region"][aria-label="Applika MCP announcement"] a',
+              '[role="region"][aria-label="Applika MCP announcement"] button',
             ].join(", "),
           ),
         );
@@ -437,7 +440,7 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     expect(dashboard.count).toBeGreaterThanOrEqual(6);
     expect(dashboard.small).toEqual([]);
 
-    // The hub has no applika-cli banner (Today only).
+    // The hub has no Applika MCP banner (Today only).
     await page.goto("/account");
     await expect(page.getByRole("region", { name: "Workspace" })).toBeVisible();
     const account = await undersized();
@@ -445,11 +448,11 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     expect(account.small).toEqual([]);
   });
 
-  test("the applika-cli banner shows on Today only, and Dismiss still hides it", async ({
+  test("the Applika MCP banner shows on Today only, and Dismiss still hides it", async ({
     page,
   }) => {
     await openPhone(page, "/dashboard");
-    const banner = page.locator(CLI_BANNER);
+    const banner = page.locator(MCP_BANNER);
     await expect(banner).toBeVisible();
     await expectNoSidewaysScroll(page);
 
@@ -472,7 +475,7 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     await expect(banner).toHaveCount(0);
   });
 
-  test("an admin screen shows no applika-cli banner below md", async ({
+  test("an admin screen shows no Applika MCP banner below md", async ({
     page,
   }) => {
     await openPhone(page, "/admin/companies", "admin");
@@ -486,7 +489,7 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     await expect(
       page.locator('li[data-slot="catalog-row"]').first(),
     ).toBeVisible();
-    await expect(page.locator(CLI_BANNER)).toHaveCount(0);
+    await expect(page.locator(MCP_BANNER)).toHaveCount(0);
   });
 
   test("turning the screen past md switches the layout and drops the quick add", async ({
@@ -576,7 +579,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
     );
   });
 
-  test("tab order in the rail runs brand, entries, the CLI link, account menu", async ({
+  test("tab order in the rail runs brand, entries, the MCP link, account menu", async ({
     page,
   }) => {
     await openDashboard(page);
@@ -591,7 +594,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
 
     await page.keyboard.press("Tab");
     await expect(
-      rail.getByRole("link", { name: "Applika CLI", exact: true }),
+      rail.getByRole("link", { name: "Applika MCP", exact: true }),
     ).toBeFocused();
 
     await page.keyboard.press("Tab");
@@ -613,14 +616,14 @@ test.describe("at md and above the shell renders a fixed rail", () => {
       header.getByRole("button", { name: "Toggle theme" }),
     ).toBeVisible();
 
-    // The CLI promo banner stays at the top of the content column, on every
+    // The MCP promo banner stays at the top of the content column, on every
     // page at md and up (below md, Today only).
-    await expect(page.locator(CLI_BANNER)).toBeVisible();
+    await expect(page.locator(MCP_BANNER)).toBeVisible();
     for (const path of ["/applications", "/agenda", "/cvs/new"]) {
       await page.goto(path);
       await expect(page.locator("aside")).toBeVisible();
       await expect(
-        page.locator(CLI_BANNER),
+        page.locator(MCP_BANNER),
         `the banner on ${path}`,
       ).toBeVisible();
     }

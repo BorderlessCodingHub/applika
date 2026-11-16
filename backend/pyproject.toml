@@ -34,6 +34,10 @@ dependencies = [
     "httpx==0.28.1",
     "cloudscraper==1.2.71",
     "pyjwt==2.12.1",
+    # The hosted MCP server at /mcp (ADR-0028): the official SDK, pinned
+    # to one 1.x version. Low-level Server + StreamableHTTPSessionManager,
+    # stateless with JSON responses; no FastMCP, no OAuth AuthSettings.
+    "mcp==1.30.0",
 ]
 
 [dependency-groups]

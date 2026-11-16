@@ -174,37 +174,12 @@ async def test_migrated_steps_are_events_that_kept_their_ids(
     assert phase_2['interview_type'] == 'unknown'
 
 
-async def test_migrated_steps_keep_their_ids_on_the_compat_route(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    """Criterion 13 for 0.1.4: the same ids, the same steps."""
-    await _seed_r1_shape(db_session)
-
-    steps = (await async_client.get(f'/applications/{APP_OPEN}/steps')).json()
-
-    assert [(s['id'], s['step_name']) for s in steps] == [
-        (str(S_SCREEN), 'Initial Screen'),
-        (str(S_PHASE_2), 'Phase 2'),
-    ]
-    assert steps[0]['start_time'] == '14:00:00'
-
-    edited = await async_client.put(
-        f'/applications/{APP_OPEN}/steps/{S_PHASE_2}',
-        json={
-            'step_id': steps[1]['step_id'],
-            'step_date': '2025-08-13',
-            'observation': 'edited by 0.1.4',
-        },
-    )
-    assert edited.status_code == 200, edited.text
-    assert edited.json()['id'] == str(S_PHASE_2)
-
-
 async def test_applications_finalized_before_the_switch_read_closed_with_outcome(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """Criteria 14 and 18: closed, outcome and salary on the timeline, and
-    the 0.1.4 fields derived from it."""
+    ``last_event`` derived from it (``salary_offer`` and ``feedback`` left
+    with ADR-0028; the salary is the outcome event's)."""
     await _seed_r1_shape(db_session)
 
     apps = _by_id((await async_client.get('/applications')).json())
@@ -212,27 +187,28 @@ async def test_applications_finalized_before_the_switch_read_closed_with_outcome
     offer = apps[str(APP_OFFER)]
     assert offer['finalized'] is True
     assert offer['finalized_at'].startswith('2025-08-31T00:00:00')
-    assert offer['last_step']['id'] == str(ts.STEP_OFFER)
-    assert offer['last_step']['name'] == 'Offer'
-    assert offer['last_step']['date'] == '2025-08-31'
-    assert offer['salary_offer'] == 5000.0
-    assert offer['feedback'] is None
+    assert offer['last_event']['event_type'] == 'offer'
+    assert offer['last_event']['date'] == '2025-08-31'
+    assert 'salary_offer' not in offer
+    assert 'feedback' not in offer
 
     denied = apps[str(APP_DENIED)]
     assert denied['finalized'] is True
-    assert denied['last_step']['name'] == 'Denied'
-    assert denied['salary_offer'] is None
+    assert denied['last_event']['event_type'] == 'denied'
 
     synthetic = apps[str(APP_SYNTHETIC)]
     assert synthetic['finalized'] is True
-    assert synthetic['last_step']['name'] == 'Offer'
-    assert synthetic['salary_offer'] == 0.0
+    assert synthetic['last_event']['event_type'] == 'offer'
+    synthetic_events = (
+        await async_client.get(f'/applications/{APP_SYNTHETIC}/timeline')
+    ).json()
+    assert synthetic_events[-1]['salary_amount'] == '0.00'
 
     still_open = apps[str(APP_OPEN)]
     assert still_open['finalized'] is False
     assert still_open['finalized_at'] is None
-    assert still_open['last_step']['name'] == 'Phase 2'
-    assert still_open['last_step']['date'] == '2025-08-12'
+    assert still_open['last_event']['event_type'] == 'interview'
+    assert still_open['last_event']['date'] == '2025-08-12'
 
     events = (
         await async_client.get(f'/applications/{APP_OFFER}/timeline')
@@ -275,7 +251,6 @@ async def test_legacy_annual_label_reads_as_annually_everywhere(
     profile = await async_client.patch('/users/me', json={})
 
     assert apps[str(APP_ANNUAL)]['salary_period'] == 'annually'
-    assert apps[str(APP_ANNUAL)]['salary_offer'] == 90000.0
     assert events[0]['salary_period'] == 'annually'
     assert profile.status_code == 200
     assert profile.json()['salary_period'] == 'annually'
@@ -320,8 +295,11 @@ async def test_annual_input_is_stored_as_annually(
 
     assert rewritten.json()['salary_period'] == 'annually'
     assert await label() == 'ANNUALLY'
-    # The derived legacy field still comes from the (untouched) offer event.
-    assert rewritten.json()['salary_offer'] == 90000.0
+    # The offer event itself is untouched.
+    events = (
+        await async_client.get(f'/applications/{APP_ANNUAL}/timeline')
+    ).json()
+    assert events[0]['salary_amount'] == '90000.00'
 
 
 async def test_statistics_on_migrated_data(

@@ -1,4 +1,4 @@
-import { DeviceCodeInfo, GithubRestoreStart } from "../types/auth";
+import { GithubRestoreStart } from "../types/auth";
 
 export interface IAuthService {
   refresh(): Promise<{ detail: string }>;
@@ -6,7 +6,4 @@ export interface IAuthService {
   borderlessLoginUrl(): string;
   startGithubRestore(): Promise<GithubRestoreStart>;
   dismissGithubRestore(): Promise<void>;
-  verifyDeviceCode(userCode: string): Promise<DeviceCodeInfo>;
-  approveDeviceCode(userCode: string): Promise<void>;
-  denyDeviceCode(userCode: string): Promise<void>;
 }

@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
 )
 
+from app.application.services import borderless_oidc
 from app.application.services.borderless_oidc import (
     BorderlessGrantEnded,
     BorderlessNotConfigured,
@@ -26,7 +27,6 @@ from app.application.services.borderless_oidc import (
     BorderlessRejected,
     BorderlessUnavailable,
 )
-from app.application.services import borderless_oidc
 from app.config.settings import envs
 from app.core.pkce import s256_challenge
 from tests.conftest import BORDERLESS_CONFIG, BORDERLESS_ISSUER
@@ -172,15 +172,13 @@ async def test_not_configured(client, monkeypatch):
         await client.discovery()
 
 
-@pytest.mark.parametrize('prompt_login', [False, True])
-async def test_authorize_url_carries_the_whole_request(client, prompt_login):
+async def test_authorize_url_carries_the_whole_request(client):
     discovery = await client.discovery()
     url = client.authorize_url(
         discovery,
         state='the-state',
         nonce='the-nonce',
         challenge='the-challenge',
-        prompt_login=prompt_login,
     )
 
     assert url.startswith(f'{BORDERLESS_ISSUER}/oauth2/authorize?')
@@ -196,8 +194,7 @@ async def test_authorize_url_carries_the_whole_request(client, prompt_login):
         'code_challenge': 'the-challenge',
         'code_challenge_method': 'S256',
     }
-    if prompt_login:
-        expected['prompt'] = 'login'
+    # No ``prompt``: a sign-in reuses the Borderless browser session.
     assert params == expected
 
 
@@ -397,8 +394,8 @@ async def test_the_exchange_retries_once_on_a_timeout(
 
 
 async def test_the_exchange_down_twice_is_unavailable(client, wire):
-    wire.override = (
-        lambda request: httpx.Response(503)
+    wire.override = lambda request: (
+        httpx.Response(503)
         if request.url.path.endswith('/oauth2/token')
         else None
     )
@@ -482,10 +479,8 @@ async def test_any_other_refusal_is_unavailable_without_a_retry(
 ):
     token = fake_borderless.issue_refresh_token(USER)
     await client.discovery()
-    wire.override = (
-        lambda request: answer
-        if request.url.path.endswith('/oauth2/token')
-        else None
+    wire.override = lambda request: (
+        answer if request.url.path.endswith('/oauth2/token') else None
     )
     with pytest.raises(BorderlessUnavailable):
         await client.refresh(token, 1.0)
@@ -543,8 +538,8 @@ async def test_a_failed_discovery_refetch_keeps_the_last_good_document(
 ):
     first = await client.discovery()
     client._discovery_at -= envs.BORDERLESS_DISCOVERY_TTL_SECONDS + 1
-    wire.override = (
-        lambda request: httpx.Response(503)
+    wire.override = lambda request: (
+        httpx.Response(503)
         if request.url.path.endswith('openid-configuration')
         else None
     )

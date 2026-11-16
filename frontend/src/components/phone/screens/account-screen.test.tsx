@@ -91,6 +91,7 @@ function session(status: UserSession["status"], id: string): UserSession {
     ended_at: null,
     status,
     current: false,
+    scope: null,
   };
 }
 
@@ -267,22 +268,29 @@ describe("AccountScreen", () => {
     const links = within(accountGroup()).getAllByRole("link");
     expect(links.map((link) => link.textContent?.trim() ?? "")).toEqual([
       "Profile",
-      expect.stringContaining("Devices & CLI"),
-      expect.stringContaining("Sign in a device"),
+      "MCP",
+      expect.stringContaining("Devices"),
     ]);
     expect(
       within(accountGroup()).getByRole("link", { name: "Profile" }),
     ).toHaveAttribute("href", "/profile");
+    // Profile › MCP, between Profile and Devices, for every user (no beta).
+    const mcp = within(accountGroup()).getByRole("link", { name: "MCP" });
+    expect(mcp).toHaveAttribute("href", "/profile?tab=mcp");
+    expect(mcp).not.toHaveAccessibleDescription();
     const devices = within(accountGroup()).getByRole("link", {
-      name: "Devices & CLI",
+      name: "Devices",
     });
     expect(devices).toHaveAttribute("href", "/profile?tab=devices");
     await waitFor(() =>
       expect(devices).toHaveAccessibleDescription("2 signed in"),
     );
+    // No row for the deleted /device page (ADR-0028).
     expect(
-      within(accountGroup()).getByRole("link", { name: "Sign in a device" }),
-    ).toHaveAccessibleDescription("XXXX-XXXX");
+      within(accountGroup())
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+    ).not.toContain("/device");
     expect(
       within(accountGroup()).queryByRole("link", { name: "Admin" }),
     ).not.toBeInTheDocument();
@@ -305,7 +313,7 @@ describe("AccountScreen", () => {
 
     await waitFor(() => expect(fetchReports).toHaveBeenCalled());
     expect(
-      within(accountGroup()).getByRole("link", { name: "Devices & CLI" }),
+      within(accountGroup()).getByRole("link", { name: "Devices" }),
     ).not.toHaveAccessibleDescription();
     expect(
       within(workspace()).getByRole("link", { name: "Reports" }),

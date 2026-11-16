@@ -129,7 +129,7 @@ describe("WelcomePage", () => {
   });
 
   it("Restore drops a stored return-to, so GitHub's outcome stays on the profile", async () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     vi.mocked(services.auth.startGithubRestore).mockResolvedValue({
       authorize_url: "https://github.com/login/oauth/authorize?state=n1",
     });
@@ -145,7 +145,7 @@ describe("WelcomePage", () => {
   });
 
   it("a refused Restore keeps the return-to for Start fresh", async () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     vi.mocked(services.auth.startGithubRestore).mockRejectedValue(
       new AxiosError("x", "ERR_BAD_RESPONSE", undefined, undefined, {
         status: 503,
@@ -166,7 +166,7 @@ describe("WelcomePage", () => {
     await user.click(screen.getByRole("button", { name: "Start fresh" }));
 
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("/device?code=BCDF-GHJK"),
+      expect(replace).toHaveBeenCalledWith("/profile?tab=mcp"),
     );
   });
 
@@ -215,7 +215,7 @@ describe("WelcomePage", () => {
   });
 
   it("Start fresh goes on to the stored return-to path", async () => {
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     vi.mocked(services.auth.dismissGithubRestore).mockResolvedValue();
     const user = userEvent.setup();
     renderPage();
@@ -223,7 +223,7 @@ describe("WelcomePage", () => {
     await user.click(screen.getByRole("button", { name: "Start fresh" }));
 
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("/device?code=BCDF-GHJK"),
+      expect(replace).toHaveBeenCalledWith("/profile?tab=mcp"),
     );
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
   });
@@ -334,7 +334,7 @@ describe("WelcomePage below md (v2/Welcome)", () => {
 
   it("Start fresh goes on to the stored return-to path", async () => {
     mockPhoneViewport();
-    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/profile?tab=mcp");
     vi.mocked(services.auth.dismissGithubRestore).mockResolvedValue();
     const user = userEvent.setup();
     renderPage();
@@ -343,7 +343,7 @@ describe("WelcomePage below md (v2/Welcome)", () => {
     await user.click(cta());
 
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("/device?code=BCDF-GHJK"),
+      expect(replace).toHaveBeenCalledWith("/profile?tab=mcp"),
     );
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
   });

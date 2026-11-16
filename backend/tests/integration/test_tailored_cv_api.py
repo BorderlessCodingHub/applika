@@ -959,26 +959,25 @@ async def test_archived_application_refuses_update_and_delete_but_not_get(
 @pytest.mark.parametrize(
     'make_read_only', [_finalize, _archive], ids=['finalized', 'archived']
 )
-async def test_the_refusal_matches_how_steps_are_refused_today(
+async def test_the_refusal_matches_how_timeline_events_are_refused(
     async_client: AsyncClient, db_session: AsyncSession, make_read_only
 ):
-    """AC10, literally: the CV copy and a step answer identically.
+    """AC10: the CV copy and a timeline event answer identically.
 
     Same application, same state, two different endpoints - the status code
-    and the message must agree, which is what "matching how steps are refused
-    today" asks for. Both read-only states are compared, so the CV copy cannot
-    drift from the step refusal in one of them.
+    and the message must agree. AC10 compared the CV copy with the
+    ``/steps`` routes; those left with applika-cli (ADR-0028) and refused
+    through the same guards as the timeline, which stays the comparison.
+    Both read-only states are compared, so the CV copy cannot drift from
+    the timeline refusal in one of them.
     """
     base_cv = await _create_base_cv(async_client)
     application = await _create_application(async_client)
     await make_read_only(db_session, application['id'])
 
     step_response = await async_client.post(
-        f'/applications/{application["id"]}/steps',
-        json={
-            'step_id': str(base_data()['step_applied'].id),
-            'step_date': '2025-12-05',
-        },
+        f'/applications/{application["id"]}/timeline',
+        json={'event_type': 'interview', 'event_date': '2025-12-05'},
     )
     cv_response = await async_client.post(
         f'/applications/{application["id"]}/cv',

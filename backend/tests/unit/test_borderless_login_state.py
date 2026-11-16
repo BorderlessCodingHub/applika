@@ -18,9 +18,7 @@ from app.application.use_cases.borderless.login_state import (
 from app.config.settings import envs
 from app.core.exceptions import SessionServiceUnavailable
 
-
 WEB = 'http://127.0.0.1:8080/login'
-LOOPBACK = 'http://127.0.0.1:43129/callback'
 
 
 class TtlRedis:
@@ -47,8 +45,8 @@ def use_case() -> tuple[BorderlessLoginStateUseCase, TtlRedis]:
 async def test_an_attempt_draws_four_fresh_values_and_stores_their_proof():
     login_state, redis = use_case()
 
-    attempt = await login_state.create('web', target=WEB)
-    other = await login_state.create('web', target=WEB)
+    attempt = await login_state.create(target=WEB)
+    other = await login_state.create(target=WEB)
 
     values = {attempt.state, attempt.binding, attempt.verifier, attempt.nonce}
     assert len(values) == 4
@@ -67,8 +65,6 @@ async def test_an_attempt_draws_four_fresh_values_and_stores_their_proof():
         'binding_sha256': hashlib.sha256(attempt.binding.encode()).hexdigest(),
         'verifier': attempt.verifier,
         'nonce': attempt.nonce,
-        'flow': 'web',
-        'cli_login_id': None,
         'target': WEB,
     }
     # The browser binding itself is never stored, only its hash.
@@ -80,13 +76,12 @@ async def test_an_attempt_draws_four_fresh_values_and_stores_their_proof():
 
 async def test_the_right_browser_consumes_it_once():
     login_state, _ = use_case()
-    attempt = await login_state.create('cli', 'login-1', target=LOOPBACK)
+    attempt = await login_state.create(target=WEB)
 
     record = await login_state.consume(attempt.state, attempt.binding)
 
     assert record is not None
-    assert (record.flow, record.cli_login_id) == ('cli', 'login-1')
-    assert record.target == LOOPBACK
+    assert record.target == WEB
     assert (record.verifier, record.nonce) == (attempt.verifier, attempt.nonce)
     # Single use: a replay finds nothing.
     assert await login_state.consume(attempt.state, attempt.binding) is None
@@ -94,7 +89,7 @@ async def test_the_right_browser_consumes_it_once():
 
 async def test_another_browser_is_refused_and_spends_the_attempt():
     login_state, _ = use_case()
-    attempt = await login_state.create('web', target=WEB)
+    attempt = await login_state.create(target=WEB)
 
     assert await login_state.consume(attempt.state, 'another-browser') is None
     assert await login_state.consume(attempt.state, attempt.binding) is None
@@ -102,7 +97,7 @@ async def test_another_browser_is_refused_and_spends_the_attempt():
 
 async def test_no_state_no_cookie_or_an_unknown_state_is_refused():
     login_state, _ = use_case()
-    attempt = await login_state.create('web', target=WEB)
+    attempt = await login_state.create(target=WEB)
 
     assert await login_state.consume(None, attempt.binding) is None
     assert await login_state.consume(attempt.state, None) is None
@@ -135,8 +130,6 @@ def _record(**changes) -> str:
         'binding_sha256': hashlib.sha256(b'b').hexdigest(),
         'verifier': 'v',
         'nonce': 'n',
-        'flow': 'web',
-        'cli_login_id': None,
         'target': WEB,
         **changes,
     }
@@ -149,7 +142,7 @@ async def test_a_corrupt_record_is_refused():
     key = f'{LOGIN_PREFIX}{state}'
     redis.values[key] = 'not json'
     assert await login_state.consume(state, 'b') is None
-    redis.values[key] = _record(flow='other')
+    redis.values[key] = _record(verifier=...)
     assert await login_state.consume(state, 'b') is None
     # A record from before the target was stored, or a target that is not
     # a string, is refused too.
@@ -162,6 +155,24 @@ async def test_a_corrupt_record_is_refused():
     assert record is not None and record.target == WEB
 
 
+async def test_a_record_written_before_adr_0028_still_reads_its_target():
+    """An attempt the previous image stored (with its ``flow`` and
+    ``cli_login_id``) reads back with its target only: a CLI attempt's
+    loopback target is then refused by ``CompleteBorderlessLoginUseCase``
+    (AUTH-1046), never followed."""
+    login_state, redis = use_case()
+    state = str(uuid.uuid4())
+    loopback = 'http://127.0.0.1:43129/callback'
+    redis.values[f'{LOGIN_PREFIX}{state}'] = _record(
+        flow='cli', cli_login_id='login-1', target=loopback
+    )
+
+    record = await login_state.consume(state, 'b')
+
+    assert record is not None
+    assert record.target == loopback
+
+
 async def test_redis_down_fails_closed_with_auth_1003():
     class DownRedis:
         async def set(self, *args, **kwargs):
@@ -172,7 +183,7 @@ async def test_redis_down_fails_closed_with_auth_1003():
 
     login_state = BorderlessLoginStateUseCase(DownRedis())  # ty: ignore[invalid-argument-type]
     with pytest.raises(SessionServiceUnavailable):
-        await login_state.create('web', target=WEB)
+        await login_state.create(target=WEB)
     with pytest.raises(SessionServiceUnavailable) as excinfo:
         await login_state.consume(str(uuid.uuid4()), 'binding')
     assert excinfo.value.code == 'AUTH-1003'

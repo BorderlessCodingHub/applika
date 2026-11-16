@@ -25,7 +25,7 @@ async def list_platforms(
 ):
     """The web platform picker (S7): visible platforms only, searched by
     name and ordered by it - never ``/supports``, which keeps its own
-    unfiltered, id-ordered list for installed CLI clients (R-036)."""
+    unfiltered, id-ordered list (R-036)."""
     use_case = ListPlatformsUseCase(platform_repo)
     dtos = await use_case.execute(c_user.id, name=name)
     return [PlatformOut.model_validate(d) for d in dtos]

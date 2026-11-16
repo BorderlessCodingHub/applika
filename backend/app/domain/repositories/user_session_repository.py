@@ -2,7 +2,7 @@
 it ends. Owner-scoped reads (ADR-0004); no refresh value ever reaches this
 table."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,9 @@ class UserSessionRepository:
         user_agent: str | None,
         ip: str | None,
         expires_at: datetime,
+        scope: str | None = None,
     ) -> UserSessionModel:
+        """``scope`` only on an MCP token's row (ADR-0028)."""
         row = UserSessionModel(
             user_id=user_id,
             client_type=client_type,
@@ -33,6 +35,7 @@ class UserSessionRepository:
             created_ip=ip,
             last_ip=ip,
             expires_at=expires_at,
+            scope=scope,
         )
         self.session.add(row)
         try:
@@ -110,6 +113,31 @@ class UserSessionRepository:
         if last_ip is not None:
             values['last_ip'] = last_ip
         await self._update_open(session_id, values)
+
+    async def bump_expires_at(
+        self, session_id: int, expires_at: datetime
+    ) -> bool:
+        """Follow an MCP token's sliding end (ADR-0028): one UPDATE, written
+        only when the stored end is more than a day behind, so Postgres
+        moves at most once a day; Redis holds the exact end. False when
+        nothing was written."""
+        try:
+            result = await self.session.execute(
+                update(UserSessionModel)
+                .where(
+                    UserSessionModel.id == session_id,
+                    UserSessionModel.ended_at.is_(None),
+                    UserSessionModel.expires_at
+                    < expires_at - timedelta(days=1),
+                )
+                .values(expires_at=expires_at)
+                .execution_options(synchronize_session=False)
+            )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+        return bool(getattr(result, 'rowcount', 0))
 
     async def end(
         self,

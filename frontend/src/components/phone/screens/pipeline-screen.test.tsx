@@ -4,7 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ApplicationsRoute from "@/app/(protected)/applications/page";
-import type { Application } from "@/services/types/applications";
+import type { InterviewType } from "@/components/timeline/timeline-types";
+import type {
+  Application,
+  ApplicationLastEvent,
+} from "@/services/types/applications";
 import type { User } from "@/services/types/users";
 import { setLocation } from "@/test/navigation";
 import {
@@ -65,10 +69,15 @@ vi.mock("@/components/phone/screens/quick-add-sheet", () => ({
 // Monday 9 November 2026.
 const NOW = new Date(2026, 10, 9, 10, 0);
 
-const step = (name: string, date = "2026-11-05") => ({
-  id: `step-${name}`,
-  name,
-  color: "#000",
+/** `last_event` of one kind: an interview by its type, an offer or a denial. */
+const event = (
+  kind: InterviewType | "offer" | "denied",
+  date = "2026-11-05",
+): ApplicationLastEvent => ({
+  id: `event-${kind}`,
+  event_type: kind === "offer" || kind === "denied" ? kind : "interview",
+  interview_type: kind === "offer" || kind === "denied" ? null : kind,
+  denied_reason: kind === "denied" ? "unknown" : null,
   date,
 });
 
@@ -83,7 +92,7 @@ function app(id: string, overrides: Partial<Application> = {}): Application {
     application_date: "2026-11-02",
     finalized: false,
     finalized_at: null,
-    last_step: null,
+    last_event: null,
     ...overrides,
   };
 }
@@ -94,13 +103,13 @@ const LIST: Application[] = [
   app("ap3", { application_date: "2026-11-07" }),
   app("ap4", { application_date: "2026-11-06" }),
   app("ap5", { application_date: "2026-11-05" }),
-  app("tech", { last_step: step("Phase 2") }),
-  app("screen", { last_step: step("Initial Screen") }),
-  app("offer", { last_step: step("Offer") }),
-  app("denied", { company_name: "Denial Corp", last_step: step("Denied") }),
+  app("tech", { last_event: event("technical") }),
+  app("screen", { last_event: event("initial_screening") }),
+  app("offer", { last_event: event("offer") }),
+  app("denied", { company_name: "Denial Corp", last_event: event("denied") }),
   app("won", {
     company_name: "Won Inc",
-    last_step: step("Offer"),
+    last_event: event("offer"),
     finalized: true,
     finalized_at: "2026-11-06T10:00:00Z",
   }),
@@ -311,7 +320,7 @@ describe("PipelineScreen", () => {
     mocks.getApplications.mockResolvedValue(
       LIST.map((item) =>
         item.id === "ap2"
-          ? { ...item, last_step: step("Initial Screen", "2026-11-09") }
+          ? { ...item, last_event: event("initial_screening", "2026-11-09") }
           : item,
       ),
     );

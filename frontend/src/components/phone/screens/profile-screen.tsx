@@ -46,11 +46,19 @@ import { SelectOptions } from "@/options";
 import type { GithubRestoreStatus } from "@/components/profile/github-restore-copy";
 import type { AvailabilityType } from "@/services/types/users";
 
-/** The two halves of v2/Profile and v2/Devices, one screen (`?tab=`). */
-export type ProfileSection = "profile" | "devices";
+/** v2/Profile, 0023's MCP and v2/Devices, one screen (`?tab=`). */
+export type ProfileSection = "profile" | "mcp" | "devices";
+
+/** The sections in the boards' order (Main.dc.html l.50-54): Profile | MCP | Devices. */
+export const PROFILE_SECTIONS: readonly ProfileSection[] = [
+  "profile",
+  "mcp",
+  "devices",
+];
 
 export const PROFILE_SECTION_HREF: Readonly<Record<ProfileSection, string>> = {
   profile: "/profile",
+  mcp: "/profile?tab=mcp",
   devices: "/profile?tab=devices",
 };
 
@@ -65,7 +73,7 @@ export interface ProfileSectionsNavProps {
   focusOnMount?: boolean;
 }
 
-/** The boards' segmented nav: two links, the current one `aria-current="page"`. */
+/** The boards' segmented nav: three links, the current one `aria-current="page"`. */
 export function ProfileSectionsNav({
   current,
   onSelect,
@@ -92,7 +100,7 @@ export function ProfileSectionsNav({
       data-slot="profile-sections"
       className="ph-seg ph-pf-seg"
     >
-      {(["profile", "devices"] as const).map((section) => (
+      {PROFILE_SECTIONS.map((section) => (
         <Link
           key={section}
           href={PROFILE_SECTION_HREF[section]}

@@ -29,18 +29,20 @@ GRANT_ENDED = 'Your Borderless sign-in has ended. Sign in again with Borderless'
 
 
 class RefreshSessionUseCase:
-    """Serves ``GET /auth/refresh`` and the ``refresh_token`` grant.
+    """Serves ``GET /auth/refresh``.
 
     Resolve the refresh value; a user with no Borderless binding (an
     account from before ADR-0024) ends the session as ``expired`` and must
-    sign in again. Otherwise keep the membership current
-    (``RefreshBadgesUseCase``, ADR-0026 §8): when Borderless refused the
-    grant (``ended``, or ``disconnected`` = already ``needs_reconnect``) a
-    WEB session ends ``borderless_revoked`` and the refresh is refused with
-    AUTH-1049; a CLI session slides whatever the outcome (ADR-0026 §9), and
-    a slow or failing Borderless never fails a refresh. Then slide both
-    Redis keys and ``expires_at`` a full window ahead and copy the live
-    last use onto the row. The refresh value is never rotated."""
+    sign in again. A ``cli`` session (applika-cli, retired by ADR-0028)
+    ends ``revoked`` and is refused with AUTH-1016: an installed CLI fails
+    its next renewal and has no sign-in left to start again. Otherwise keep
+    the membership current (``RefreshBadgesUseCase``, ADR-0026 §8): when
+    Borderless refused the grant (``ended``, or ``disconnected`` = already
+    ``needs_reconnect``) a web session ends ``borderless_revoked`` and the
+    refresh is refused with AUTH-1049; a slow or failing Borderless never
+    fails a refresh. Then slide both Redis keys and ``expires_at`` a full
+    window ahead and copy the live last use onto the row. The refresh value
+    is never rotated."""
 
     def __init__(
         self,
@@ -89,6 +91,11 @@ class RefreshSessionUseCase:
             or await self.binding_repo.get_by_user_id(user_id) is None
         ):
             await self.end_session.end_row(row, 'expired')
+            raise InvalidSession(SIGN_IN_AGAIN, ErrorCode.AUTH_SIGN_IN_AGAIN)
+
+        # ADR-0028: applika-cli is retired, its sessions renew no more.
+        if row.client_type == 'cli':
+            await self.end_session.end_row(row, 'revoked')
             raise InvalidSession(SIGN_IN_AGAIN, ErrorCode.AUTH_SIGN_IN_AGAIN)
 
         outcome = await self.refresh_badges.execute(

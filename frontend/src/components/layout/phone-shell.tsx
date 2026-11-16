@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
-import { CliPromoBanner } from "@/components/cli-promo-banner";
+import { McpPromoBanner } from "@/components/mcp-promo-banner";
 import { PRIMARY_NAV, type NavItem } from "@/components/layout/nav";
 import {
   TAB_ROOTS,
@@ -121,8 +121,8 @@ export interface PhoneShellProps {
   className?: string;
 }
 
-/** Below md the applika-cli banner shows on Today only. */
-const CLI_BANNER_PATH = "/dashboard";
+/** Below md the Applika MCP banner shows on Today only. */
+const MCP_BANNER_PATH = "/dashboard";
 
 /**
  * The fixed chrome over the bottom of the page: tab bar + FAB, the tab bar
@@ -262,10 +262,10 @@ export function PhoneShell({
                   data-slot="app-content"
                   className={cn(!ported && ["px-4 pt-6", reserve.pad])}
                 >
-                  {/* The applika-cli banner, on Today only (at md and up `AppShell` keeps it on every page). Today is a ported screen: the banner keeps the board's margins. */}
-                  {path === CLI_BANNER_PATH ? (
+                  {/* The Applika MCP banner, on Today only (at md and up `AppShell` keeps it on every page). Today is a ported screen: the banner keeps the board's margins. */}
+                  {path === MCP_BANNER_PATH ? (
                     <div className="px-5 pt-5 empty:hidden">
-                      <CliPromoBanner />
+                      <McpPromoBanner />
                     </div>
                   ) : null}
                   {children}
